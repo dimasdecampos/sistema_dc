@@ -1,6 +1,6 @@
 {
-  "name": "Cadastro de Clientes Supabase",
-  "description": "Sistema completo de cadastro, listagem, edição e exclusão de clientes conectado ao Supabase com políticas RLS.",
+  "name": "TemAqui - Marketplace de Procura e Oferta",
+  "description": "Plataforma de classificados para cidade pequena baseada em intenção de compra (estou procurando) e venda, com recomendações e matches automáticos.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

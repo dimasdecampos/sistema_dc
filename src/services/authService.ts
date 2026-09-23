@@ -4,13 +4,13 @@ import { getSupabase } from '../lib/supabase';
 const AUTH_STORAGE_KEY = 'sb_google_auth_user';
 
 /**
- * Retorna a foto oficial da conta do Google
+ * Retorna a foto do Google ou avatar configurado
  */
 export function getOfficialGooglePhoto(email: string, officialPicture?: string): string {
-  if (officialPicture && officialPicture.includes('googleusercontent.com')) {
-    return officialPicture;
+  if (officialPicture && officialPicture.trim().length > 0) {
+    return officialPicture.trim();
   }
-  // Endpoint oficial que busca a foto pública cadastrada no perfil da conta Google
+  // Endpoint de fallback para contas públicas
   return `https://unavatar.io/google/${encodeURIComponent(email.trim().toLowerCase())}`;
 }
 
@@ -46,15 +46,7 @@ export function getStoredUser(): Usuario | null {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw) return null;
-    const user = JSON.parse(raw) as Usuario;
-    
-    // Atualiza para a foto oficial da base do Google caso seja um placeholder antigo
-    if (user.email && (!user.foto || user.foto.includes('unsplash') || user.foto.includes('dicebear'))) {
-      user.foto = getOfficialGooglePhoto(user.email);
-      saveStoredUser(user);
-    }
-    
-    return user;
+    return JSON.parse(raw) as Usuario;
   } catch (e) {
     console.error('Erro ao recuperar usuário logado:', e);
     return null;
@@ -98,13 +90,13 @@ export async function syncUserWithSupabase(user: Usuario): Promise<{
 
   try {
     const now = new Date().toISOString();
-    const officialPhoto = getOfficialGooglePhoto(user.email, user.foto);
+    const photoToSave = user.foto || getOfficialGooglePhoto(user.email);
 
     const payload = {
       google_id: user.google_id || `google_${Date.now()}`,
       email: user.email.toLowerCase().trim(),
       nome: user.nome.trim(),
-      foto: officialPhoto,
+      foto: photoToSave,
       cidade: user.cidade || null,
       locale: user.locale || 'pt-BR',
       last_login_at: now,
@@ -129,7 +121,7 @@ export async function syncUserWithSupabase(user: Usuario): Promise<{
     const updatedUser: Usuario = {
       ...user,
       id: data?.id || user.id,
-      foto: data?.foto || officialPhoto,
+      foto: data?.foto || photoToSave,
       created_at: data?.created_at || user.created_at || now,
       last_login_at: now,
     };
@@ -163,14 +155,13 @@ export async function loginWithGoogleData(profile: {
   google_id?: string;
   locale?: string;
 }): Promise<{ user: Usuario; synced: boolean; message?: string }> {
-  // Garante a foto oficial da base do Google
-  const officialPhoto = getOfficialGooglePhoto(profile.email, profile.foto);
+  const photo = getOfficialGooglePhoto(profile.email, profile.foto);
 
   const baseUser: Usuario = {
     google_id: profile.google_id || `g_${Math.random().toString(36).substring(2, 12)}`,
     email: profile.email.toLowerCase().trim(),
     nome: profile.nome.trim(),
-    foto: officialPhoto,
+    foto: photo,
     cidade: profile.cidade || 'São Paulo',
     locale: profile.locale || 'pt-BR',
     last_login_at: new Date().toISOString(),
@@ -190,7 +181,7 @@ export async function loginWithGoogleData(profile: {
 }
 
 /**
- * Atualiza os dados do perfil do usuário logado (ex: atualizar cidade ou nome)
+ * Atualiza os dados do perfil do usuário logado (ex: atualizar foto oficial, cidade ou nome)
  */
 export async function updateCurrentUserProfile(updates: Partial<Usuario>): Promise<Usuario> {
   const current = getStoredUser();

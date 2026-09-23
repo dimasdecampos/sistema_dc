@@ -1,75 +1,142 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-export const SUPABASE_SQL_SCHEMA = `-- 1. Criar a tabela 'clientes' no schema public
-create table if not exists public.clientes (
-  id uuid default gen_random_uuid() primary key,
-  nome text not null,
-  email text not null,
-  telefone text,
-  cidade text,
+export const SUPABASE_SQL_SCHEMA = `-- ========================================================
+-- SCHEMA TEM-AQUI: MARKETPLACE DE PROCURA E OFERTA
+-- ========================================================
+
+-- 1. Categorias
+create table if not exists public.categories (
+  id text primary key,
+  name text not null,
+  slug text not null unique,
+  icon text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 2. Habilitar a segurança a nível de linha (RLS) para clientes
-alter table public.clientes enable row level security;
+-- Inserir categorias padrão
+insert into public.categories (id, name, slug, icon)
+values
+  ('cat-ferramentas', 'Ferramentas', 'ferramentas', '🔨'),
+  ('cat-veiculos', 'Veículos & Peças', 'veiculos', '🚲'),
+  ('cat-moveis', 'Casa & Móveis', 'moveis', '🪑'),
+  ('cat-eletronicos', 'Eletrônicos', 'eletronicos', '📱'),
+  ('cat-agro', 'Agro & Campo', 'agro', '🌾'),
+  ('cat-animais', 'Animais & Pet', 'animais', '🐕'),
+  ('cat-roupas', 'Roupas & Calçados', 'roupas', '👕'),
+  ('cat-esportes', 'Esportes & Lazer', 'esportes', '⚽'),
+  ('cat-outros', 'Outros', 'outros', '📦')
+on conflict (id) do nothing;
 
--- Políticas RLS para clientes
-create policy "Permitir leitura de clientes"
-  on public.clientes for select
-  using (true);
-
-create policy "Permitir cadastro de novos clientes"
-  on public.clientes for insert
-  with check (true);
-
-create policy "Permitir atualizacao de clientes"
-  on public.clientes for update
-  using (true)
-  with check (true);
-
-create policy "Permitir exclusao de clientes"
-  on public.clientes for delete
-  using (true);
-
--- 3. Criar a tabela 'usuarios' para persistência do login do Google
-create table if not exists public.usuarios (
-  id uuid default gen_random_uuid() primary key,
-  google_id text unique,
-  email text not null unique,
+-- 2. Perfis de Usuários
+create table if not exists public.profiles (
+  id text primary key,
   nome text not null,
-  foto text,
-  cidade text,
-  locale text,
+  email text,
+  avatar_url text,
+  cidade text default 'Socorro - SP',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  last_login_at timestamp with time zone default timezone('utc'::text, now()) not null
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Habilitar RLS para usuarios
-alter table public.usuarios enable row level security;
+-- 3. Anúncios (Listings): Quero Comprar (WANTED) ou Quero Vender (SALE)
+create table if not exists public.listings (
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null references public.profiles(id) on delete cascade,
+  type text not null check (type in ('WANTED', 'SALE')),
+  title text not null,
+  description text,
+  category_id text references public.categories(id) on delete set null,
+  price numeric,
+  condition text not null default 'USED' check (condition in ('NEW', 'USED', 'ANY')),
+  status text not null default 'ACTIVE' check (status in ('ACTIVE', 'COMPLETED', 'CANCELLED')),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
-create policy "Permitir leitura de usuarios"
-  on public.usuarios for select
-  using (true);
+-- 4. Fotos dos Anúncios
+create table if not exists public.listing_images (
+  id uuid default gen_random_uuid() primary key,
+  listing_id uuid not null references public.listings(id) on delete cascade,
+  image_url text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
-create policy "Permitir insercao de usuarios"
-  on public.usuarios for insert
-  with check (true);
+-- 5. Matches (Correspondências calculadas entre Procura e Venda)
+create table if not exists public.matches (
+  id uuid default gen_random_uuid() primary key,
+  wanted_listing_id uuid not null references public.listings(id) on delete cascade,
+  sale_listing_id uuid not null references public.listings(id) on delete cascade,
+  score numeric not null check (score >= 0 and score <= 100),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  viewed_at timestamp with time zone,
+  unique (wanted_listing_id, sale_listing_id)
+);
 
-create policy "Permitir atualizacao de usuarios"
-  on public.usuarios for update
-  using (true)
-  with check (true);
+-- 6. Conversas e Mensagens (Chat Interno entre Comprador e Vendedor)
+create table if not exists public.conversations (
+  id uuid default gen_random_uuid() primary key,
+  listing_id uuid references public.listings(id) on delete set null,
+  buyer_id text not null references public.profiles(id) on delete cascade,
+  seller_id text not null references public.profiles(id) on delete cascade,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
--- 4. Exemplo de inserção de registro
-insert into public.clientes (nome, email, telefone, cidade)
-values ('Carlos Eduardo Silva', 'carlos.silva@empresa.com.br', '(11) 98765-4321', 'São Paulo')
-on conflict do nothing;
+create table if not exists public.messages (
+  id uuid default gen_random_uuid() primary key,
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  sender_id text not null references public.profiles(id) on delete cascade,
+  text text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  read boolean default false
+);
+
+-- ========================================================
+-- POLÍTICAS RLS (Segurança a nível de linha para MVP)
+-- ========================================================
+alter table public.categories enable row level security;
+create policy "Leitura pública de categorias" on public.categories for select using (true);
+
+alter table public.profiles enable row level security;
+create policy "Leitura pública de perfis" on public.profiles for select using (true);
+create policy "Inserção de perfil" on public.profiles for insert with check (true);
+create policy "Atualização de perfil" on public.profiles for update using (true);
+
+alter table public.listings enable row level security;
+create policy "Leitura pública de anúncios" on public.listings for select using (true);
+create policy "Inserção de anúncios" on public.listings for insert with check (true);
+create policy "Atualização de anúncios" on public.listings for update using (true);
+create policy "Exclusão de anúncios" on public.listings for delete using (true);
+
+alter table public.listing_images enable row level security;
+create policy "Leitura pública de imagens" on public.listing_images for select using (true);
+create policy "Inserção de imagens" on public.listing_images for insert with check (true);
+create policy "Exclusão de imagens" on public.listing_images for delete using (true);
+
+alter table public.matches enable row level security;
+create policy "Leitura de matches" on public.matches for select using (true);
+create policy "Inserção de matches" on public.matches for insert with check (true);
+create policy "Atualização de matches" on public.matches for update using (true);
+
+alter table public.conversations enable row level security;
+create policy "Acesso a conversas" on public.conversations for all using (true);
+
+alter table public.messages enable row level security;
+create policy "Acesso a mensagens" on public.messages for all using (true);
 `;
 
-export const SUPABASE_INSERT_SAMPLE_SQL = `-- Inserir novo registro na tabela clientes
-insert into public.clientes (nome, email, telefone, cidade)
-values ('Carlos Eduardo Silva', 'carlos.silva@empresa.com.br', '(11) 98765-4321', 'São Paulo')
-returning *;
+export const SUPABASE_INSERT_SAMPLE_SQL = `-- Inserir exemplo de anúncio de procura (WANTED)
+insert into public.listings (type, title, description, category_id, price, condition, status, user_id)
+values (
+  'WANTED',
+  'Quero comprar um martelo usado',
+  'Preciso de um martelo em bom estado para consertos rápidos',
+  'cat-ferramentas',
+  40.00,
+  'USED',
+  'ACTIVE',
+  'user-dimas'
+);
 `;
 
 const LOCAL_STORAGE_URL_KEY = 'sb_client_url';
@@ -79,7 +146,6 @@ export function getStoredCredentials(): { url: string; anonKey: string } {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
   const envAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
-  // If valid env vars are present (and not placeholder)
   const isEnvValid =
     envUrl.startsWith('https://') &&
     !envUrl.includes('seu-projeto') &&
