@@ -6,11 +6,13 @@ import {
   Github,
   Plus,
   Radio,
+  Loader2,
 } from 'lucide-react';
 import { ConnectionStatus } from '../types/cliente';
 
 interface HeaderProps {
   status: ConnectionStatus;
+  isChecking?: boolean;
   onOpenNewCliente: () => void;
   onOpenConfig: () => void;
   onOpenSql: () => void;
@@ -19,6 +21,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   status,
+  isChecking = false,
   onOpenNewCliente,
   onOpenConfig,
   onOpenSql,
@@ -43,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 hidden sm:block mt-1">
-                Cadastro e gestão de clientes em tempo real com PostgreSQL & RLS
+                Cadastro e gestão de clientes com PostgreSQL & RLS
               </p>
             </div>
           </div>
@@ -52,36 +55,43 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenConfig}
             className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all hover:scale-102 ${
-              status.isConnected
+              isChecking
+                ? 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                : status.isConnected
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                 : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
             }`}
             title="Clique para gerenciar a conexão com o Supabase"
           >
-            <span className="relative flex h-2 w-2">
-              <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  status.isConnected
-                    ? 'bg-emerald-400'
-                    : 'bg-rose-400'
-                }`}
-              />
-              <span
-                className={`relative inline-flex rounded-full h-2 w-2 ${
-                  status.isConnected
-                    ? 'bg-emerald-500'
-                    : 'bg-rose-500'
-                }`}
-              />
-            </span>
-            <span className="truncate max-w-[200px]">
-              {status.isConnected
-                ? status.tableExists
-                  ? 'Supabase Conectado'
-                  : 'Supabase (Tabela pendente)'
-                : 'Supabase Não Conectado'}
-            </span>
-            <Radio className="w-3 h-3 text-slate-400" />
+            {isChecking ? (
+              <>
+                <Loader2 className="w-3 h-3 text-emerald-600 animate-spin" />
+                <span>Verificando Supabase...</span>
+              </>
+            ) : (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span
+                    className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                      status.isConnected ? 'bg-emerald-400' : 'bg-rose-400'
+                    }`}
+                  />
+                  <span
+                    className={`relative inline-flex rounded-full h-2 w-2 ${
+                      status.isConnected ? 'bg-emerald-500' : 'bg-rose-500'
+                    }`}
+                  />
+                </span>
+                <span className="truncate max-w-[200px]">
+                  {status.isConnected
+                    ? status.tableExists
+                      ? 'Supabase Conectado'
+                      : 'Supabase (Tabela pendente)'
+                    : 'Supabase Não Conectado'}
+                </span>
+                <Radio className="w-3 h-3 text-slate-400" />
+              </>
+            )}
           </button>
 
           {/* Header Action Buttons */}

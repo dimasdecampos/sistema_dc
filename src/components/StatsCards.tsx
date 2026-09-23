@@ -4,9 +4,10 @@ import { Cliente } from '../types/cliente';
 
 interface StatsCardsProps {
   clientes: Cliente[];
+  isLoading?: boolean;
 }
 
-export const StatsCards: React.FC<StatsCardsProps> = ({ clientes }) => {
+export const StatsCards: React.FC<StatsCardsProps> = ({ clientes, isLoading = false }) => {
   const totalClientes = clientes.length;
 
   const cidadesUnicas = React.useMemo(() => {
@@ -26,6 +27,28 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ clientes }) => {
       return !isNaN(t) && t >= seteDiasAtras;
     }).length;
   }, [clientes]);
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8 animate-pulse">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs"
+          >
+            <div className="flex items-center justify-between">
+              <div className="h-4 w-28 bg-slate-200 rounded-md" />
+              <div className="w-8 h-8 rounded-lg bg-slate-100" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <div className="h-7 w-12 bg-slate-200 rounded-md" />
+              <div className="h-3 w-16 bg-slate-100 rounded-md" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">

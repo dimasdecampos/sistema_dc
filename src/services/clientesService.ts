@@ -1,15 +1,6 @@
 import { Cliente, ClienteInput, ConnectionStatus } from '../types/cliente';
 import { getSupabase, getStoredCredentials } from '../lib/supabase';
 
-// Clear any past demo storage if it exists
-if (typeof window !== 'undefined') {
-  try {
-    localStorage.removeItem('sb_demo_clientes_data');
-  } catch {
-    // Ignore error in non-browser context
-  }
-}
-
 export async function testConnection(): Promise<ConnectionStatus> {
   const { url, anonKey } = getStoredCredentials();
 
@@ -196,4 +187,36 @@ export async function excluirCliente(id: string): Promise<boolean> {
   }
 
   return true;
+}
+
+/**
+ * Escuta alterações em tempo real no Supabase (Realtime Subscriptions)
+ */
+export function subscribeToClientes(onUpdate: () => void): () => void {
+  const supabase = getSupabase();
+  if (!supabase) return () => {};
+
+  try {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clientes',
+        },
+        () => {
+          onUpdate();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  } catch (err) {
+    console.warn('Realtime subscription error:', err);
+    return () => {};
+  }
 }

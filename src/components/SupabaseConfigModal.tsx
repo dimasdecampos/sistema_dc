@@ -140,7 +140,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
                 <Database className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="url"
-                  placeholder="https://exemplo-id.supabase.co"
+                  placeholder="https://seu-projeto.supabase.co"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900 transition shadow-2xs font-mono"

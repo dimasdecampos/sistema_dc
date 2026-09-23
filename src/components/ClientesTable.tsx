@@ -3,7 +3,6 @@ import {
   Search,
   Filter,
   ArrowUpDown,
-  Download,
   Phone,
   Mail,
   MapPin,
@@ -217,19 +216,47 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
         </div>
       </div>
 
-      {/* Table Content (Desktop) & Cards (Mobile) */}
-      {filteredAndSortedClientes.length === 0 ? (
+      {/* Loading Skeleton View */}
+      {isLoading ? (
+        <div className="p-4 sm:p-6 space-y-4">
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between p-3.5 bg-slate-50/70 border border-slate-100 rounded-xl animate-pulse"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-200" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-36 sm:w-48 bg-slate-200 rounded-md" />
+                    <div className="h-3 w-24 bg-slate-100 rounded-md" />
+                  </div>
+                </div>
+                <div className="hidden sm:flex items-center gap-6">
+                  <div className="h-3.5 w-32 bg-slate-200 rounded-md" />
+                  <div className="h-3.5 w-24 bg-slate-100 rounded-md" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-slate-200" />
+                  <div className="w-8 h-8 rounded-lg bg-slate-200" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : filteredAndSortedClientes.length === 0 ? (
+        /* Empty State */
         <div className="p-12 text-center">
           <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-4">
             <Users className="w-8 h-8" />
           </div>
           <h3 className="text-base font-semibold text-slate-900 mb-1">
-            Nenhum cliente encontrado
+            Nenhum cliente cadastrado
           </h3>
           <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6">
             {searchTerm || selectedCity !== 'all'
-              ? 'Tente ajustar os filtros ou o termo de busca para encontrar o registro desejado.'
-              : 'Comece adicionando seu primeiro cliente ao banco de dados Supabase.'}
+              ? 'Nenhum resultado corresponde aos filtros aplicados.'
+              : 'Sua base do Supabase está pronta. Cadastre o primeiro cliente para começar!'}
           </p>
           {searchTerm || selectedCity !== 'all' ? (
             <button
@@ -447,7 +474,7 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
           de <strong className="text-slate-800">{clientes.length}</strong> clientes
         </span>
         <span className="text-[11px] text-slate-400">
-          Dados sincronizados em tempo real
+          Supabase PostgreSQL com RLS
         </span>
       </div>
     </div>

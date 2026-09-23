@@ -6,6 +6,7 @@ import {
   atualizarCliente,
   excluirCliente,
   testConnection,
+  subscribeToClientes,
 } from './services/clientesService';
 import { Header } from './components/Header';
 import { StatsCards } from './components/StatsCards';
@@ -21,6 +22,7 @@ import { Database, Code2, AlertTriangle } from 'lucide-react';
 export default function App() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isInitialCheckDone, setIsInitialCheckDone] = useState<boolean>(false);
   const [status, setStatus] = useState<ConnectionStatus>({
     isConnected: false,
     message: 'Verificando conexão com o Supabase...',
@@ -72,15 +74,29 @@ export default function App() {
         console.warn(dataResult.error);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Falha ao carregar dados';
-      showToast('Erro ao sincronizar', msg, 'error');
+      const msg = err instanceof Error ? err.message : 'Falha ao sincronizar com o Supabase';
+      showToast('Erro de sincronização', msg, 'error');
     } finally {
       setIsLoading(false);
+      setIsInitialCheckDone(true);
     }
   }, [showToast]);
 
   useEffect(() => {
     loadData();
+
+    // Inscrição em tempo real para atualizações automáticas via Supabase
+    const unsubscribe = subscribeToClientes(() => {
+      listarClientes().then((res) => {
+        if (!res.error) {
+          setClientes(res.clientes);
+        }
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [loadData]);
 
   // Actions
@@ -151,6 +167,7 @@ export default function App() {
       {/* Top Navigation */}
       <Header
         status={status}
+        isChecking={!isInitialCheckDone}
         onOpenNewCliente={handleOpenNewCliente}
         onOpenConfig={() => setIsConfigModalOpen(true)}
         onOpenSql={() => setIsSqlModalOpen(true)}
@@ -159,9 +176,9 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Banner if Supabase is disconnected or table is missing */}
-        {(!status.isConnected || !status.tableExists) && (
-          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/5 to-teal-500/10 border border-amber-300/60 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        {/* Banner if Supabase is disconnected or table is missing (displayed ONLY after initial check is complete) */}
+        {isInitialCheckDone && (!status.isConnected || !status.tableExists) && (
+          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/5 to-teal-500/10 border border-amber-300/60 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 animate-in fade-in duration-200">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
                 <AlertTriangle className="w-5 h-5 text-amber-600" />
@@ -205,7 +222,7 @@ export default function App() {
         )}
 
         {/* Analytics & Metrics */}
-        <StatsCards clientes={clientes} />
+        <StatsCards clientes={clientes} isLoading={!isInitialCheckDone && isLoading} />
 
         {/* Clientes Table & Controls */}
         <ClientesTable
