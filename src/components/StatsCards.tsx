@@ -1,19 +1,12 @@
 import React from 'react';
-import { Users, MapPin, Calendar, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { Cliente, ConnectionStatus } from '../types/cliente';
+import { Users, MapPin, Calendar } from 'lucide-react';
+import { Cliente } from '../types/cliente';
 
 interface StatsCardsProps {
   clientes: Cliente[];
-  status: ConnectionStatus;
-  onOpenConfig: () => void;
-  onOpenSql: () => void;
 }
 
-export const StatsCards: React.FC<StatsCardsProps> = ({
-  clientes,
-  status,
-  onOpenConfig,
-}) => {
+export const StatsCards: React.FC<StatsCardsProps> = ({ clientes }) => {
   const totalClientes = clientes.length;
 
   const cidadesUnicas = React.useMemo(() => {
@@ -35,7 +28,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
   }, [clientes]);
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
       {/* Total Clientes */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-sm transition">
         <div className="flex items-center justify-between">
@@ -50,7 +43,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
           <span className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             {totalClientes}
           </span>
-          <span className="text-xs text-slate-400">no banco</span>
+          <span className="text-xs text-slate-400">cadastrados</span>
         </div>
       </div>
 
@@ -87,53 +80,6 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
             {novosRecentes}
           </span>
           <span className="text-xs text-emerald-600 font-medium">recentes</span>
-        </div>
-      </div>
-
-      {/* Status da Base */}
-      <div
-        onClick={onOpenConfig}
-        className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-sm transition cursor-pointer group"
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-xs sm:text-sm font-medium text-slate-500">
-            Banco Supabase
-          </span>
-          <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              status.isConnected && status.tableExists
-                ? 'bg-emerald-50 text-emerald-600'
-                : 'bg-rose-50 text-rose-600'
-            }`}
-          >
-            {status.isConnected && status.tableExists ? (
-              <ShieldCheck className="w-4 h-4" />
-            ) : (
-              <AlertTriangle className="w-4 h-4" />
-            )}
-          </div>
-        </div>
-        <div className="mt-2">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`text-sm sm:text-base font-bold truncate ${
-                status.isConnected && status.tableExists
-                  ? 'text-emerald-700'
-                  : 'text-rose-700'
-              }`}
-            >
-              {status.isConnected
-                ? status.tableExists
-                  ? 'Supabase Ativo'
-                  : 'Tabela Ausente'
-                : 'Desconectado'}
-            </span>
-          </div>
-          <span className="text-xs text-slate-400 group-hover:text-emerald-600 transition flex items-center gap-1 mt-0.5">
-            {status.isConnected && status.tableExists
-              ? 'RLS Habilitado'
-              : 'Clique para configurar'}
-          </span>
         </div>
       </div>
     </div>

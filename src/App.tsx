@@ -205,12 +205,7 @@ export default function App() {
         )}
 
         {/* Analytics & Metrics */}
-        <StatsCards
-          clientes={clientes}
-          status={status}
-          onOpenConfig={() => setIsConfigModalOpen(true)}
-          onOpenSql={() => setIsSqlModalOpen(true)}
-        />
+        <StatsCards clientes={clientes} />
 
         {/* Clientes Table & Controls */}
         <ClientesTable
