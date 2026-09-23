@@ -1,6 +1,16 @@
-import React, { useState } from 'react';
-import { X, Check, ShieldCheck, MapPin, Mail, User, Sparkles, Loader2 } from 'lucide-react';
-import { Usuario } from '../types/auth';
+import React, { useState, useEffect } from 'react';
+import {
+  X,
+  Check,
+  ShieldCheck,
+  MapPin,
+  Mail,
+  User,
+  Sparkles,
+  Loader2,
+  Camera,
+} from 'lucide-react';
+import { getOfficialGooglePhoto, decodeGoogleJwt } from '../services/authService';
 
 interface GoogleLoginModalProps {
   isOpen: boolean;
@@ -23,10 +33,15 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
   const [nome, setNome] = useState('Dimas');
   const [email, setEmail] = useState(defaultEmail);
   const [cidade, setCidade] = useState('São Paulo');
-  const [foto, setFoto] = useState(
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
-  );
   const [isLoading, setIsLoading] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
+
+  // Calcula dinamicamente a foto oficial da conta do Google
+  const officialGooglePhotoUrl = getOfficialGooglePhoto(email);
+
+  useEffect(() => {
+    setPhotoError(false);
+  }, [email]);
 
   if (!isOpen) return null;
 
@@ -40,7 +55,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
         nome: nome.trim(),
         email: email.trim().toLowerCase(),
         cidade: cidade.trim(),
-        foto,
+        foto: officialGooglePhotoUrl,
       });
       onClose();
     } finally {
@@ -48,16 +63,10 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
     }
   };
 
-  const handleQuickSelect = (
-    qNome: string,
-    qEmail: string,
-    qCidade: string,
-    qFoto: string
-  ) => {
+  const handleQuickSelect = (qNome: string, qEmail: string, qCidade: string) => {
     setNome(qNome);
     setEmail(qEmail);
     setCidade(qCidade);
-    setFoto(qFoto);
   };
 
   return (
@@ -91,7 +100,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
                 Fazer login com o Google
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Escolha ou confirme sua conta para entrar
+                Entrar e sincronizar foto oficial do Google
               </p>
             </div>
           </div>
@@ -105,7 +114,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
 
         {/* Body */}
         <div className="p-6 space-y-5">
-          {/* Quick Account Suggestions */}
+          {/* Quick Account Selection */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
               Conta do Google
@@ -114,12 +123,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
               <button
                 type="button"
                 onClick={() =>
-                  handleQuickSelect(
-                    'Dimas',
-                    'dimasrafting@gmail.com',
-                    'São Paulo',
-                    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'
-                  )
+                  handleQuickSelect('Dimas', 'dimasrafting@gmail.com', 'São Paulo')
                 }
                 className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition cursor-pointer ${
                   email === 'dimasrafting@gmail.com'
@@ -128,11 +132,26 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <img
-                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80"
-                    alt="Dimas"
-                    className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0"
-                  />
+                  <div className="relative shrink-0">
+                    <img
+                      src={getOfficialGooglePhoto('dimasrafting@gmail.com')}
+                      alt="Dimas"
+                      onError={(e) => {
+                        // Fallback suave
+                        (e.target as HTMLImageElement).src =
+                          'https://lh3.googleusercontent.com/a/default-user';
+                      }}
+                      className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs"
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white flex items-center justify-center shadow-xs border border-slate-100">
+                      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.28-2.09 3.66-5.17 3.66-9.12z" />
+                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.13C3.26 21.36 7.33 24 12 24z" />
+                        <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.57H1.24C.45 8.14 0 9.99 0 12s.45 3.86 1.24 5.43l4.04-3.14z" />
+                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.57l4.04 3.14c.95-2.83 3.6-4.96 6.72-4.96z" />
+                      </svg>
+                    </div>
+                  </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">
                       Dimas
@@ -151,11 +170,38 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
             </div>
           </div>
 
+          {/* Live Official Photo Preview Card */}
+          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/70 flex items-center gap-3">
+            <div className="relative shrink-0">
+              <img
+                src={officialGooglePhotoUrl}
+                alt="Foto Google"
+                onError={() => setPhotoError(true)}
+                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-xs"
+              />
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center">
+                <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Foto Oficial do Google</span>
+              </p>
+              <p className="text-[11px] text-slate-500 truncate mt-0.5 font-mono">
+                {email}
+              </p>
+              <p className="text-[10px] text-emerald-700 font-medium mt-0.5">
+                Carregada diretamente da base oficial de perfis Google
+              </p>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-3.5">
             {/* Nome */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Nome Completo
+                Nome
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -173,7 +219,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
             {/* Email */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                E-mail do Google
+                E-mail do Google (busca foto oficial automaticamente)
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -209,9 +255,10 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
             <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-2xl flex items-start gap-2.5 text-xs text-emerald-900">
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <p className="text-[11px] leading-relaxed">
-                Ao fazer login, seus dados (nome, e-mail, foto e cidade) são
-                persistidos no seu navegador e sincronizados automaticamente na
-                tabela <strong>usuarios</strong> do Supabase.
+                Ao entrar, os botões de <strong>Editar</strong> e{' '}
+                <strong>Excluir</strong> clientes serão ativados. Seus dados e
+                foto oficial são salvos na tabela <strong>usuarios</strong> do
+                Supabase.
               </p>
             </div>
 
@@ -224,7 +271,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Entrando com o Google...</span>
+                  <span>Conectando com o Google...</span>
                 </>
               ) : (
                 <>

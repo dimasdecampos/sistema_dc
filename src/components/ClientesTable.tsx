@@ -18,6 +18,7 @@ import {
   Users,
   Database,
   Loader2,
+  Lock,
 } from 'lucide-react';
 import { Cliente } from '../types/cliente';
 import {
@@ -32,6 +33,7 @@ interface ClientesTableProps {
   clientes: Cliente[];
   isLoading: boolean;
   isInserting?: boolean;
+  isLoggedIn: boolean;
   onEdit: (cliente: Cliente) => void;
   onDelete: (cliente: Cliente) => void;
   onAddNew: () => void;
@@ -46,6 +48,7 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
   clientes,
   isLoading,
   isInserting = false,
+  isLoggedIn,
   onEdit,
   onDelete,
   onAddNew,
@@ -134,7 +137,7 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-medium"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-medium cursor-pointer"
             >
               Limpar
             </button>
@@ -285,7 +288,7 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
                 setSearchTerm('');
                 setSelectedCity('all');
               }}
-              className="px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+              className="px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
             >
               Limpar Filtros
             </button>
@@ -324,7 +327,10 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
                   <th className="py-3 px-5">Contato</th>
                   <th className="py-3 px-5">Cidade</th>
                   <th className="py-3 px-5">Data de Cadastro</th>
-                  <th className="py-3 px-5 text-right">Ações</th>
+                  {/* Ações só aparecem no cabeçalho se o usuário estiver logado */}
+                  {isLoggedIn && (
+                    <th className="py-3 px-5 text-right">Ações</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -405,25 +411,27 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
                         </div>
                       </td>
 
-                      {/* Ações Column */}
-                      <td className="py-4 px-5 text-right">
-                        <div className="inline-flex items-center gap-1">
-                          <button
-                            onClick={() => onEdit(cliente)}
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
-                            title="Editar cliente"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => onDelete(cliente)}
-                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                            title="Excluir cliente"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+                      {/* Ações Column - SÓ APARECE PARA USUÁRIO LOGADO */}
+                      {isLoggedIn && (
+                        <td className="py-4 px-5 text-right">
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              onClick={() => onEdit(cliente)}
+                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                              title="Editar cliente"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => onDelete(cliente)}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                              title="Excluir cliente"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -458,20 +466,25 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => onEdit(cliente)}
-                        className="p-1.5 text-slate-500 hover:text-blue-600 bg-slate-50 rounded-lg"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onDelete(cliente)}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 bg-slate-50 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {/* Botões de Ação Mobile - SÓ APARECEM PARA USUÁRIO LOGADO */}
+                    {isLoggedIn && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => onEdit(cliente)}
+                          className="p-1.5 text-slate-500 hover:text-blue-600 bg-slate-50 rounded-lg cursor-pointer"
+                          title="Editar cliente"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(cliente)}
+                          className="p-1.5 text-slate-500 hover:text-rose-600 bg-slate-50 rounded-lg cursor-pointer"
+                          title="Excluir cliente"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 gap-1.5 text-xs pt-1">
@@ -501,13 +514,21 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
 
       {/* Footer info */}
       <div className="p-4 border-t border-slate-100 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2 bg-slate-50/50">
-        <span>
-          Mostrando{' '}
-          <strong className="text-slate-800">
-            {filteredAndSortedClientes.length}
-          </strong>{' '}
-          de <strong className="text-slate-800">{clientes.length}</strong> clientes
-        </span>
+        <div className="flex items-center gap-3">
+          <span>
+            Mostrando{' '}
+            <strong className="text-slate-800">
+              {filteredAndSortedClientes.length}
+            </strong>{' '}
+            de <strong className="text-slate-800">{clientes.length}</strong> clientes
+          </span>
+          {!isLoggedIn && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-full">
+              <Lock className="w-3 h-3 text-amber-600" />
+              <span>Faça login com o Google para editar ou excluir</span>
+            </span>
+          )}
+        </div>
         <span className="text-[11px] text-slate-400">
           Supabase PostgreSQL com RLS
         </span>

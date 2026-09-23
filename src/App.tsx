@@ -276,6 +276,7 @@ export default function App() {
           clientes={clientes}
           isLoading={isLoading}
           isInserting={isInsertingViaIntegration}
+          isLoggedIn={Boolean(user)}
           onEdit={handleOpenEditCliente}
           onDelete={handleOpenDeleteCliente}
           onAddNew={handleOpenNewCliente}
