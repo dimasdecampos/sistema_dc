@@ -1,49 +1,4 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Cliente } from '../types/cliente';
-
-// Initial demo data so the app is instantly usable
-export const INITIAL_DEMO_CLIENTES: Cliente[] = [
-  {
-    id: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
-    nome: 'Mariana Silveira Ramos',
-    email: 'mariana.silveira@exemplo.com.br',
-    telefone: '(11) 98765-4321',
-    cidade: 'São Paulo',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-  },
-  {
-    id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-    nome: 'Carlos Eduardo Mendes',
-    email: 'carlos.mendes@empresa.com.br',
-    telefone: '(21) 99123-8877',
-    cidade: 'Rio de Janeiro',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-  },
-  {
-    id: 'c9a64693-4c61-420e-bc51-9e4e3f1a2340',
-    nome: 'Beatriz Vasconcelos',
-    email: 'beatriz.vasconcelos@tech.io',
-    telefone: '(31) 97334-1122',
-    cidade: 'Belo Horizonte',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-  },
-  {
-    id: '7b3c2e1a-8f90-4d56-b123-456789abcdef',
-    nome: 'Rodrigo Alencar Fontes',
-    email: 'rodrigo.alencar@consultoria.com',
-    telefone: '(41) 98456-9900',
-    cidade: 'Curitiba',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-  },
-  {
-    id: '9e8d7c6b-5a4f-3e21-0987-fedcba987654',
-    nome: 'Juliana Paes Ferreira',
-    email: 'juliana.ferreira@inova.com.br',
-    telefone: '(71) 99234-5566',
-    cidade: 'Salvador',
-    created_at: new Date().toISOString(),
-  },
-];
 
 export const SUPABASE_SQL_SCHEMA = `-- 1. Criar a tabela 'clientes' no schema public
 create table if not exists public.clientes (
@@ -96,8 +51,8 @@ export function getStoredCredentials(): { url: string; anonKey: string } {
     envAnonKey.length > 20 &&
     !envAnonKey.includes('sua-chave');
 
-  const localUrl = localStorage.getItem(LOCAL_STORAGE_URL_KEY) || '';
-  const localAnonKey = localStorage.getItem(LOCAL_STORAGE_ANON_KEY) || '';
+  const localUrl = (localStorage.getItem(LOCAL_STORAGE_URL_KEY) || '').trim();
+  const localAnonKey = (localStorage.getItem(LOCAL_STORAGE_ANON_KEY) || '').trim();
 
   if (localUrl && localAnonKey) {
     return { url: localUrl, anonKey: localAnonKey };
@@ -113,11 +68,15 @@ export function getStoredCredentials(): { url: string; anonKey: string } {
 export function saveCredentials(url: string, anonKey: string) {
   localStorage.setItem(LOCAL_STORAGE_URL_KEY, url.trim());
   localStorage.setItem(LOCAL_STORAGE_ANON_KEY, anonKey.trim());
+  cachedClient = null;
+  currentClientKey = '';
 }
 
 export function clearCredentials() {
   localStorage.removeItem(LOCAL_STORAGE_URL_KEY);
   localStorage.removeItem(LOCAL_STORAGE_ANON_KEY);
+  cachedClient = null;
+  currentClientKey = '';
 }
 
 let cachedClient: SupabaseClient | null = null;

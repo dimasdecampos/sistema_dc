@@ -7,18 +7,14 @@ import {
   AlertCircle,
   Loader2,
   ExternalLink,
-  RotateCcw,
-  Sparkles,
+  Trash2,
 } from 'lucide-react';
 import {
   getStoredCredentials,
   saveCredentials,
   clearCredentials,
 } from '../lib/supabase';
-import {
-  testConnection,
-  popularDadosIniciaisSupabase,
-} from '../services/clientesService';
+import { testConnection } from '../services/clientesService';
 import { ConnectionStatus } from '../types/cliente';
 
 interface SupabaseConfigModalProps {
@@ -41,7 +37,6 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
   const [url, setUrl] = useState('');
   const [anonKey, setAnonKey] = useState('');
   const [isTesting, setIsTesting] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -64,7 +59,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
       onReloadData();
 
       if (testResult.isConnected && testResult.tableExists) {
-        onShowToast('Conexão bem-sucedida!', 'Conectado ao Supabase com tabela clientes ativa.', 'success');
+        onShowToast('Conexão bem-sucedida!', 'Conectado ao Supabase com tabela clientes verificada.', 'success');
       } else if (testResult.isConnected && !testResult.tableExists) {
         onShowToast('Tabela pendente', 'Conexão válida, mas a tabela "clientes" ainda não foi criada. Veja o Script SQL!', 'info');
       } else {
@@ -78,32 +73,14 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
     }
   };
 
-  const handleReset = async () => {
+  const handleClear = async () => {
     clearCredentials();
     setUrl('');
     setAnonKey('');
     const testResult = await testConnection();
     onStatusChange(testResult);
     onReloadData();
-    onShowToast('Modo Demonstração restaurado', 'Utilizando armazenamento local temporário.', 'info');
-  };
-
-  const handleSeedData = async () => {
-    setIsSeeding(true);
-    try {
-      const res = await popularDadosIniciaisSupabase();
-      if (res.error) {
-        onShowToast('Erro ao popular dados', res.error, 'error');
-      } else {
-        onShowToast('Dados inseridos!', `${res.count} clientes foram cadastrados na sua tabela do Supabase.`, 'success');
-        onReloadData();
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      onShowToast('Erro ao popular dados', msg, 'error');
-    } finally {
-      setIsSeeding(false);
-    }
+    onShowToast('Credenciais removidas', 'Insira novas credenciais para conectar ao seu banco de dados.', 'info');
   };
 
   return (
@@ -137,15 +114,15 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
           {/* Status Alert Banner */}
           <div
             className={`p-4 rounded-xl border flex items-start gap-3 ${
-              status.isConnected && !status.isDemo
+              status.isConnected && status.tableExists
                 ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
-                : 'bg-amber-50/80 border-amber-200 text-amber-950'
+                : 'bg-rose-50/80 border-rose-200 text-rose-950'
             }`}
           >
-            {status.isConnected && !status.isDemo ? (
+            {status.isConnected && status.tableExists ? (
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             )}
             <div className="text-xs leading-relaxed">
               <p className="font-semibold text-sm">{status.message}</p>
@@ -214,31 +191,14 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2">
               <button
                 type="button"
-                onClick={handleReset}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition"
+                onClick={handleClear}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Usar Modo Demo Local
+                <Trash2 className="w-3.5 h-3.5" />
+                Limpar Credenciais
               </button>
 
               <div className="flex items-center gap-2">
-                {status.isConnected && !status.isDemo && status.tableExists && (
-                  <button
-                    type="button"
-                    onClick={handleSeedData}
-                    disabled={isSeeding}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition border border-emerald-200"
-                    title="Insere 5 clientes fictícios diretamente na sua tabela do Supabase"
-                  >
-                    {isSeeding ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                    )}
-                    Popular Exemplo
-                  </button>
-                )}
-
                 <button
                   type="submit"
                   disabled={isTesting || !url || !anonKey}
@@ -247,7 +207,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
                   {isTesting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Testando...</span>
+                      <span>Conectando...</span>
                     </>
                   ) : (
                     <span>Salvar & Conectar</span>

@@ -16,7 +16,6 @@ export interface SupabaseConfig {
 
 export interface ConnectionStatus {
   isConnected: boolean;
-  isDemo: boolean;
   message: string;
   details?: string;
   tableExists?: boolean;

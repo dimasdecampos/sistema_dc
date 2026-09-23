@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, MapPin, Calendar, Database, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Users, MapPin, Calendar, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Cliente, ConnectionStatus } from '../types/cliente';
 
 interface StatsCardsProps {
@@ -13,7 +13,6 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
   clientes,
   status,
   onOpenConfig,
-  onOpenSql,
 }) => {
   const totalClientes = clientes.length;
 
@@ -51,7 +50,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
           <span className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             {totalClientes}
           </span>
-          <span className="text-xs text-slate-400">cadastrados</span>
+          <span className="text-xs text-slate-400">no banco</span>
         </div>
       </div>
 
@@ -87,7 +86,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
           <span className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             {novosRecentes}
           </span>
-          <span className="text-xs text-emerald-600 font-medium">novos</span>
+          <span className="text-xs text-emerald-600 font-medium">recentes</span>
         </div>
       </div>
 
@@ -98,16 +97,16 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
       >
         <div className="flex items-center justify-between">
           <span className="text-xs sm:text-sm font-medium text-slate-500">
-            Banco de Dados
+            Banco Supabase
           </span>
           <div
             className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              status.isConnected && !status.isDemo
+              status.isConnected && status.tableExists
                 ? 'bg-emerald-50 text-emerald-600'
-                : 'bg-amber-50 text-amber-600'
+                : 'bg-rose-50 text-rose-600'
             }`}
           >
-            {status.isConnected && !status.isDemo ? (
+            {status.isConnected && status.tableExists ? (
               <ShieldCheck className="w-4 h-4" />
             ) : (
               <AlertTriangle className="w-4 h-4" />
@@ -118,20 +117,22 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
           <div className="flex items-center gap-1.5">
             <span
               className={`text-sm sm:text-base font-bold truncate ${
-                status.isConnected && !status.isDemo
+                status.isConnected && status.tableExists
                   ? 'text-emerald-700'
-                  : 'text-amber-700'
+                  : 'text-rose-700'
               }`}
             >
-              {status.isConnected && !status.isDemo
-                ? 'Supabase Ativo'
-                : 'Demonstração'}
+              {status.isConnected
+                ? status.tableExists
+                  ? 'Supabase Ativo'
+                  : 'Tabela Ausente'
+                : 'Desconectado'}
             </span>
           </div>
           <span className="text-xs text-slate-400 group-hover:text-emerald-600 transition flex items-center gap-1 mt-0.5">
-            {status.isConnected && !status.isDemo
+            {status.isConnected && status.tableExists
               ? 'RLS Habilitado'
-              : 'Clique para conectar'}
+              : 'Clique para configurar'}
           </span>
         </div>
       </div>

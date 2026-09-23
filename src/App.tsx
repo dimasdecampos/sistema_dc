@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Cliente, ClienteInput, ConnectionStatus } from './types/cliente';
 import {
   listarClientes,
@@ -16,15 +16,14 @@ import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { SqlScriptModal } from './components/SqlScriptModal';
 import { GithubModal } from './components/GithubModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
-import { Sparkles, Database, Code2, AlertTriangle } from 'lucide-react';
+import { Database, Code2, AlertTriangle } from 'lucide-react';
 
 export default function App() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [status, setStatus] = useState<ConnectionStatus>({
     isConnected: false,
-    isDemo: true,
-    message: 'Verificando conexão...',
+    message: 'Verificando conexão com o Supabase...',
     tableExists: false,
   });
 
@@ -86,6 +85,11 @@ export default function App() {
 
   // Actions
   const handleOpenNewCliente = () => {
+    if (!status.isConnected) {
+      setIsConfigModalOpen(true);
+      showToast('Configure o Supabase', 'Informe a URL e Chave Anon antes de cadastrar.', 'info');
+      return;
+    }
     setClienteToEdit(null);
     setIsClienteModalOpen(true);
   };
@@ -103,19 +107,19 @@ export default function App() {
   const handleSaveCliente = async (input: ClienteInput, id?: string) => {
     try {
       if (id) {
-        const res = await atualizarCliente(id, input);
-        setClientes((prev) => prev.map((c) => (c.id === id ? res.cliente : c)));
+        const clienteAtualizado = await atualizarCliente(id, input);
+        setClientes((prev) => prev.map((c) => (c.id === id ? clienteAtualizado : c)));
         showToast(
           'Cliente atualizado!',
-          `${res.cliente.nome} foi atualizado ${res.source === 'supabase' ? 'no Supabase' : 'localmente'}.`,
+          `${clienteAtualizado.nome} foi atualizado com sucesso no Supabase.`,
           'success'
         );
       } else {
-        const res = await cadastrarCliente(input);
-        setClientes((prev) => [res.cliente, ...prev]);
+        const novoCliente = await cadastrarCliente(input);
+        setClientes((prev) => [novoCliente, ...prev]);
         showToast(
           'Cliente cadastrado!',
-          `${res.cliente.nome} foi registrado com sucesso ${res.source === 'supabase' ? 'no Supabase' : 'no sistema'}.`,
+          `${novoCliente.nome} foi salvo na tabela do Supabase.`,
           'success'
         );
       }
@@ -128,15 +132,13 @@ export default function App() {
 
   const handleDeleteConfirm = async (id: string) => {
     try {
-      const res = await excluirCliente(id);
-      if (res.success) {
-        setClientes((prev) => prev.filter((c) => c.id !== id));
-        showToast(
-          'Cliente excluído',
-          'O registro foi removido com sucesso.',
-          'success'
-        );
-      }
+      await excluirCliente(id);
+      setClientes((prev) => prev.filter((c) => c.id !== id));
+      showToast(
+        'Cliente excluído',
+        'O registro foi removido com sucesso do Supabase.',
+        'success'
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao excluir cliente';
       showToast('Falha na exclusão', msg, 'error');
@@ -157,8 +159,8 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Banner if in Demo Mode or Table Missing */}
-        {(!status.isConnected || status.isDemo || !status.tableExists) && (
+        {/* Banner if Supabase is disconnected or table is missing */}
+        {(!status.isConnected || !status.tableExists) && (
           <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/5 to-teal-500/10 border border-amber-300/60 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
@@ -167,18 +169,18 @@ export default function App() {
               <div>
                 <h2 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                   <span>
-                    {!status.isConnected || status.isDemo
-                      ? 'Operando em Modo de Demonstração Interativo'
+                    {!status.isConnected
+                      ? 'Conexão com o Supabase pendente'
                       : 'Tabela "clientes" pendente no Supabase'}
                   </span>
                   <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">
-                    Ação recomendada
+                    Ação necessária
                   </span>
                 </h2>
                 <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                  {!status.isConnected || status.isDemo
-                    ? 'Você pode testar todos os cadastros, filtros e edições agora. Para persistir no seu banco de dados na nuvem, conecte suas credenciais do Supabase.'
-                    : 'Execute o script SQL fornecido para criar a tabela clientes e habilitar as regras de segurança RLS no seu projeto.'}
+                  {!status.isConnected
+                    ? 'Conecte sua URL e Chave Anon do Supabase para listar, cadastrar e gerenciar seus clientes diretamente na nuvem.'
+                    : 'Execute o script SQL fornecido no SQL Editor do Supabase para criar a tabela clientes com as políticas RLS.'}
                 </p>
               </div>
             </div>
