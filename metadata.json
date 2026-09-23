@@ -1,0 +1,6 @@
+{
+  "name": "Cadastro de Clientes Supabase",
+  "description": "Sistema completo de cadastro, listagem, edição e exclusão de clientes conectado ao Supabase com políticas RLS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
