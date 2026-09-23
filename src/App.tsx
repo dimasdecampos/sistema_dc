@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Cliente, ClienteInput, ConnectionStatus } from './types/cliente';
+import { Usuario } from './types/auth';
 import {
   listarClientes,
   cadastrarCliente,
@@ -8,6 +9,14 @@ import {
   testConnection,
   subscribeToClientes,
 } from './services/clientesService';
+import {
+  getStoredUser,
+  loginWithGoogleData,
+  logoutUser,
+  updateCurrentUserProfile,
+  syncUserWithSupabase,
+} from './services/authService';
+import { getRandomSampleCliente } from './utils/sampleData';
 import { Header } from './components/Header';
 import { StatsCards } from './components/StatsCards';
 import { ClientesTable } from './components/ClientesTable';
@@ -16,18 +25,23 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { SqlScriptModal } from './components/SqlScriptModal';
 import { GithubModal } from './components/GithubModal';
+import { GoogleLoginModal } from './components/GoogleLoginModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
-import { Database, Code2, AlertTriangle } from 'lucide-react';
 
 export default function App() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isInsertingViaIntegration, setIsInsertingViaIntegration] = useState<boolean>(false);
   const [isInitialCheckDone, setIsInitialCheckDone] = useState<boolean>(false);
   const [status, setStatus] = useState<ConnectionStatus>({
     isConnected: false,
     message: 'Verificando conexão com o Supabase...',
     tableExists: false,
   });
+
+  // Auth state with full session persistence
+  const [user, setUser] = useState<Usuario | null>(() => getStoredUser());
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   // Modals state
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
@@ -85,6 +99,16 @@ export default function App() {
   useEffect(() => {
     loadData();
 
+    // Sincroniza usuário salvo no banco de dados se houver sessão ativa
+    const currentUser = getStoredUser();
+    if (currentUser) {
+      syncUserWithSupabase(currentUser).then((res) => {
+        if (res.synced) {
+          setUser(res.user);
+        }
+      });
+    }
+
     // Inscrição em tempo real para atualizações automáticas via Supabase
     const unsubscribe = subscribeToClientes(() => {
       listarClientes().then((res) => {
@@ -99,13 +123,49 @@ export default function App() {
     };
   }, [loadData]);
 
-  // Actions
-  const handleOpenNewCliente = () => {
-    if (!status.isConnected) {
-      setIsConfigModalOpen(true);
-      showToast('Configure o Supabase', 'Informe a URL e Chave Anon antes de cadastrar.', 'info');
-      return;
+  // Auth Actions
+  const handleGoogleLogin = async (data: {
+    nome: string;
+    email: string;
+    foto?: string;
+    cidade?: string;
+  }) => {
+    try {
+      const result = await loginWithGoogleData(data);
+      setUser(result.user);
+      showToast(
+        `Bem-vindo, ${result.user.nome}!`,
+        result.synced
+          ? 'Login realizado e usuário sincronizado na tabela usuarios do Supabase.'
+          : 'Login realizado com sessão ativa persistente.',
+        'success'
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao fazer login com o Google';
+      showToast('Falha no login', msg, 'error');
+      throw err;
     }
+  };
+
+  const handleLogout = async () => {
+    await logoutUser();
+    setUser(null);
+    showToast('Sessão encerrada', 'Você saiu da sua conta Google.', 'info');
+  };
+
+  const handleUpdateCity = async (newCity: string) => {
+    try {
+      const updated = await updateCurrentUserProfile({ cidade: newCity });
+      setUser(updated);
+      showToast('Cidade atualizada', `Sua cidade foi atualizada para ${newCity}.`, 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao atualizar cidade';
+      showToast('Erro', msg, 'error');
+    }
+  };
+
+  // Client Actions
+  const handleOpenNewCliente = () => {
     setClienteToEdit(null);
     setIsClienteModalOpen(true);
   };
@@ -146,6 +206,39 @@ export default function App() {
     }
   };
 
+  // Direct insert using the Supabase client SDK integration
+  const handleInsertViaSupabase = async () => {
+    if (!status.isConnected || !status.tableExists) {
+      setIsConfigModalOpen(true);
+      showToast(
+        'Conecte o Supabase',
+        'Informe a URL do Projeto e a chave Anon para inserir registros no banco de dados.',
+        'info'
+      );
+      return;
+    }
+
+    setIsInsertingViaIntegration(true);
+    try {
+      const existingEmails = clientes.map((c) => c.email.toLowerCase());
+      const sample = getRandomSampleCliente(existingEmails);
+
+      const novo = await cadastrarCliente(sample);
+      setClientes((prev) => [novo, ...prev]);
+
+      showToast(
+        'Cliente inserido via Supabase!',
+        `${novo.nome} (${novo.cidade}) foi gravado com sucesso no PostgreSQL via SDK do Supabase.`,
+        'success'
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao inserir registro no Supabase';
+      showToast('Erro ao inserir', msg, 'error');
+    } finally {
+      setIsInsertingViaIntegration(false);
+    }
+  };
+
   const handleDeleteConfirm = async (id: string) => {
     try {
       await excluirCliente(id);
@@ -164,63 +257,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
-      {/* Top Navigation */}
+      {/* Clean Top Navigation: Title, Subtitle, Google Login & Add Button */}
       <Header
-        status={status}
-        isChecking={!isInitialCheckDone}
+        user={user}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
+        onLogout={handleLogout}
+        onUpdateCity={handleUpdateCity}
         onOpenNewCliente={handleOpenNewCliente}
-        onOpenConfig={() => setIsConfigModalOpen(true)}
-        onOpenSql={() => setIsSqlModalOpen(true)}
-        onOpenGithub={() => setIsGithubModalOpen(true)}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Banner if Supabase is disconnected or table is missing (displayed ONLY after initial check is complete) */}
-        {isInitialCheckDone && (!status.isConnected || !status.tableExists) && (
-          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/5 to-teal-500/10 border border-amber-300/60 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 animate-in fade-in duration-200">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h2 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                  <span>
-                    {!status.isConnected
-                      ? 'Conexão com o Supabase pendente'
-                      : 'Tabela "clientes" pendente no Supabase'}
-                  </span>
-                  <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">
-                    Ação necessária
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                  {!status.isConnected
-                    ? 'Conecte sua URL e Chave Anon do Supabase para listar, cadastrar e gerenciar seus clientes diretamente na nuvem.'
-                    : 'Execute o script SQL fornecido no SQL Editor do Supabase para criar a tabela clientes com as políticas RLS.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-              <button
-                onClick={() => setIsSqlModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-2xs transition"
-              >
-                <Code2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Script SQL & RLS</span>
-              </button>
-              <button
-                onClick={() => setIsConfigModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-2xs shadow-emerald-600/20 transition"
-              >
-                <Database className="w-3.5 h-3.5" />
-                <span>Conectar Supabase</span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Analytics & Metrics */}
         <StatsCards clientes={clientes} isLoading={!isInitialCheckDone && isLoading} />
 
@@ -228,9 +275,11 @@ export default function App() {
         <ClientesTable
           clientes={clientes}
           isLoading={isLoading}
+          isInserting={isInsertingViaIntegration}
           onEdit={handleOpenEditCliente}
           onDelete={handleOpenDeleteCliente}
           onAddNew={handleOpenNewCliente}
+          onInsertViaSupabase={handleInsertViaSupabase}
           onRefresh={loadData}
           onShowToast={showToast}
         />
@@ -250,19 +299,19 @@ export default function App() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSqlModalOpen(true)}
-              className="hover:text-emerald-600 transition"
+              className="hover:text-emerald-600 transition cursor-pointer"
             >
-              Regras RLS
+              Regras RLS & Tabela Usuários
             </button>
             <button
               onClick={() => setIsConfigModalOpen(true)}
-              className="hover:text-emerald-600 transition"
+              className="hover:text-emerald-600 transition cursor-pointer"
             >
-              Configurar Conexão
+              Configurar Conexão Supabase
             </button>
             <button
               onClick={() => setIsGithubModalOpen(true)}
-              className="hover:text-slate-900 transition font-medium"
+              className="hover:text-slate-900 transition font-medium cursor-pointer"
             >
               Salvar no GitHub
             </button>
@@ -271,6 +320,12 @@ export default function App() {
       </footer>
 
       {/* Modals */}
+      <GoogleLoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLogin={handleGoogleLogin}
+      />
+
       <ClienteModal
         isOpen={isClienteModalOpen}
         onClose={() => setIsClienteModalOpen(false)}
@@ -292,6 +347,7 @@ export default function App() {
         onStatusChange={setStatus}
         onReloadData={loadData}
         onShowToast={showToast}
+        onInsertViaSupabase={handleInsertViaSupabase}
       />
 
       <SqlScriptModal

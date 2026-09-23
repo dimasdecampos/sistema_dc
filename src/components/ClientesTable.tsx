@@ -16,6 +16,8 @@ import {
   FileSpreadsheet,
   FileCode,
   Users,
+  Database,
+  Loader2,
 } from 'lucide-react';
 import { Cliente } from '../types/cliente';
 import {
@@ -29,9 +31,11 @@ import {
 interface ClientesTableProps {
   clientes: Cliente[];
   isLoading: boolean;
+  isInserting?: boolean;
   onEdit: (cliente: Cliente) => void;
   onDelete: (cliente: Cliente) => void;
   onAddNew: () => void;
+  onInsertViaSupabase: () => void;
   onRefresh: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -41,9 +45,11 @@ type SortOption = 'recentes' | 'antigos' | 'nome-asc' | 'nome-desc' | 'cidade';
 export const ClientesTable: React.FC<ClientesTableProps> = ({
   clientes,
   isLoading,
+  isInserting = false,
   onEdit,
   onDelete,
   onAddNew,
+  onInsertViaSupabase,
   onRefresh,
   onShowToast,
 }) => {
@@ -135,8 +141,23 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
           )}
         </div>
 
-        {/* Filter, Sort & Export Actions */}
+        {/* Filter, Sort, Insert & Export Actions */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Insert via Supabase Integration */}
+          <button
+            onClick={onInsertViaSupabase}
+            disabled={isLoading || isInserting}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
+            title="Inserir registro diretamente na tabela do Supabase via integração"
+          >
+            {isInserting ? (
+              <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+            ) : (
+              <Database className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            <span>Inserir via Supabase</span>
+          </button>
+
           {/* City filter */}
           <div className="relative flex items-center">
             <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
@@ -174,7 +195,7 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
           <button
             onClick={onRefresh}
             disabled={isLoading}
-            className="p-2 text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 active:bg-slate-100 rounded-xl transition shadow-2xs disabled:opacity-50"
+            className="p-2 text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 active:bg-slate-100 rounded-xl transition shadow-2xs disabled:opacity-50 cursor-pointer"
             title="Atualizar lista"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
@@ -191,7 +212,7 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
                 exportToCsv(filteredAndSortedClientes);
                 onShowToast('Exportado com sucesso!', 'Arquivo CSV gerado.', 'success');
               }}
-              className="px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition flex items-center gap-1 border-r border-slate-200"
+              className="px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition flex items-center gap-1 border-r border-slate-200 cursor-pointer"
               title="Exportar para Excel / CSV"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -206,7 +227,7 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
                 exportToJson(filteredAndSortedClientes);
                 onShowToast('Exportado com sucesso!', 'Arquivo JSON gerado.', 'success');
               }}
-              className="px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition flex items-center gap-1"
+              className="px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
               title="Exportar como JSON"
             >
               <FileCode className="w-3.5 h-3.5 text-blue-600" />
@@ -256,7 +277,7 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
           <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6">
             {searchTerm || selectedCity !== 'all'
               ? 'Nenhum resultado corresponde aos filtros aplicados.'
-              : 'Sua base do Supabase está pronta. Cadastre o primeiro cliente para começar!'}
+              : 'Sua base do Supabase está pronta. Adicione um novo registro para começar!'}
           </p>
           {searchTerm || selectedCity !== 'all' ? (
             <button
@@ -269,13 +290,27 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
               Limpar Filtros
             </button>
           ) : (
-            <button
-              onClick={onAddNew}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition"
-            >
-              <Plus className="w-4 h-4" />
-              Cadastrar Primeiro Cliente
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={onInsertViaSupabase}
+                disabled={isInserting}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition cursor-pointer"
+              >
+                {isInserting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Database className="w-4 h-4" />
+                )}
+                Inserir via Integração Supabase
+              </button>
+              <button
+                onClick={onAddNew}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Cadastrar Manualmente
+              </button>
+            </div>
           )}
         </div>
       ) : (
@@ -316,7 +351,7 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
                             </p>
                             <button
                               onClick={(e) => handleCopyId(cliente.id, e)}
-                              className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600 transition font-mono mt-0.5"
+                              className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600 transition font-mono mt-0.5 cursor-pointer"
                               title="Clique para copiar UUID"
                             >
                               <span>id: {cliente.id.slice(0, 8)}...</span>
@@ -375,14 +410,14 @@ export const ClientesTable: React.FC<ClientesTableProps> = ({
                         <div className="inline-flex items-center gap-1">
                           <button
                             onClick={() => onEdit(cliente)}
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
                             title="Editar cliente"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => onDelete(cliente)}
-                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                             title="Excluir cliente"
                           >
                             <Trash2 className="w-4 h-4" />

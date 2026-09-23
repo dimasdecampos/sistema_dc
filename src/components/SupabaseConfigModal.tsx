@@ -24,6 +24,7 @@ interface SupabaseConfigModalProps {
   onStatusChange: (status: ConnectionStatus) => void;
   onReloadData: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
+  onInsertViaSupabase?: () => void;
 }
 
 export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
@@ -33,6 +34,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
   onStatusChange,
   onReloadData,
   onShowToast,
+  onInsertViaSupabase,
 }) => {
   const [url, setUrl] = useState('');
   const [anonKey, setAnonKey] = useState('');
@@ -109,26 +111,53 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-5 sm:p-6 space-y-5 overflow-y-auto">
+        {/* Form Body */}
+        <div className="p-5 sm:p-6 overflow-y-auto">
           {/* Status Alert Banner */}
           <div
-            className={`p-4 rounded-xl border flex items-start gap-3 ${
+            className={`p-4 rounded-xl border mb-6 flex items-start gap-3 ${
               status.isConnected && status.tableExists
-                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
-                : 'bg-rose-50/80 border-rose-200 text-rose-950'
+                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                : status.isConnected && !status.tableExists
+                ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                : 'bg-slate-50 border-slate-200 text-slate-800'
             }`}
           >
             {status.isConnected && status.tableExists ? (
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             )}
-            <div className="text-xs leading-relaxed">
+            <div className="text-xs space-y-1">
               <p className="font-semibold text-sm">{status.message}</p>
-              {status.details && <p className="mt-1 opacity-90">{status.details}</p>}
+              {status.details && <p className="opacity-90">{status.details}</p>}
             </div>
           </div>
+
+          {/* Test insert box if already connected */}
+          {status.isConnected && status.tableExists && onInsertViaSupabase && (
+            <div className="mb-5 p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold text-emerald-950">
+                  Integração Supabase ativa e operacional
+                </p>
+                <p className="text-[11px] text-emerald-700">
+                  Deseja testar gravando um registro na tabela clientes agora?
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onInsertViaSupabase();
+                  onClose();
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs transition cursor-pointer shrink-0"
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>Inserir Registro via Supabase</span>
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleSaveAndTest} className="space-y-4">
             {/* Supabase URL */}
@@ -192,7 +221,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
               <button
                 type="button"
                 onClick={handleClear}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Limpar Credenciais
@@ -202,7 +231,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
                 <button
                   type="submit"
                   disabled={isTesting || !url || !anonKey}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
                 >
                   {isTesting ? (
                     <>
