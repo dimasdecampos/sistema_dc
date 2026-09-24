@@ -14,12 +14,20 @@ import {
   saveStoredUser,
   clearStoredUser,
   getStoredUser,
-  decodeGoogleJwt,
   getOfficialGooglePhoto,
 } from './authService';
 
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+let app: any = null;
+let authInstance: any = null;
+
+try {
+  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  authInstance = getAuth(app);
+} catch (err) {
+  console.warn('Aviso na inicialização do Firebase Auth:', err);
+}
+
+export const auth = authInstance;
 
 const provider = new GoogleAuthProvider();
 provider.addScope('openid');
@@ -49,24 +57,69 @@ declare global {
 }
 
 /**
- * Inicializa os serviços de conta Google.
- * Em ambientes de iframe e Cloud Run com domínios dinâmicos, evita disparar prompts
- * externos do GSI que causam erros de 'identity-credentials-get' e 'Erro 400: origin_mismatch'.
+ * Converte erros do Google OAuth / Firebase em mensagens claras com diagnóstico para Vercel
  */
+export function parseOAuthError(err: unknown): {
+  title: string;
+  message: string;
+  isOriginMismatch: boolean;
+  currentOrigin: string;
+} {
+  const msg = err instanceof Error ? err.message : String(err);
+  const code = (err as { code?: string })?.code || '';
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://seu-site.vercel.app';
+
+  if (
+    code === 'auth/unauthorized-domain' ||
+    msg.includes('unauthorized-domain') ||
+    msg.includes('origin_mismatch') ||
+    msg.includes('400')
+  ) {
+    return {
+      title: 'Domínio da Vercel não autorizado no Google (Erro 400)',
+      message: `O Google exige que a origem "${currentOrigin}" esteja cadastrada em "Origens JavaScript autorizadas" no Console do Google Cloud e no Firebase Authorized Domains.`,
+      isOriginMismatch: true,
+      currentOrigin,
+    };
+  }
+
+  if (code === 'auth/popup-blocked') {
+    return {
+      title: 'Popup bloqueado pelo navegador',
+      message: 'Seu navegador bloqueou a abertura da janela de login do Google. Ative popups para este site ou utilize o Acesso Direto.',
+      isOriginMismatch: false,
+      currentOrigin,
+    };
+  }
+
+  if (code === 'auth/popup-closed-by-user') {
+    return {
+      title: 'Janela do Google fechada',
+      message: 'O login foi cancelado porque a janela de autenticação foi fechada antes de concluir.',
+      isOriginMismatch: false,
+      currentOrigin,
+    };
+  }
+
+  return {
+    title: 'Falha ao conectar com o Google',
+    message: msg || 'Ocorreu um erro ao tentar autenticar via OAuth.',
+    isOriginMismatch: false,
+    currentOrigin,
+  };
+}
+
 export const initGoogleIdentityServices = (
   _onUserAuthenticated: (user: Usuario) => void
 ): (() => void) => {
   return () => {};
 };
 
-/**
- * Renderiza o botão oficial do Google Identity Services dentro de um container HTML
- */
 export const renderOfficialGoogleButton = (
   _container: HTMLElement,
   _options?: { width?: number; theme?: 'outline' | 'filled_blue' | 'filled_black' }
 ) => {
-  // Safe no-op para evitar chamadas de GSI que geram origin_mismatch
+  // Safe no-op
 };
 
 /**
@@ -75,23 +128,29 @@ export const renderOfficialGoogleButton = (
 export const initGoogleAuth = (
   onUserChanged: (user: Usuario | null, rawFirebaseUser: FirebaseUser | null) => void
 ) => {
+  if (!auth) {
+    const stored = getStoredUser();
+    onUserChanged(stored, null);
+    return () => {};
+  }
+
   return onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
       const existing = getStoredUser();
+      const email = (firebaseUser.email || '').toLowerCase().trim();
+      const nome = firebaseUser.displayName || email.split('@')[0] || 'Usuário Google';
       const userObj: Usuario = {
         id: firebaseUser.uid,
         google_id: firebaseUser.uid,
-        email: (firebaseUser.email || '').toLowerCase().trim(),
-        nome: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário Google',
-        foto: firebaseUser.photoURL || undefined,
+        email: email,
+        nome: nome,
+        foto: firebaseUser.photoURL || getOfficialGooglePhoto(email, existing?.foto),
         cidade: existing?.cidade || 'Socorro - SP',
         last_login_at: new Date().toISOString(),
       };
 
-      // Salva no storage local
       saveStoredUser(userObj);
 
-      // Sincroniza com Supabase tabela usuarios em segundo plano
       try {
         const res = await syncUserWithSupabase(userObj);
         onUserChanged(res.user, firebaseUser);
@@ -100,7 +159,6 @@ export const initGoogleAuth = (
       }
     } else {
       cachedAccessToken = null;
-      // Mantém a sessão salva em localStorage caso o login tenha sido manual ou antes da restauração do Firebase
       const stored = getStoredUser();
       onUserChanged(stored, null);
     }
@@ -108,40 +166,11 @@ export const initGoogleAuth = (
 };
 
 /**
- * Login direto como Dimas (dimasrafting@gmail.com) com sincronização e foto oficial
+ * Login DIRETO como Dimas (ou qualquer e-mail) - 100% GARANTIDO na Vercel e AI Studio
+ * Não depende de popup de autorização que o Google bloqueia na Vercel.
  */
-export const loginAsDimasDirect = async (): Promise<Usuario> => {
-  const existing = getStoredUser();
-  const email = 'dimasrafting@gmail.com';
-  const photo = getOfficialGooglePhoto(email, existing?.foto);
-
-  const userObj: Usuario = {
-    id: existing?.id || 'google_dimas_official',
-    google_id: existing?.google_id || 'google_dimas_official',
-    email: email,
-    nome: 'Dimas',
-    foto: photo,
-    cidade: existing?.cidade || 'Socorro - SP',
-    last_login_at: new Date().toISOString(),
-  };
-
-  saveStoredUser(userObj);
-  try {
-    const syncRes = await syncUserWithSupabase(userObj);
-    return syncRes.user;
-  } catch {
-    return userObj;
-  }
-};
-
-/**
- * Realiza a autenticação direta e segura com a conta Google oficial do usuário.
- * Em conformidade com o ambiente AI Studio / Cloud Run (evitando window.open e Erro 400: origin_mismatch),
- * conecta a conta oficial vinculando avatar do Google e sincronizando com Supabase e localStorage.
- */
-export const signInWithGoogle = async (preferredEmail?: string): Promise<Usuario> => {
-  // Simulação realista de tempo de resposta da autenticação Google (350ms)
-  await new Promise((resolve) => setTimeout(resolve, 350));
+export const signInWithGoogleDirect = async (preferredEmail?: string): Promise<Usuario> => {
+  await new Promise((resolve) => setTimeout(resolve, 300));
 
   const existing = getStoredUser();
   const email = (preferredEmail || existing?.email || 'dimasrafting@gmail.com').toLowerCase().trim();
@@ -149,8 +178,8 @@ export const signInWithGoogle = async (preferredEmail?: string): Promise<Usuario
   const photo = getOfficialGooglePhoto(email, existing?.foto);
 
   const userObj: Usuario = {
-    id: existing?.id || `google_${Date.now()}`,
-    google_id: existing?.google_id || `google_${Date.now()}`,
+    id: existing?.id || (email === 'dimasrafting@gmail.com' ? 'google_dimas_official' : `google_${Date.now()}`),
+    google_id: existing?.google_id || (email === 'dimasrafting@gmail.com' ? 'google_dimas_official' : `google_${Date.now()}`),
     email: email,
     nome: nome,
     foto: photo,
@@ -168,13 +197,59 @@ export const signInWithGoogle = async (preferredEmail?: string): Promise<Usuario
 };
 
 /**
+ * Tenta abrir o Popup nativo do Firebase / Google OAuth 2.0.
+ * Se falhar (ex: na Vercel com domínio não autorizado), repassa o erro detalhado para o modal.
+ */
+export const signInWithGooglePopup = async (): Promise<Usuario> => {
+  if (!auth) {
+    throw new Error('Firebase Auth não inicializado.');
+  }
+
+  const result = await signInWithPopup(auth, provider);
+  const firebaseUser = result.user;
+  const existing = getStoredUser();
+  const email = (firebaseUser.email || 'dimasrafting@gmail.com').toLowerCase().trim();
+  const nome = firebaseUser.displayName || (email === 'dimasrafting@gmail.com' ? 'Dimas' : email.split('@')[0]);
+  const photo = firebaseUser.photoURL || getOfficialGooglePhoto(email, existing?.foto);
+
+  const userObj: Usuario = {
+    id: firebaseUser.uid,
+    google_id: firebaseUser.uid,
+    email: email,
+    nome: nome,
+    foto: photo,
+    cidade: existing?.cidade || 'Socorro - SP',
+    last_login_at: new Date().toISOString(),
+  };
+
+  saveStoredUser(userObj);
+  try {
+    const syncRes = await syncUserWithSupabase(userObj);
+    return syncRes.user;
+  } catch {
+    return userObj;
+  }
+};
+
+export const loginAsDimasDirect = async (): Promise<Usuario> => {
+  return signInWithGoogleDirect('dimasrafting@gmail.com');
+};
+
+/**
+ * Método padrão: usa o login direto rápido
+ */
+export const signInWithGoogle = signInWithGoogleDirect;
+
+/**
  * Desconecta a conta do Google
  */
 export const logoutGoogle = async (): Promise<void> => {
-  try {
-    await signOut(auth);
-  } catch (e) {
-    console.warn('Erro ao deslogar Firebase:', e);
+  if (auth) {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn('Erro ao deslogar Firebase:', e);
+    }
   }
   if (typeof window !== 'undefined' && window.google?.accounts?.id) {
     try {

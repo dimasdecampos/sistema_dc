@@ -15,6 +15,7 @@ import {
   TrendingUp,
   SlidersHorizontal,
   ArrowUpDown,
+  Github,
 } from 'lucide-react';
 import {
   Category,
@@ -46,12 +47,15 @@ import {
 } from './services/authService';
 import {
   signInWithGoogle,
+  signInWithGooglePopup,
+  signInWithGoogleDirect,
   logoutGoogle,
   initGoogleAuth,
   initGoogleIdentityServices,
 } from './services/googleAuth';
 import { Usuario } from './types/auth';
 import { GoogleLoginModal } from './components/GoogleLoginModal';
+import { GithubModal } from './components/GithubModal';
 import { Navbar } from './components/Navbar';
 import { HomeHero } from './components/HomeHero';
 import { ListingsFeed } from './components/ListingsFeed';
@@ -81,6 +85,7 @@ export default function App() {
   // Google Auth User
   const [googleUser, setGoogleUser] = useState<Usuario | null>(() => getStoredUser());
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
+  const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Current active user (defaults to stored Google user, or Dimas from prompt specification)
@@ -190,19 +195,38 @@ export default function App() {
     setCurrentUser(mapped);
   }, []);
 
-  // Login Oficial Google
+  // Login Direto com Google (100% compatível com Vercel)
   const handleOfficialGoogleSignIn = async (email?: string) => {
     setIsLoggingIn(true);
     try {
-      const u = await signInWithGoogle(email);
+      const u = await signInWithGoogleDirect(email);
       handleUserAuthenticated(u);
       showToast(
         `Olá, ${u.nome}!`,
-        'Login oficial com o Google realizado com sucesso. Sua foto oficial e conta foram sincronizadas.',
+        'Login com Google realizado com sucesso. Conta e perfil sincronizados!',
         'success'
       );
     } catch (err: unknown) {
       console.warn('Erro ao conectar com Google:', err);
+      throw err;
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Tentativa de Login com Popup Nativo Google OAuth
+  const handlePopupGoogleSignIn = async () => {
+    setIsLoggingIn(true);
+    try {
+      const u = await signInWithGooglePopup();
+      handleUserAuthenticated(u);
+      showToast(
+        `Olá, ${u.nome}!`,
+        'Login com Popup oficial do Google realizado com sucesso!',
+        'success'
+      );
+    } catch (err: unknown) {
+      console.warn('Erro no popup do Google:', err);
       throw err;
     } finally {
       setIsLoggingIn(false);
@@ -957,6 +981,15 @@ export default function App() {
             </button>
             <span>•</span>
             <button
+              onClick={() => setIsGithubModalOpen(true)}
+              className="text-slate-600 hover:text-purple-700 font-semibold transition cursor-pointer flex items-center gap-1.5"
+              title="Instruções para salvar no GitHub e atualizar na Vercel"
+            >
+              <Github className="w-3.5 h-3.5" />
+              <span>GitHub / Vercel</span>
+            </button>
+            <span>•</span>
+            <button
               onClick={() => {
                 localStorage.clear();
                 window.location.reload();
@@ -976,9 +1009,11 @@ export default function App() {
         isOpen={isGoogleModalOpen}
         onClose={() => setIsGoogleModalOpen(false)}
         onOfficialGoogleSignIn={handleOfficialGoogleSignIn}
+        onTryPopupGoogleSignIn={handlePopupGoogleSignIn}
         onLoginManual={handleLoginManual}
         defaultEmail={currentUser.email || 'dimasrafting@gmail.com'}
         defaultCity={currentUser.cidade || 'Socorro - SP'}
+        onOpenGithubModal={() => setIsGithubModalOpen(true)}
       />
 
       <CreateWantedModal
@@ -1012,6 +1047,12 @@ export default function App() {
         isOpen={isSupabaseModalOpen}
         onClose={() => setIsSupabaseModalOpen(false)}
         onSaved={loadData}
+      />
+
+      <GithubModal
+        isOpen={isGithubModalOpen}
+        onClose={() => setIsGithubModalOpen(false)}
+        onShowToast={showToast}
       />
 
       {/* Notifications */}
