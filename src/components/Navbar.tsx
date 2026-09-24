@@ -75,28 +75,28 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Top Navbar Desktop & Mobile */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-18 gap-3 sm:gap-6">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-15 sm:h-18 gap-2 sm:gap-6">
             {/* Logo Brand */}
             <div
               onClick={() => onSelectTab('home')}
-              className="flex items-center gap-2.5 cursor-pointer group shrink-0"
+              className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group shrink-0 min-w-0"
             >
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
-                <ArrowRightLeft className="w-5 h-5 stroke-[2.5]" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform shrink-0">
+                <ArrowRightLeft className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
               </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-xl text-slate-900 tracking-tight leading-none">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <span className="font-extrabold text-base sm:text-xl text-slate-900 tracking-tight leading-none truncate">
                     {config?.siteName || 'TemAqui'}
                   </span>
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wider">
+                  <span className="hidden xs:inline-block px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wider shrink-0">
                     Cidade
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 flex items-center gap-1 font-medium mt-0.5">
-                  <MapPin className="w-3 h-3 text-emerald-600" />
-                  <span>{config?.cityName || user.cidade || 'Socorro - SP'}</span>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1 font-medium mt-0.5 truncate max-w-[90px] xs:max-w-[120px] sm:max-w-none">
+                  <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 shrink-0" />
+                  <span className="truncate">{config?.cityName || user.cidade || 'Socorro - SP'}</span>
                 </p>
               </div>
             </div>
@@ -190,11 +190,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             </nav>
 
             {/* Top Action Buttons: Estou Procurando & Quero Vender */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              {/* Botão Estou Procurando (Destaque Principal) */}
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+              {/* Botão Estou Procurando (Visível a partir de md, no mobile já existe na barra inferior e no hero) */}
               <button
                 onClick={onOpenWantedModal}
-                className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl shadow-xs shadow-emerald-600/20 transition cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                className="hidden md:inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl shadow-xs shadow-emerald-600/20 transition cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Search className="w-4 h-4" />
                 <span>Estou procurando</span>
@@ -203,9 +203,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Botão Quero Vender */}
               <button
                 onClick={onOpenSaleModal}
-                className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-800 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/80 rounded-xl transition cursor-pointer"
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-slate-800 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/80 rounded-xl transition cursor-pointer shrink-0"
               >
-                <PlusCircle className="w-4 h-4 text-amber-600" />
+                <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 shrink-0" />
                 <span className="hidden sm:inline">Quero vender</span>
                 <span className="sm:hidden">Vender</span>
               </button>
@@ -224,13 +224,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                   type="button"
                   onClick={onOpenGoogleLogin}
                   disabled={isLoggingIn}
-                  className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 active:bg-slate-100 border border-slate-200/90 hover:border-slate-300 rounded-xl shadow-2xs hover:shadow-xs transition cursor-pointer disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 active:bg-slate-100 border border-slate-200/90 hover:border-slate-300 rounded-xl shadow-2xs hover:shadow-xs transition cursor-pointer disabled:opacity-60 shrink-0"
                   title="Fazer login com a conta do Google"
                 >
                   {isLoggingIn ? (
-                    <Loader2 className="w-4 h-4 text-emerald-600 animate-spin shrink-0" />
+                    <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 animate-spin shrink-0" />
                   ) : (
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
                         d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.28-2.09 3.66-5.17 3.66-9.12z"
@@ -252,7 +252,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="hidden sm:inline">
                     {isLoggingIn ? 'Entrando...' : 'Entrar com Google'}
                   </span>
-                  <span className="sm:hidden">Google</span>
+                  <span className="sm:hidden">Entrar</span>
                 </button>
               )}
             </div>

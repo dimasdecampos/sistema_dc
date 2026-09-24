@@ -106,18 +106,18 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
       {/* Trigger Button: Modern User Pill */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2.5 p-1 sm:pr-3 rounded-full bg-white border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs transition cursor-pointer group"
+        className="flex items-center gap-1.5 sm:gap-2.5 p-0.5 sm:p-1 sm:pr-3 rounded-full bg-white border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs transition cursor-pointer group shrink-0"
       >
-        <div className="relative">
+        <div className="relative shrink-0">
           {photoUrl ? (
             <img
               src={photoUrl}
               alt={user.nome}
               onError={() => setImgError(true)}
-              className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-slate-200 shrink-0"
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
               {user.nome.charAt(0).toUpperCase()}
             </div>
           )}
@@ -139,7 +139,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
           </p>
         </div>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform ${
+          className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform hidden xs:block ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
@@ -147,7 +147,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute right-0 mt-2 w-[calc(100vw-24px)] max-w-xs sm:w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
           {/* User Header */}
           <div className="p-4 bg-slate-50/70 border-b border-slate-100 flex items-start gap-3">
             <div className="relative shrink-0 group/photo">

@@ -44,7 +44,12 @@ import {
   logoutUser,
   getOfficialGooglePhoto,
 } from './services/authService';
-import { signInWithGoogle, logoutGoogle, initGoogleAuth } from './services/googleAuth';
+import {
+  signInWithGoogle,
+  logoutGoogle,
+  initGoogleAuth,
+  initGoogleIdentityServices,
+} from './services/googleAuth';
 import { Usuario } from './types/auth';
 import { GoogleLoginModal } from './components/GoogleLoginModal';
 import { Navbar } from './components/Navbar';
@@ -281,6 +286,16 @@ export default function App() {
   useEffect(() => {
     loadData();
 
+    // Inicializa Google Identity Services (GSI - One Tap e Auto-Select no Chrome Mobile)
+    const cleanupGsi = initGoogleIdentityServices((gsiUser) => {
+      handleUserAuthenticated(gsiUser);
+      showToast(
+        `Olá, ${gsiUser.nome}!`,
+        'Login automático com sua conta Google realizado no Chrome.',
+        'success'
+      );
+    });
+
     // Listener de login Google oficial
     const unsubGoogle = initGoogleAuth((gUser) => {
       if (gUser) {
@@ -288,8 +303,11 @@ export default function App() {
       }
     });
 
-    return () => unsubGoogle();
-  }, [loadData, handleUserAuthenticated]);
+    return () => {
+      cleanupGsi();
+      unsubGoogle();
+    };
+  }, [loadData, handleUserAuthenticated, showToast]);
 
   // Abertura com pesquisa vinda do Hero da Home
   const handleSearchOrStartWanted = (queryText: string) => {
