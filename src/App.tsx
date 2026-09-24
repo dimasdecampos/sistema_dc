@@ -196,10 +196,10 @@ export default function App() {
   }, []);
 
   // Login Direto com Google (100% compatível com Vercel)
-  const handleOfficialGoogleSignIn = async (email?: string) => {
+  const handleOfficialGoogleSignIn = async (email?: string, name?: string) => {
     setIsLoggingIn(true);
     try {
-      const u = await signInWithGoogleDirect(email);
+      const u = await signInWithGoogleDirect(email, name);
       handleUserAuthenticated(u);
       showToast(
         `Olá, ${u.nome}!`,

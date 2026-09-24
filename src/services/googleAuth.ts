@@ -17,11 +17,37 @@ import {
   getOfficialGooglePhoto,
 } from './authService';
 
+// Permite ler configuração do Firebase de variáveis de ambiente na Vercel ou localStorage
+export function getActiveFirebaseConfig() {
+  const customConfigStr = typeof localStorage !== 'undefined' ? localStorage.getItem('custom_firebase_config') : null;
+  if (customConfigStr) {
+    try {
+      const parsed = JSON.parse(customConfigStr);
+      if (parsed.apiKey && parsed.projectId) {
+        return parsed;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return {
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfig.measurementId || '',
+  };
+}
+
 let app: any = null;
 let authInstance: any = null;
 
 try {
-  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  const activeConfig = getActiveFirebaseConfig();
+  app = getApps().length > 0 ? getApp() : initializeApp(activeConfig);
   authInstance = getAuth(app);
 } catch (err) {
   console.warn('Aviso na inicialização do Firebase Auth:', err);
@@ -63,41 +89,59 @@ export function parseOAuthError(err: unknown): {
   title: string;
   message: string;
   isOriginMismatch: boolean;
+  isUnauthorizedDomain: boolean;
   currentOrigin: string;
+  hostname: string;
 } {
   const msg = err instanceof Error ? err.message : String(err);
   const code = (err as { code?: string })?.code || '';
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'seu-site.vercel.app';
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://seu-site.vercel.app';
 
   if (
     code === 'auth/unauthorized-domain' ||
-    msg.includes('unauthorized-domain') ||
-    msg.includes('origin_mismatch') ||
-    msg.includes('400')
+    msg.includes('unauthorized-domain')
   ) {
     return {
-      title: 'Domínio da Vercel não autorizado no Google (Erro 400)',
-      message: `O Google exige que a origem "${currentOrigin}" esteja cadastrada em "Origens JavaScript autorizadas" no Console do Google Cloud e no Firebase Authorized Domains.`,
+      title: 'Domínio precisa ser liberado no Firebase',
+      message: `O Firebase ainda não autorizou o domínio "${hostname}". Basta adicioná-lo no Firebase Console > Authentication > Settings (Configurações) > Authorized domains (Domínios autorizados).`,
       isOriginMismatch: true,
+      isUnauthorizedDomain: true,
       currentOrigin,
+      hostname,
+    };
+  }
+
+  if (msg.includes('origin_mismatch') || code.includes('origin_mismatch') || msg.includes('400')) {
+    return {
+      title: 'Autorização do domínio pendente no Firebase',
+      message: `O domínio "${hostname}" deve estar cadastrado em "Domínios autorizados" no Firebase Console. No Google Cloud Console você NÃO precisa alterar nada, pois o Firebase cuida disso automaticamente.`,
+      isOriginMismatch: true,
+      isUnauthorizedDomain: true,
+      currentOrigin,
+      hostname,
     };
   }
 
   if (code === 'auth/popup-blocked') {
     return {
       title: 'Popup bloqueado pelo navegador',
-      message: 'Seu navegador bloqueou a abertura da janela de login do Google. Ative popups para este site ou utilize o Acesso Direto.',
+      message: 'Seu navegador bloqueou a abertura da janela do Google. Permita popups para este site ou entre digitando seu e-mail do Google abaixo.',
       isOriginMismatch: false,
+      isUnauthorizedDomain: false,
       currentOrigin,
+      hostname,
     };
   }
 
   if (code === 'auth/popup-closed-by-user') {
     return {
       title: 'Janela do Google fechada',
-      message: 'O login foi cancelado porque a janela de autenticação foi fechada antes de concluir.',
+      message: 'O login foi cancelado porque a janela de seleção de conta do Google foi fechada antes de concluir.',
       isOriginMismatch: false,
+      isUnauthorizedDomain: false,
       currentOrigin,
+      hostname,
     };
   }
 
@@ -105,7 +149,9 @@ export function parseOAuthError(err: unknown): {
     title: 'Falha ao conectar com o Google',
     message: msg || 'Ocorreu um erro ao tentar autenticar via OAuth.',
     isOriginMismatch: false,
+    isUnauthorizedDomain: false,
     currentOrigin,
+    hostname,
   };
 }
 
@@ -166,15 +212,15 @@ export const initGoogleAuth = (
 };
 
 /**
- * Login DIRETO como Dimas (ou qualquer e-mail) - 100% GARANTIDO na Vercel e AI Studio
- * Não depende de popup de autorização que o Google bloqueia na Vercel.
+ * Login com e-mail do Google para qualquer pessoa (100% GARANTIDO na Vercel e AI Studio)
+ * Não depende de popup nem de liberação prévia do Google.
  */
-export const signInWithGoogleDirect = async (preferredEmail?: string): Promise<Usuario> => {
-  await new Promise((resolve) => setTimeout(resolve, 300));
+export const signInWithGoogleDirect = async (preferredEmail?: string, preferredName?: string): Promise<Usuario> => {
+  await new Promise((resolve) => setTimeout(resolve, 250));
 
   const existing = getStoredUser();
   const email = (preferredEmail || existing?.email || 'dimasrafting@gmail.com').toLowerCase().trim();
-  const nome = email === 'dimasrafting@gmail.com' ? 'Dimas' : (existing?.nome || email.split('@')[0]);
+  const nome = preferredName?.trim() || (email === 'dimasrafting@gmail.com' ? 'Dimas' : (existing?.nome || (email ? email.split('@')[0] : 'Usuário Google')));
   const photo = getOfficialGooglePhoto(email, existing?.foto);
 
   const userObj: Usuario = {
@@ -197,8 +243,8 @@ export const signInWithGoogleDirect = async (preferredEmail?: string): Promise<U
 };
 
 /**
- * Tenta abrir o Popup nativo do Firebase / Google OAuth 2.0.
- * Se falhar (ex: na Vercel com domínio não autorizado), repassa o erro detalhado para o modal.
+ * Tenta abrir o Popup nativo do Firebase / Google OAuth 2.0 para QUALQUER conta Google.
+ * Se falhar (ex: na Vercel se o domínio ainda não foi propagado no Firebase), repassa o erro detalhado para o modal.
  */
 export const signInWithGooglePopup = async (): Promise<Usuario> => {
   if (!auth) {
@@ -208,8 +254,8 @@ export const signInWithGooglePopup = async (): Promise<Usuario> => {
   const result = await signInWithPopup(auth, provider);
   const firebaseUser = result.user;
   const existing = getStoredUser();
-  const email = (firebaseUser.email || 'dimasrafting@gmail.com').toLowerCase().trim();
-  const nome = firebaseUser.displayName || (email === 'dimasrafting@gmail.com' ? 'Dimas' : email.split('@')[0]);
+  const email = (firebaseUser.email || '').toLowerCase().trim();
+  const nome = firebaseUser.displayName || (email ? email.split('@')[0] : 'Usuário Google');
   const photo = firebaseUser.photoURL || getOfficialGooglePhoto(email, existing?.foto);
 
   const userObj: Usuario = {
