@@ -69,6 +69,8 @@ export const initGoogleIdentityServices = (
         firebaseConfig.oAuthClientId ||
         '387914111164-3hn4sd0k7bnq3fm2dbfj0es4v493vi4d.apps.googleusercontent.com';
 
+      const isEmbeddedIframe = typeof window !== 'undefined' && window.self !== window.top;
+
       try {
         window.google.accounts.id.initialize({
           client_id: clientId,
@@ -100,16 +102,20 @@ export const initGoogleIdentityServices = (
               }
             }
           },
-          auto_select: true, // Login automático silencioso no Chrome se já logado
+          auto_select: !isEmbeddedIframe,
+          use_fedcm_for_prompt: false,
           cancel_on_tap_outside: true,
         });
 
-        // Dispara o prompt nativo do Google Chrome (One-Tap)
-        window.google.accounts.id.prompt((notification) => {
-          if (notification?.isNotDisplayed()) {
-            console.log('Google One-Tap não exibido:', notification.getNotDisplayedReason());
-          }
-        });
+        // Dispara o prompt nativo do Google Chrome (One-Tap) apenas quando fora de iframe
+        // (iframes bloqueiam identity-credentials-get por Permissions Policy do navegador)
+        if (!isEmbeddedIframe) {
+          window.google.accounts.id.prompt((notification) => {
+            if (notification?.isNotDisplayed()) {
+              console.log('Google One-Tap não exibido:', notification.getNotDisplayedReason());
+            }
+          });
+        }
       } catch (err) {
         console.warn('Aviso ao inicializar Google Identity Services:', err);
       }
@@ -225,15 +231,6 @@ export const loginAsDimasDirect = async (): Promise<Usuario> => {
  * liberado no Firebase, ativa automaticamente o fallback inteligente com a conta Google do usuário.
  */
 export const signInWithGoogle = async (): Promise<Usuario> => {
-  // Se o Google One-Tap estiver disponível, tenta acioná-lo
-  if (typeof window !== 'undefined' && window.google?.accounts?.id) {
-    try {
-      window.google.accounts.id.prompt();
-    } catch {
-      // continua para signInWithPopup
-    }
-  }
-
   try {
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
