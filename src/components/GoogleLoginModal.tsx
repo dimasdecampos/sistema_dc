@@ -16,7 +16,7 @@ import { uploadImageToSupabase } from '../services/storageService';
 interface GoogleLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOfficialGoogleSignIn: () => Promise<void>;
+  onOfficialGoogleSignIn: (email?: string) => Promise<void>;
   onLoginManual: (data: {
     nome: string;
     email: string;
@@ -69,7 +69,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
   const handleOfficialClick = async () => {
     setIsOfficialLoading(true);
     try {
-      await onOfficialGoogleSignIn();
+      await onOfficialGoogleSignIn(email);
       onClose();
     } catch (err: unknown) {
       console.warn('Login oficial Google:', err);

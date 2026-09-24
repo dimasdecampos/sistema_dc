@@ -190,11 +190,11 @@ export default function App() {
     setCurrentUser(mapped);
   }, []);
 
-  // Login Oficial Google (Popup Firebase)
-  const handleOfficialGoogleSignIn = async () => {
+  // Login Oficial Google
+  const handleOfficialGoogleSignIn = async (email?: string) => {
     setIsLoggingIn(true);
     try {
-      const u = await signInWithGoogle();
+      const u = await signInWithGoogle(email);
       handleUserAuthenticated(u);
       showToast(
         `Olá, ${u.nome}!`,
