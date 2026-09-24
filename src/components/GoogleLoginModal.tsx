@@ -10,8 +10,10 @@ import {
   Upload,
   Link as LinkIcon,
   ChevronDown,
+  Cloud,
 } from 'lucide-react';
 import { getOfficialGooglePhoto } from '../services/authService';
+import { uploadImageToSupabase } from '../services/storageService';
 
 interface GoogleLoginModalProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ interface GoogleLoginModalProps {
     cidade?: string;
   }) => Promise<void>;
   defaultEmail?: string;
+  defaultCity?: string;
 }
 
 export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
@@ -32,29 +35,38 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
   onOfficialGoogleSignIn,
   onLoginManual,
   defaultEmail = 'dimasrafting@gmail.com',
+  defaultCity = 'Socorro - SP',
 }) => {
   const [nome, setNome] = useState('Dimas');
   const [email, setEmail] = useState(defaultEmail);
-  const [cidade, setCidade] = useState('São Paulo');
+  const [cidade, setCidade] = useState(defaultCity);
   const [customPhoto, setCustomPhoto] = useState<string>('');
   const [isOfficialLoading, setIsOfficialLoading] = useState(false);
   const [isManualLoading, setIsManualLoading] = useState(false);
   const [showManualOptions, setShowManualOptions] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setCustomPhoto(base64);
-    };
-    reader.readAsDataURL(file);
+    setIsUploadingPhoto(true);
+    try {
+      // Upload para bucket 'img' na pasta 'img'
+      const res = await uploadImageToSupabase(file, { folder: 'img' });
+      setCustomPhoto(res.url);
+    } catch (err) {
+      console.error('Erro no upload da foto:', err);
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleOfficialClick = async () => {
@@ -189,8 +201,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
           <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-2xl flex items-start gap-2.5 text-xs text-emerald-900">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <p className="text-[11px] leading-relaxed">
-              Ao logar com o Google, os botões de <strong>Editar</strong> e{' '}
-              <strong>Excluir</strong> clientes serão liberados. Seu e-mail, nome e foto oficial são salvos na tabela <strong>usuarios</strong> do Supabase.
+              Ao logar com o Google, sua foto oficial e perfil são vinculados às suas procuras e anúncios na cidade. Seus dados são sincronizados com a tabela <strong>usuarios</strong> do Supabase.
             </p>
           </div>
 
@@ -268,15 +279,26 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    disabled={isUploadingPhoto}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-center gap-1 cursor-pointer"
+                    className="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                   >
-                    <Upload className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Carregar arquivo de foto</span>
+                    {isUploadingPhoto ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                        <span>Enviando para Supabase...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Carregar foto (Bucket: img/)</span>
+                      </>
+                    )}
                   </button>
                   {customPhoto && (
-                    <span className="text-[10px] text-emerald-600 font-semibold">
-                      Foto anexada
+                    <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                      <Cloud className="w-3 h-3 text-emerald-600" />
+                      <span>Anexada</span>
                     </span>
                   )}
                 </div>

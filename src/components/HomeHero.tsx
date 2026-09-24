@@ -4,19 +4,26 @@ import {
   PlusCircle,
   Sparkles,
   ArrowRight,
-  CheckCircle2,
-  BellRing,
-  HelpCircle,
+  TrendingUp,
+  Tag,
 } from 'lucide-react';
 
 interface HomeHeroProps {
   onSearchOrStartWanted: (queryText: string) => void;
   onOpenSaleModal: () => void;
+  onScrollToRanking?: () => void;
+  cityName?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
 }
 
 export const HomeHero: React.FC<HomeHeroProps> = ({
   onSearchOrStartWanted,
   onOpenSaleModal,
+  onScrollToRanking,
+  cityName = 'Socorro - SP',
+  heroTitle,
+  heroSubtitle,
 }) => {
   const [query, setQuery] = useState('');
 
@@ -32,122 +39,89 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
   };
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-b from-emerald-50/70 via-white to-slate-50 pt-8 pb-12 sm:pt-12 sm:pb-16 border-b border-slate-200/70">
+    <div className="relative overflow-hidden bg-gradient-to-b from-emerald-50/60 via-white to-slate-50 pt-5 pb-6 sm:pt-7 sm:pb-8 border-b border-slate-200/80">
       {/* Decorative gradient blur */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-56 bg-gradient-to-r from-emerald-200/40 via-teal-200/30 to-amber-200/40 blur-3xl pointer-events-none -z-10" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-36 bg-gradient-to-r from-emerald-200/30 via-teal-200/20 to-amber-200/30 blur-2xl pointer-events-none -z-10" />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-        {/* Badge da Cidade */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100/80 border border-emerald-200 text-emerald-800 text-xs font-bold mb-4 sm:mb-6 shadow-2xs">
-          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Marketplace Local Inteligente</span>
+        {/* Badge da Cidade & Conceito */}
+        <div className="flex items-center justify-center gap-2 mb-2 sm:mb-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-100/90 border border-emerald-200 text-emerald-800 text-[11px] font-bold shadow-2xs">
+            <Sparkles className="w-3 h-3 text-emerald-600" />
+            <span>Classificados de Procura & Oferta • {cityName}</span>
+          </div>
+          {onScrollToRanking && (
+            <button
+              onClick={onScrollToRanking}
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100/90 border border-amber-200 text-amber-800 text-[11px] font-extrabold hover:bg-amber-200 transition cursor-pointer"
+            >
+              <TrendingUp className="w-3 h-3 text-amber-600" />
+              <span>Ver Ranking</span>
+            </button>
+          )}
         </div>
 
-        {/* Big Heading - Fuja do padrão tradicional */}
-        <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
-          O que você está <span className="text-emerald-600 underline decoration-emerald-300 decoration-wavy decoration-2">procurando</span>?
+        {/* Heading Otimizado e Compacto */}
+        <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+          {heroTitle || (
+            <>
+              O que você está <span className="text-emerald-600 underline decoration-emerald-300 decoration-wavy decoration-2">procurando</span> em {cityName.split('-')[0].trim()}?
+            </>
+          )}
         </h1>
 
-        <p className="mt-3 text-sm sm:text-lg text-slate-600 max-w-2xl mx-auto font-medium">
-          Diga o que você precisa. Quando alguém na cidade anunciar para venda, você recebe uma recomendação compatível diretamente no seu painel.
+        <p className="mt-1.5 text-xs sm:text-sm text-slate-600 max-w-xl mx-auto font-medium">
+          {heroSubtitle || 'Diga o que você precisa. O sistema te avisa quando um morador cadastrar uma oferta compatível.'}
         </p>
 
-        {/* Big Input Area as specified */}
-        <form onSubmit={handleSubmit} className="mt-6 sm:mt-8 max-w-2xl mx-auto">
-          <div className="p-2 sm:p-2.5 bg-white rounded-3xl shadow-xl shadow-slate-900/8 border border-slate-200/90 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all">
+        {/* Input Bar Compacto e de Alta Aderência */}
+        <form onSubmit={handleSubmit} className="mt-4 sm:mt-5 max-w-2xl mx-auto">
+          <div className="p-1.5 sm:p-2 bg-white rounded-2xl sm:rounded-3xl shadow-lg shadow-slate-900/5 border border-slate-200/90 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all">
             <div className="flex items-center flex-1 px-3">
-              <Search className="w-5 h-5 text-emerald-600 shrink-0 mr-2.5" />
+              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 shrink-0 mr-2.5" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ex.: quero comprar um martelo usado, bicicleta aro 26..."
-                className="w-full text-sm sm:text-base text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-hidden py-2"
+                placeholder="Ex.: quero comprar um martelo usado, bicicleta aro 26, mesa..."
+                className="w-full text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-hidden py-1.5"
               />
             </div>
 
-            <button
-              type="submit"
-              className="py-3 px-6 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-bold rounded-2xl shadow-md shadow-emerald-600/25 flex items-center justify-center gap-2 transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer shrink-0"
-            >
-              <span>Estou procurando</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="submit"
+                className="flex-1 sm:flex-none py-2 px-4 sm:px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs sm:text-sm font-bold rounded-xl sm:rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0"
+              >
+                <span>Estou procurando</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={onOpenSaleModal}
+                className="flex-1 sm:flex-none py-2 px-3 sm:px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs sm:text-sm font-extrabold rounded-xl sm:rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0"
+                title="Publicar algo que você tem para vender"
+              >
+                <Tag className="w-3.5 h-3.5" />
+                <span>Vender algo</span>
+              </button>
+            </div>
           </div>
         </form>
 
-        {/* Opção secundária: Tenho algo para vender */}
-        <div className="mt-4 flex items-center justify-center gap-3">
-          <span className="text-xs text-slate-500">ou se você tem algo parado:</span>
-          <button
-            onClick={onOpenSaleModal}
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100/90 px-3 py-1.5 rounded-xl border border-amber-200/80 transition cursor-pointer"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Tenho algo para vender</span>
-          </button>
-        </div>
-
-        {/* Sugestões rápidas do dia a dia */}
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
-          <span className="text-xs text-slate-400 font-medium">Exemplos populares:</span>
-          <button
-            onClick={() => handleQuickSuggestion('Quero comprar um martelo usado')}
-            className="px-2.5 py-1 text-xs bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-lg border border-slate-200 shadow-2xs transition cursor-pointer font-medium"
-          >
-            🔨 Martelo usado
-          </button>
-          <button
-            onClick={() => handleQuickSuggestion('Estou procurando uma bicicleta aro 26')}
-            className="px-2.5 py-1 text-xs bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-lg border border-slate-200 shadow-2xs transition cursor-pointer font-medium"
-          >
-            🚲 Bicicleta aro 26
-          </button>
-          <button
-            onClick={() => handleQuickSuggestion('Preciso de uma mesa pequena de madeira')}
-            className="px-2.5 py-1 text-xs bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-lg border border-slate-200 shadow-2xs transition cursor-pointer font-medium"
-          >
-            🪑 Mesa de madeira
-          </button>
-        </div>
-
-        {/* Como funciona o fluxo (Simples e Didático) */}
-        <div className="mt-10 sm:mt-12 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 max-w-3xl mx-auto text-left">
-          <div className="p-4 bg-white/90 rounded-2xl border border-slate-200/80 shadow-2xs flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-sm">
-              1
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-900">Você diz o que procura</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                Escreva livremente o item que precisa e quanto pretende pagar.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-4 bg-white/90 rounded-2xl border border-slate-200/80 shadow-2xs flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 font-bold flex items-center justify-center shrink-0 text-sm">
-              2
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-900">Vizinho anuncia o item</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                Outro morador cadastra uma oferta compatível para venda.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-4 bg-white/90 rounded-2xl border border-slate-200/80 shadow-2xs flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 font-bold flex items-center justify-center shrink-0 text-sm">
-              3
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-900">Match no seu painel</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                O sistema cruza as informações e mostra o anúncio pronto para conversar!
-              </p>
-            </div>
-          </div>
+        {/* Sugestões rápidas inline */}
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-xs">
+          <span className="text-[11px] text-slate-400 font-medium">Sugestões rápidas:</span>
+          {['🔨 Martelo usado', '🚲 Bicicleta aro 26', '🪑 Mesa de madeira', '📱 Celular'].map((sug) => (
+            <button
+              key={sug}
+              onClick={() => handleQuickSuggestion(sug.slice(2).trim())}
+              className="px-2 py-0.5 text-[11px] bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-md border border-slate-200 shadow-2xs transition cursor-pointer font-medium"
+            >
+              {sug}
+            </button>
+          ))}
         </div>
       </div>
     </div>

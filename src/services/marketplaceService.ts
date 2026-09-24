@@ -95,7 +95,8 @@ export async function fetchListings(filters?: {
         .select(`
           *,
           category:categories(*),
-          user:profiles(*)
+          user:profiles(*),
+          listing_images(image_url)
         `)
         .order('created_at', { ascending: false });
 
@@ -114,8 +115,15 @@ export async function fetchListings(filters?: {
 
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        // Enriquecer com imagens se houver
-        return { listings: data as Listing[], isLocalFallback: false };
+        // Enriquecer com URLs de imagens se houver
+        const enriched = (data as any[]).map((item) => {
+          const remoteImgs: string[] = item.listing_images?.map((img: any) => img.image_url) || [];
+          return {
+            ...item,
+            images: remoteImgs.length > 0 ? remoteImgs : item.images || [],
+          } as Listing;
+        });
+        return { listings: enriched, isLocalFallback: false };
       }
     } catch (err) {
       console.warn('Falha na consulta ao Supabase, alternando para local:', err);
@@ -214,6 +222,20 @@ export async function createWantedListing(
         status: newListing.status,
       });
 
+      // Grava fotos do anúncio em listing_images
+      if (newListing.images && newListing.images.length > 0) {
+        for (const imgUrl of newListing.images) {
+          try {
+            await supabase.from('listing_images').insert({
+              listing_id: newListing.id,
+              image_url: imgUrl,
+            });
+          } catch (imgErr) {
+            console.warn('Erro ao inserir foto em listing_images:', imgErr);
+          }
+        }
+      }
+
       // Grava os matches calculados
       for (const m of newMatches) {
         await supabase.from('matches').insert({
@@ -297,6 +319,20 @@ export async function createSaleListing(
         condition: newListing.condition,
         status: newListing.status,
       });
+
+      // Grava fotos do produto em listing_images
+      if (newListing.images && newListing.images.length > 0) {
+        for (const imgUrl of newListing.images) {
+          try {
+            await supabase.from('listing_images').insert({
+              listing_id: newListing.id,
+              image_url: imgUrl,
+            });
+          } catch (imgErr) {
+            console.warn('Erro ao inserir foto em listing_images:', imgErr);
+          }
+        }
+      }
 
       for (const m of newMatches) {
         await supabase.from('matches').insert({

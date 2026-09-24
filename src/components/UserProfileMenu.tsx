@@ -10,14 +10,19 @@ import {
   Link,
   Check,
   Sparkles,
+  LayoutDashboard,
+  Loader2,
+  Cloud,
 } from 'lucide-react';
 import { Usuario } from '../types/auth';
+import { uploadImageToSupabase } from '../services/storageService';
 
 interface UserProfileMenuProps {
   user: Usuario;
   onLogout: () => void;
   onUpdateCity?: (newCity: string) => Promise<void>;
   onUpdatePhoto?: (newPhoto: string) => Promise<void>;
+  onNavigateDashboard?: () => void;
   isSupabaseSynced?: boolean;
 }
 
@@ -26,6 +31,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
   onLogout,
   onUpdateCity,
   onUpdatePhoto,
+  onNavigateDashboard,
   isSupabaseSynced = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,6 +40,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
   const [isChangingPhoto, setIsChangingPhoto] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [imgError, setImgError] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,20 +65,27 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
     setIsEditingCity(false);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      setImgError(false);
+    setIsUploadingPhoto(true);
+    setImgError(false);
+    try {
+      // Upload para bucket 'img' na pasta 'img'
+      const res = await uploadImageToSupabase(file, { folder: 'img' });
       if (onUpdatePhoto) {
-        await onUpdatePhoto(base64);
+        await onUpdatePhoto(res.url);
       }
       setIsChangingPhoto(false);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Erro no upload da foto de perfil:', err);
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSavePhotoUrl = async (e: React.FormEvent) => {
@@ -199,11 +213,21 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
               <div className="flex gap-2">
                 <button
                   type="button"
+                  disabled={isUploadingPhoto}
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
+                  className="flex-1 py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer disabled:opacity-50"
                 >
-                  <Upload className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Carregar do dispositivo</span>
+                  {isUploadingPhoto ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                      <span>Enviando para Supabase...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Carregar foto (Bucket: img/)</span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -281,7 +305,19 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="p-2 border-t border-slate-100 bg-slate-50/30">
+          <div className="p-2 border-t border-slate-100 bg-slate-50/30 space-y-1">
+            {onNavigateDashboard && (
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  onNavigateDashboard();
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+                <span>Abrir Meu Painel (Anúncios & Matches)</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 setIsOpen(false);

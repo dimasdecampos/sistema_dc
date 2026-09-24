@@ -97,3 +97,30 @@ export interface CreateSaleInput {
   condition: 'NEW' | 'USED';
   images?: string[];
 }
+
+export interface SiteConfig {
+  siteName: string;
+  cityName: string;
+  tagline: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  noticeBannerEnabled: boolean;
+  noticeBannerText: string;
+  noticeBannerType: 'info' | 'warning' | 'success';
+  contactPhone: string;
+  contactEmail: string;
+  autoMatchThreshold: number;
+  currencySymbol: string;
+}
+
+export interface WantedRankItem {
+  id: string;
+  term: string;
+  category_id: string;
+  category_name: string;
+  category_icon: string;
+  total_seekers: number;
+  avg_budget: number | null;
+  available_offers: number;
+  sample_titles: string[];
+}

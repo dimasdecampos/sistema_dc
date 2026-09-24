@@ -9,9 +9,11 @@ import {
   CheckCircle2,
   Loader2,
   DollarSign,
+  Cloud,
 } from 'lucide-react';
 import { CreateWantedInput, ListingCondition } from '../types/marketplace';
-import { DEFAULT_CATEGORIES } from '../data/defaultCategories';
+import { getStoredCategories } from '../services/categoryService';
+import { uploadImageToSupabase } from '../services/storageService';
 
 interface CreateWantedModalProps {
   isOpen: boolean;
@@ -33,6 +35,7 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
   const [description, setDescription] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,15 +58,23 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPhotoUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    setIsUploadingPhoto(true);
+    try {
+      // Upload para pasta 'img/' no bucket 'img' do Supabase
+      const res = await uploadImageToSupabase(file, { folder: 'img' });
+      setPhotoUrl(res.url);
+    } catch (err) {
+      console.error('Erro no upload da foto de referência:', err);
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,7 +165,7 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
               onChange={(e) => setCategoryId(e.target.value)}
               className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium transition cursor-pointer"
             >
-              {DEFAULT_CATEGORIES.map((cat) => (
+              {getStoredCategories().map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.icon} {cat.name}
                 </option>
@@ -245,26 +256,54 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
           {/* Foto opcional de exemplo */}
           <div className="pt-1">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Foto de referência <span className="text-slate-400 font-normal">(opcional)</span>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <span>Foto de referência <span className="text-slate-400 font-normal">(opcional)</span></span>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                  <Cloud className="w-3 h-3" />
+                  <span>Bucket: img/</span>
+                </span>
               </label>
               <button
                 type="button"
+                disabled={isUploadingPhoto}
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
+                className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer disabled:opacity-50"
               >
-                <Upload className="w-3.5 h-3.5" />
-                <span>{photoUrl ? 'Alterar foto' : 'Carregar imagem'}</span>
+                {isUploadingPhoto ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Enviando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{photoUrl ? 'Alterar foto' : 'Carregar imagem'}</span>
+                  </>
+                )}
               </button>
             </div>
 
-            {photoUrl && (
-              <div className="mt-2 relative w-20 h-20 rounded-2xl overflow-hidden border border-slate-200">
+            {isUploadingPhoto && (
+              <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800 animate-in fade-in">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
+                <span>Otimizando (WebP/1200px) e enviando foto para a pasta <strong>img/</strong> no Supabase...</span>
+              </div>
+            )}
+
+            {photoUrl && !isUploadingPhoto && (
+              <div className="mt-2 relative w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 group shadow-2xs">
                 <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                <span
+                  title="Foto otimizada e salva na pasta img/ do bucket img no Supabase"
+                  className="absolute bottom-1 left-1 bg-emerald-600/90 text-white px-1 py-0.5 rounded-md text-[8px] font-bold shadow-xs flex items-center gap-0.5"
+                >
+                  <Cloud className="w-2.5 h-2.5" />
+                  <span>WebP</span>
+                </span>
                 <button
                   type="button"
                   onClick={() => setPhotoUrl('')}
-                  className="absolute top-1 right-1 p-0.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900"
+                  className="absolute top-1 right-1 p-0.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

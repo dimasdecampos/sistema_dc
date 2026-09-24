@@ -8,9 +8,15 @@ import {
   Loader2,
   DollarSign,
   Plus,
+  Cloud,
+  CheckCircle2,
 } from 'lucide-react';
 import { CreateSaleInput } from '../types/marketplace';
-import { DEFAULT_CATEGORIES } from '../data/defaultCategories';
+import { getStoredCategories } from '../services/categoryService';
+import {
+  uploadImageToSupabase,
+  MAX_PHOTOS_PER_PRODUCT,
+} from '../services/storageService';
 
 interface CreateSaleModalProps {
   isOpen: boolean;
@@ -30,26 +36,69 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
   const [condition, setCondition] = useState<'USED' | 'NEW'>('USED');
   const [photos, setPhotos] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [photoWarning, setPhotoWarning] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setPhotos((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+    const remainingSlots = MAX_PHOTOS_PER_PRODUCT - photos.length;
+    if (remainingSlots <= 0) {
+      setPhotoWarning(`Limite máximo de ${MAX_PHOTOS_PER_PRODUCT} fotos por produto já foi atingido.`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    const fileList = Array.from(files);
+    let filesToProcess = fileList;
+
+    if (fileList.length > remainingSlots) {
+      setPhotoWarning(
+        `Você selecionou ${fileList.length} fotos. Como o limite é de ${MAX_PHOTOS_PER_PRODUCT} por produto, apenas as ${remainingSlots} primeira(s) foram adicionadas.`
+      );
+      filesToProcess = fileList.slice(0, remainingSlots);
+    } else {
+      setPhotoWarning(null);
+    }
+
+    setIsUploadingPhotos(true);
+    setUploadProgress({ current: 0, total: filesToProcess.length });
+
+    const newUrls: string[] = [];
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i];
+      try {
+        // Redimensiona para max 1200px e comprime para WebP (economia de 90%+ no Supabase)
+        const res = await uploadImageToSupabase(file, {
+          folder: 'img',
+          maxWidth: 1200,
+          maxHeight: 1200,
+          quality: 0.82,
+        });
+        newUrls.push(res.url);
+      } catch (err) {
+        console.error('Falha no upload da foto:', err);
+      }
+      setUploadProgress({ current: i + 1, total: filesToProcess.length });
+    }
+
+    setPhotos((prev) => [...prev, ...newUrls].slice(0, MAX_PHOTOS_PER_PRODUCT));
+    setIsUploadingPhotos(false);
+    setUploadProgress(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleRemovePhoto = (index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotoWarning(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,7 +113,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
         category_id: categoryId,
         price: parseFloat(price.replace(',', '.')),
         condition,
-        images: photos.length > 0 ? photos : undefined,
+        images: photos.length > 0 ? photos.slice(0, MAX_PHOTOS_PER_PRODUCT) : undefined,
       });
 
       // Reset
@@ -72,6 +121,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
       setDescription('');
       setPrice('');
       setPhotos([]);
+      setPhotoWarning(null);
       onClose();
     } finally {
       setIsLoading(false);
@@ -157,7 +207,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
               onChange={(e) => setCategoryId(e.target.value)}
               className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-hidden focus:border-amber-500 text-slate-900 font-medium transition cursor-pointer"
             >
-              {DEFAULT_CATEGORIES.map((cat) => (
+              {getStoredCategories().map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.icon} {cat.name}
                 </option>
@@ -224,45 +274,106 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
           {/* Fotos */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Fotos do produto
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <span>Fotos do produto</span>
+                <span className="text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
+                  {photos.length}/{MAX_PHOTOS_PER_PRODUCT}
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                  <Cloud className="w-3 h-3" />
+                  <span>Bucket: img/</span>
+                </span>
               </label>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 font-semibold cursor-pointer"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>+ Adicionar fotos</span>
-              </button>
+
+              {photos.length < MAX_PHOTOS_PER_PRODUCT ? (
+                <button
+                  type="button"
+                  disabled={isUploadingPhotos}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>+ Adicionar ({MAX_PHOTOS_PER_PRODUCT - photos.length} restante{MAX_PHOTOS_PER_PRODUCT - photos.length > 1 ? 's' : ''})</span>
+                </button>
+              ) : (
+                <span className="text-[11px] font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-lg">
+                  Limite de 5 fotos atingido
+                </span>
+              )}
             </div>
+
+            {/* Banner de Aviso de Limite */}
+            {photoWarning && (
+              <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start justify-between gap-2">
+                <span>{photoWarning}</span>
+                <button
+                  type="button"
+                  onClick={() => setPhotoWarning(null)}
+                  className="text-amber-700 hover:text-amber-900 font-bold text-xs shrink-0 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Upload Progress Banner */}
+            {isUploadingPhotos && uploadProgress && (
+              <div className="mb-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800 animate-in fade-in">
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
+                <span>
+                  Otimizando (WebP/1200px) e enviando para o Supabase (pasta <strong>img/</strong>): foto {uploadProgress.current} de {uploadProgress.total}...
+                </span>
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-2">
               {photos.map((p, idx) => (
                 <div
                   key={idx}
-                  className="relative w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 shadow-2xs"
+                  className="relative w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 shadow-2xs group"
                 >
-                  <img src={p} alt={`Foto ${idx}`} className="w-full h-full object-cover" />
+                  <img src={p} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                  {/* Badge se salvo no Supabase / Otimizado */}
+                  <span
+                    title="Foto otimizada e salva na pasta img/ do bucket img no Supabase"
+                    className="absolute bottom-1 left-1 bg-emerald-600/90 backdrop-blur-xs text-white px-1 py-0.5 rounded-md text-[8px] font-bold shadow-xs flex items-center gap-0.5"
+                  >
+                    <Cloud className="w-2.5 h-2.5" />
+                    <span>WebP</span>
+                  </span>
                   <button
                     type="button"
                     onClick={() => handleRemovePhoto(idx)}
-                    className="absolute top-1 right-1 p-0.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900"
+                    className="absolute top-1 right-1 p-0.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </div>
               ))}
 
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-20 h-20 rounded-2xl border-2 border-dashed border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/50 flex flex-col items-center justify-center text-slate-400 hover:text-amber-700 transition cursor-pointer"
-              >
-                <Camera className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-semibold">Foto</span>
-              </button>
+              {photos.length < MAX_PHOTOS_PER_PRODUCT && (
+                <button
+                  type="button"
+                  disabled={isUploadingPhotos}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-20 h-20 rounded-2xl border-2 border-dashed border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/50 flex flex-col items-center justify-center text-slate-400 hover:text-amber-700 transition cursor-pointer disabled:opacity-50"
+                >
+                  {isUploadingPhotos ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-amber-600 mb-1" />
+                  ) : (
+                    <Camera className="w-5 h-5 mb-1" />
+                  )}
+                  <span className="text-[10px] font-semibold">
+                    {isUploadingPhotos ? 'Enviando...' : `Foto ${photos.length + 1}/5`}
+                  </span>
+                </button>
+              )}
             </div>
+
+            <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+              <span>Fotos são redimensionadas automaticamente (máx 1200px / WebP) para não consumir espaço desnecessário no Supabase.</span>
+            </p>
           </div>
 
           {/* Botão de envio */}

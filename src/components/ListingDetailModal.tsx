@@ -30,6 +30,8 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   currentUser,
   relatedMatches = [],
 }) => {
+  const [activeImageIndex, setActiveImageIndex] = React.useState(0);
+
   if (!isOpen || !listing) return null;
 
   const isWanted = listing.type === 'WANTED';
@@ -47,7 +49,8 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
     : 'https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80';
 
   const images =
-    listing.images && listing.images.length > 0 ? listing.images : [defaultImage];
+    listing.images && listing.images.length > 0 ? listing.images.slice(0, 5) : [defaultImage];
+  const safeIndex = activeImageIndex >= images.length ? 0 : activeImageIndex;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -82,12 +85,45 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
         {/* Scrollable Content */}
         <div className="p-5 sm:p-6 space-y-6 overflow-y-auto">
           {/* Main Photo Gallery */}
-          <div className="rounded-2xl overflow-hidden aspect-16/9 bg-slate-100 border border-slate-200 shadow-2xs">
-            <img
-              src={images[0]}
-              alt={listing.title}
-              className="w-full h-full object-cover"
-            />
+          <div className="space-y-2">
+            <div className="relative rounded-2xl overflow-hidden aspect-16/9 bg-slate-100 border border-slate-200 shadow-2xs">
+              <img
+                src={images[safeIndex]}
+                alt={listing.title}
+                loading="eager"
+                className="w-full h-full object-cover transition-all duration-300"
+              />
+              {images.length > 1 && (
+                <div className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs">
+                  {safeIndex + 1} / {images.length} fotos
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnails (máximo 5 fotos) */}
+            {images.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 transition cursor-pointer shrink-0 ${
+                      safeIndex === idx
+                        ? 'border-emerald-600 ring-2 ring-emerald-500/30 scale-102'
+                        : 'border-slate-200 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={img}
+                      alt={`Foto ${idx + 1}`}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Title & Price Header */}

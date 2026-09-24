@@ -2,13 +2,14 @@ import React from 'react';
 import { Search, Tag, Filter, PlusCircle, Sparkles } from 'lucide-react';
 import { Listing, Category } from '../types/marketplace';
 import { ListingCard } from './ListingCard';
-import { DEFAULT_CATEGORIES } from '../data/defaultCategories';
+import { getStoredCategories } from '../services/categoryService';
 
 interface ListingsFeedProps {
   listings: Listing[];
   activeType: 'ALL' | 'WANTED' | 'SALE';
   selectedCategory: string;
   searchQuery: string;
+  categories?: Category[];
   onSelectType: (type: 'ALL' | 'WANTED' | 'SALE') => void;
   onSelectCategory: (catId: string) => void;
   onSearchChange: (search: string) => void;
@@ -23,6 +24,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
   activeType,
   selectedCategory,
   searchQuery,
+  categories = getStoredCategories(),
   onSelectType,
   onSelectCategory,
   onSearchChange,
@@ -116,7 +118,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
             Todas as categorias
           </button>
 
-          {DEFAULT_CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => onSelectCategory(cat.id)}

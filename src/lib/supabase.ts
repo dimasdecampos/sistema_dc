@@ -123,6 +123,37 @@ create policy "Acesso a conversas" on public.conversations for all using (true);
 
 alter table public.messages enable row level security;
 create policy "Acesso a mensagens" on public.messages for all using (true);
+
+-- ========================================================
+-- 7. STORAGE BUCKET: img (Armazenamento de Fotos na pasta img/)
+-- ========================================================
+-- Cria o bucket 'img' caso não exista e define como público
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'img',
+  'img',
+  true,
+  5242880, -- limite de 5MB por foto
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
+)
+on conflict (id) do update set public = true;
+
+-- Políticas de acesso público para o bucket 'img'
+create policy "Visualização pública de fotos no bucket img"
+  on storage.objects for select
+  using (bucket_id = 'img');
+
+create policy "Upload de fotos no bucket img"
+  on storage.objects for insert
+  with check (bucket_id = 'img');
+
+create policy "Atualização de fotos no bucket img"
+  on storage.objects for update
+  using (bucket_id = 'img');
+
+create policy "Exclusão de fotos no bucket img"
+  on storage.objects for delete
+  using (bucket_id = 'img');
 `;
 
 export const SUPABASE_INSERT_SAMPLE_SQL = `-- Inserir exemplo de anúncio de procura (WANTED)

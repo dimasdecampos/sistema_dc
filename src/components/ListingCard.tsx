@@ -7,6 +7,7 @@ import {
   MapPin,
   Clock,
   CheckCircle,
+  Camera,
 } from 'lucide-react';
 import { Listing } from '../types/marketplace';
 
@@ -92,12 +93,17 @@ export const ListingCard: React.FC<ListingCardProps> = ({
         </div>
 
         {/* Match Score Badge se fornecido */}
-        {matchScore != null && (
+        {matchScore != null ? (
           <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-lg text-xs font-black bg-emerald-600 text-white shadow-xs flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-300" />
             <span>{matchScore}% Match</span>
           </div>
-        )}
+        ) : listing.images && listing.images.length > 1 ? (
+          <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-900/75 backdrop-blur-xs text-white shadow-xs flex items-center gap-1">
+            <Camera className="w-3 h-3 text-amber-400" />
+            <span>{listing.images.length} fotos</span>
+          </div>
+        ) : null}
       </div>
 
       {/* Content */}

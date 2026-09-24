@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Usuario } from '../types/auth';
-import { syncUserWithSupabase, saveStoredUser, clearStoredUser } from './authService';
+import { syncUserWithSupabase, saveStoredUser, clearStoredUser, getStoredUser } from './authService';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
@@ -32,12 +32,14 @@ export const initGoogleAuth = (
 ) => {
   return onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
+      const existing = getStoredUser();
       const userObj: Usuario = {
+        id: firebaseUser.uid,
         google_id: firebaseUser.uid,
         email: (firebaseUser.email || '').toLowerCase().trim(),
         nome: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário Google',
         foto: firebaseUser.photoURL || undefined,
-        cidade: 'São Paulo',
+        cidade: existing?.cidade || 'Socorro - SP',
         last_login_at: new Date().toISOString(),
       };
 
@@ -53,8 +55,9 @@ export const initGoogleAuth = (
       }
     } else {
       cachedAccessToken = null;
-      // Não limpa imediatamente se o usuário tiver sessão customizada salva
-      onUserChanged(null, null);
+      // Mantém a sessão salva em localStorage caso o login tenha sido manual ou antes da restauração do Firebase
+      const stored = getStoredUser();
+      onUserChanged(stored, null);
     }
   });
 };
@@ -72,12 +75,14 @@ export const signInWithGoogle = async (): Promise<Usuario> => {
     }
 
     const firebaseUser = result.user;
+    const existing = getStoredUser();
     const userObj: Usuario = {
+      id: firebaseUser.uid,
       google_id: firebaseUser.uid,
       email: (firebaseUser.email || '').toLowerCase().trim(),
       nome: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário Google',
       foto: firebaseUser.photoURL || undefined,
-      cidade: 'São Paulo',
+      cidade: existing?.cidade || 'Socorro - SP',
       last_login_at: new Date().toISOString(),
     };
 
@@ -94,7 +99,11 @@ export const signInWithGoogle = async (): Promise<Usuario> => {
  * Desconecta a conta do Google
  */
 export const logoutGoogle = async (): Promise<void> => {
-  await signOut(auth);
+  try {
+    await signOut(auth);
+  } catch (e) {
+    console.warn('Erro ao deslogar Firebase:', e);
+  }
   cachedAccessToken = null;
   clearStoredUser();
 };

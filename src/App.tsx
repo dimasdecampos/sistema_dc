@@ -11,14 +11,20 @@ import {
   Heart,
   MessageSquare,
   CheckCircle2,
+  ShieldCheck,
+  TrendingUp,
+  SlidersHorizontal,
+  ArrowUpDown,
 } from 'lucide-react';
 import {
+  Category,
   Listing,
   Match,
   Conversation,
   UserProfile,
   CreateWantedInput,
   CreateSaleInput,
+  SiteConfig,
 } from './types/marketplace';
 import { SAMPLE_USERS } from './data/sampleMarketplaceData';
 import {
@@ -30,8 +36,17 @@ import {
   deleteListing,
   startOrGetConversation,
 } from './services/marketplaceService';
-import { getStoredUser, syncUserWithSupabase } from './services/authService';
-import { initGoogleAuth } from './services/googleAuth';
+import {
+  getStoredUser,
+  syncUserWithSupabase,
+  loginWithGoogleData,
+  updateCurrentUserProfile,
+  logoutUser,
+  getOfficialGooglePhoto,
+} from './services/authService';
+import { signInWithGoogle, logoutGoogle, initGoogleAuth } from './services/googleAuth';
+import { Usuario } from './types/auth';
+import { GoogleLoginModal } from './components/GoogleLoginModal';
 import { Navbar } from './components/Navbar';
 import { HomeHero } from './components/HomeHero';
 import { ListingsFeed } from './components/ListingsFeed';
@@ -45,17 +60,33 @@ import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { ListingCard } from './components/ListingCard';
 import { getBuyersInterestedInSale } from './services/matchingService';
+import { getSiteConfig, saveSiteConfig, resetSiteConfig } from './services/siteConfigService';
+import {
+  getStoredCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  moveListingToCategory,
+} from './services/categoryService';
+import { computeWantedRanking } from './services/rankingService';
+import { MostWantedRanking } from './components/MostWantedRanking';
+import { AdminPanel } from './components/AdminPanel';
 
 export default function App() {
-  // Current active user (defaults to Dimas from prompt specification)
+  // Google Auth User
+  const [googleUser, setGoogleUser] = useState<Usuario | null>(() => getStoredUser());
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Current active user (defaults to stored Google user, or Dimas from prompt specification)
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     const stored = getStoredUser();
     if (stored) {
       return {
-        id: stored.id || 'user-dimas',
+        id: stored.id || stored.google_id || 'user-dimas',
         nome: stored.nome,
         email: stored.email,
-        avatar_url: stored.foto,
+        avatar_url: stored.foto || getOfficialGooglePhoto(stored.email),
         cidade: stored.cidade || 'Socorro - SP',
         created_at: stored.created_at || new Date().toISOString(),
       };
@@ -63,10 +94,43 @@ export default function App() {
     return SAMPLE_USERS.dimas;
   });
 
+  // Site Configuration & Categories
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getSiteConfig());
+  const [categories, setCategories] = useState<Category[]>(() => getStoredCategories());
+
+  // Home Page Product Category & Sort State
+  const [homeCategory, setHomeCategory] = useState<string>('all');
+  const [homeSort, setHomeSort] = useState<'recent' | 'price-asc' | 'price-desc'>('recent');
+
+  // Ranking Category Filter
+  const [rankingCategory, setRankingCategory] = useState<string>('all');
+
   // Navigation tab
   const [currentTab, setCurrentTab] = useState<
-    'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard'
-  >('home');
+    'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin'
+  >(() => (typeof window !== 'undefined' && window.location.hash === '#admin' ? 'admin' : 'home'));
+
+  // Listen for hash changes for /#admin
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#admin') {
+        setCurrentTab('admin');
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  const handleSelectTab = (
+    tab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin'
+  ) => {
+    setCurrentTab(tab);
+    if (tab === 'admin') {
+      window.location.hash = 'admin';
+    } else if (window.location.hash === '#admin') {
+      history.pushState(null, '', window.location.pathname);
+    }
+  };
 
   // Listings & Matches State
   const [listings, setListings] = useState<Listing[]>([]);
@@ -106,6 +170,98 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // Helper para sincronizar usuário Google com o perfil do marketplace
+  const handleUserAuthenticated = useCallback((u: Usuario) => {
+    setGoogleUser(u);
+    const photo = u.foto || getOfficialGooglePhoto(u.email);
+    const mapped: UserProfile = {
+      id: u.id || u.google_id || 'user-google',
+      nome: u.nome,
+      email: u.email,
+      avatar_url: photo,
+      cidade: u.cidade || 'Socorro - SP',
+      created_at: u.created_at || new Date().toISOString(),
+    };
+    setCurrentUser(mapped);
+  }, []);
+
+  // Login Oficial Google (Popup Firebase)
+  const handleOfficialGoogleSignIn = async () => {
+    setIsLoggingIn(true);
+    try {
+      const u = await signInWithGoogle();
+      handleUserAuthenticated(u);
+      showToast(
+        `Olá, ${u.nome}!`,
+        'Login oficial com o Google realizado com sucesso. Sua foto oficial e conta foram sincronizadas.',
+        'success'
+      );
+    } catch (err: unknown) {
+      console.warn('Erro ao conectar com Google:', err);
+      throw err;
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Login Manual / Direto com perfil Google
+  const handleLoginManual = async (data: {
+    nome: string;
+    email: string;
+    foto?: string;
+    cidade?: string;
+  }) => {
+    setIsLoggingIn(true);
+    try {
+      const res = await loginWithGoogleData(data);
+      handleUserAuthenticated(res.user);
+      showToast(
+        `Olá, ${res.user.nome}!`,
+        'Conta Google conectada com sucesso. Foto oficial vinculada.',
+        'success'
+      );
+    } catch (err: unknown) {
+      showToast('Erro ao conectar conta', String(err), 'error');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Logout Google
+  const handleLogoutGoogle = async () => {
+    await logoutGoogle();
+    await logoutUser();
+    setGoogleUser(null);
+    setCurrentUser(SAMPLE_USERS.dimas);
+    showToast('Sessão encerrada', 'Você saiu da sua conta do Google.', 'info');
+  };
+
+  // Atualização de cidade
+  const handleUpdateCity = async (newCity: string) => {
+    if (!newCity.trim()) return;
+    try {
+      const updated = await updateCurrentUserProfile({ cidade: newCity.trim() });
+      setGoogleUser(updated);
+      setCurrentUser((prev) => ({ ...prev, cidade: newCity.trim() }));
+      showToast('Cidade atualizada', `Sua cidade foi alterada para ${newCity.trim()}`, 'success');
+    } catch (e) {
+      showToast('Erro ao atualizar cidade', String(e), 'error');
+    }
+  };
+
+  // Atualização de foto oficial
+  const handleUpdatePhoto = async (newPhoto: string) => {
+    if (!newPhoto.trim()) return;
+    try {
+      const updated = await updateCurrentUserProfile({ foto: newPhoto.trim() });
+      setGoogleUser(updated);
+      setCurrentUser((prev) => ({ ...prev, avatar_url: newPhoto.trim() }));
+      showToast('Foto atualizada', 'Sua foto de perfil foi atualizada com sucesso.', 'success');
+    } catch (e) {
+      showToast('Erro ao atualizar foto', String(e), 'error');
+    }
+  };
+
   // Carrega anúncios e matches
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -128,25 +284,12 @@ export default function App() {
     // Listener de login Google oficial
     const unsubGoogle = initGoogleAuth((gUser) => {
       if (gUser) {
-        const mappedUser: UserProfile = {
-          id: gUser.id || 'user-google',
-          nome: gUser.nome,
-          email: gUser.email,
-          avatar_url: gUser.foto,
-          cidade: gUser.cidade || 'Socorro - SP',
-          created_at: gUser.created_at || new Date().toISOString(),
-        };
-        setCurrentUser(mappedUser);
-        showToast(
-          `Olá, ${gUser.nome}!`,
-          'Sua conta Google e foto oficial foram sincronizadas.',
-          'success'
-        );
+        handleUserAuthenticated(gUser);
       }
     });
 
     return () => unsubGoogle();
-  }, [loadData, showToast]);
+  }, [loadData, handleUserAuthenticated]);
 
   // Abertura com pesquisa vinda do Hero da Home
   const handleSearchOrStartWanted = (queryText: string) => {
@@ -246,6 +389,90 @@ export default function App() {
     setIsDetailModalOpen(true);
   };
 
+  // Admin Operations
+  const handleSaveConfig = (newCfg: SiteConfig) => {
+    saveSiteConfig(newCfg);
+    setSiteConfig(newCfg);
+    showToast('Configurações salvas!', 'Os ajustes do site foram atualizados com sucesso.', 'success');
+  };
+
+  const handleResetConfig = () => {
+    const def = resetSiteConfig();
+    setSiteConfig(def);
+    showToast('Configurações restauradas', 'Os parâmetros padrão do site foram redefinidos.', 'info');
+  };
+
+  const handleCreateCategory = (input: { name: string; slug?: string; icon: string }) => {
+    const created = createCategory(input);
+    const updated = getStoredCategories();
+    setCategories(updated);
+    showToast('Categoria criada!', `A categoria "${created.name}" foi adicionada com sucesso.`, 'success');
+  };
+
+  const handleUpdateCategory = (id: string, updates: Partial<Category>) => {
+    const updatedCat = updateCategory(id, updates);
+    const updated = getStoredCategories();
+    setCategories(updated);
+    loadData();
+    showToast('Categoria atualizada!', `A categoria "${updatedCat.name}" foi atualizada.`, 'success');
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    try {
+      const res = deleteCategory(id);
+      const updated = getStoredCategories();
+      setCategories(updated);
+      loadData();
+      showToast(
+        'Categoria excluída!',
+        `Categoria removida. ${res.movedCount} produto(s) foram movidos para a categoria alternativa.`,
+        'success'
+      );
+    } catch (e) {
+      showToast('Erro ao excluir', String(e), 'error');
+    }
+  };
+
+  const handleMoveListingCategory = (listingId: string, targetCategoryId: string) => {
+    try {
+      const moved = moveListingToCategory(listingId, targetCategoryId);
+      loadData();
+      const targetCat = categories.find((c) => c.id === targetCategoryId);
+      showToast(
+        'Produto movido com sucesso!',
+        `"${moved.title}" agora está em ${targetCat?.icon || ''} ${targetCat?.name || targetCategoryId}.`,
+        'success'
+      );
+    } catch (e) {
+      showToast('Erro ao mover produto', String(e), 'error');
+    }
+  };
+
+  const handleAdminUpdateListingStatus = async (
+    listingId: string,
+    status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
+  ) => {
+    await updateListingStatus(listingId, status);
+    loadData();
+    showToast('Status atualizado', `Publicação alterada para ${status}.`, 'info');
+  };
+
+  const handleAdminDeleteListing = async (listingId: string) => {
+    await deleteListing(listingId);
+    loadData();
+    showToast('Publicação removida', 'O item foi excluído do catálogo.', 'info');
+  };
+
+  // Ranking Ações Rápidas
+  const handleOpenWantedWithTerm = (term: string, categoryId: string) => {
+    setInitialWantedQuery(term);
+    setIsWantedModalOpen(true);
+  };
+
+  const handleOpenSaleWithTerm = (term: string, categoryId: string) => {
+    setIsSaleModalOpen(true);
+  };
+
   // Marcar como concluído
   const handleMarkAsCompleted = async (listingId: string) => {
     await updateListingStatus(listingId, 'COMPLETED');
@@ -268,9 +495,25 @@ export default function App() {
     (l) => l.user_id === currentUser.id && l.type === 'SALE'
   );
 
-  // Anúncios recentes para a Home
+  // Anúncios recentes de procura para a Home
   const recentWanted = listings.filter((l) => l.type === 'WANTED').slice(0, 3);
-  const recentSales = listings.filter((l) => l.type === 'SALE').slice(0, 3);
+
+  // Ranking calculado para a categoria selecionada
+  const rankingItems = computeWantedRanking(listings, rankingCategory);
+
+  // Produtos à venda na Home com muito mais espaço, filtro de categoria e ordenação
+  const homeSalesListings = listings
+    .filter((l) => l.type === 'SALE' && l.status === 'ACTIVE')
+    .filter((l) => (homeCategory === 'all' ? true : l.category_id === homeCategory))
+    .sort((a, b) => {
+      if (homeSort === 'price-asc') {
+        return (a.price || 0) - (b.price || 0);
+      }
+      if (homeSort === 'price-desc') {
+        return (b.price || 0) - (a.price || 0);
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   // Matches para o anúncio selecionado se for aberto em modal
   const relatedMatchesForSelected = selectedListing
@@ -284,8 +527,15 @@ export default function App() {
       {/* Navbar Global */}
       <Navbar
         currentTab={currentTab}
-        onSelectTab={setCurrentTab}
+        onSelectTab={handleSelectTab}
         user={currentUser}
+        googleUser={googleUser}
+        config={siteConfig}
+        onOpenGoogleLogin={() => setIsGoogleModalOpen(true)}
+        onLogoutGoogle={handleLogoutGoogle}
+        onUpdateCity={handleUpdateCity}
+        onUpdatePhoto={handleUpdatePhoto}
+        isLoggingIn={isLoggingIn}
         matchesCount={userMatches.length}
         unreadCount={conversations.length}
         onOpenWantedModal={() => {
@@ -302,17 +552,24 @@ export default function App() {
         {/* TAB 1: INÍCIO */}
         {currentTab === 'home' && (
           <div className="space-y-8 sm:space-y-12">
-            {/* Hero Section Inteligente */}
+            {/* Hero Section Inteligente & Compacto */}
             <HomeHero
               onSearchOrStartWanted={handleSearchOrStartWanted}
               onOpenSaleModal={() => setIsSaleModalOpen(true)}
+              onScrollToRanking={() => {
+                const el = document.getElementById('ranking-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              cityName={siteConfig.cityName}
+              heroTitle={siteConfig.heroTitle}
+              heroSubtitle={siteConfig.heroSubtitle}
             />
 
             {/* Banner de Matches Ativos se houver correspondências */}
             {userMatches.length > 0 && (
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div
-                  onClick={() => setCurrentTab('dashboard')}
+                  onClick={() => handleSelectTab('dashboard')}
                   className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 rounded-3xl p-5 sm:p-6 text-white shadow-lg shadow-emerald-600/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:scale-[1.005] transition-all"
                 >
                   <div className="flex items-center gap-4">
@@ -337,13 +594,141 @@ export default function App() {
               </div>
             )}
 
-            {/* Seções da Home: Quem Procura & Ofertas Recentes */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 sm:space-y-12">
-              {/* Seção 1: Quem está procurando na cidade */}
+            {/* Conteúdo Principal da Home Reorganizada */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+              {/* SEÇÃO 1: PRODUTOS À VENDA NA CIDADE (MAIS ESPAÇO PARA OS PRODUTOS!) */}
+              <section className="space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                        <Tag className="w-4 h-4 text-amber-700" />
+                      </div>
+                      <h2 className="font-black text-xl sm:text-2xl text-slate-900 tracking-tight">
+                        Produtos à Venda na Cidade
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-50 text-amber-900 border border-amber-200">
+                        {homeSalesListings.length} {homeSalesListings.length === 1 ? 'item' : 'itens'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Explore itens anunciados por vizinhos e moradores de {siteConfig.cityName.split('-')[0].trim()}.
+                    </p>
+                  </div>
+
+                  {/* Ordenação de Produtos */}
+                  <div className="flex items-center gap-3 self-start sm:self-auto">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                      <select
+                        value={homeSort}
+                        onChange={(e) => setHomeSort(e.target.value as any)}
+                        className="bg-transparent font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+                      >
+                        <option value="recent">Mais recentes</option>
+                        <option value="price-asc">Menor preço</option>
+                        <option value="price-desc">Maior preço</option>
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setFeedTypeFilter('SALE');
+                        handleSelectTab('sales');
+                      }}
+                      className="text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-1.5 rounded-xl border border-amber-200 transition cursor-pointer flex items-center gap-1"
+                    >
+                      <span>Ver catálogo completo</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filtro de Categorias Horizontal com Contadores */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none text-xs">
+                  <button
+                    onClick={() => setHomeCategory('all')}
+                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+                      homeCategory === 'all'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                    }`}
+                  >
+                    <span>Todos ({listings.filter((l) => l.type === 'SALE' && l.status === 'ACTIVE').length})</span>
+                  </button>
+
+                  {categories.map((cat) => {
+                    const count = listings.filter(
+                      (l) => l.type === 'SALE' && l.status === 'ACTIVE' && l.category_id === cat.id
+                    ).length;
+
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setHomeCategory(cat.id)}
+                        className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+                          homeCategory === cat.id
+                            ? 'bg-amber-500 text-slate-950 shadow-sm'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        <span>{cat.icon}</span>
+                        <span>{cat.name}</span>
+                        <span className="text-[10px] opacity-75 font-normal">({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Grade de Produtos (Espaço Amplo para Produtos!) */}
+                {homeSalesListings.length === 0 ? (
+                  <div className="text-center py-12 px-4 bg-white rounded-3xl border border-slate-200">
+                    <Tag className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-700">
+                      Nenhum produto anunciado nesta categoria no momento.
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Tem algo para desapegar? Anuncie agora para os moradores da cidade!
+                    </p>
+                    <button
+                      onClick={() => setIsSaleModalOpen(true)}
+                      className="mt-4 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl shadow-sm transition cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Anunciar meu desapego</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+                    {homeSalesListings.slice(0, 8).map((item) => (
+                      <ListingCard
+                        key={item.id}
+                        listing={item}
+                        onClick={handleViewListing}
+                        currentUserId={currentUser.id}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* SEÇÃO 2: RANKING DAS COISAS MAIS PROCURADAS POR CATEGORIA */}
+              <section id="ranking-section" className="scroll-mt-20">
+                <MostWantedRanking
+                  ranking={rankingItems}
+                  categories={categories}
+                  selectedCategory={rankingCategory}
+                  onSelectCategory={setRankingCategory}
+                  onOpenWantedWithTerm={handleOpenWantedWithTerm}
+                  onOpenSaleWithTerm={handleOpenSaleWithTerm}
+                />
+              </section>
+
+              {/* SEÇÃO 3: MORADORES PROCURANDO NA CIDADE */}
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
                       <Search className="w-4 h-4 text-emerald-700" />
                     </div>
                     <h2 className="font-extrabold text-xl text-slate-900 tracking-tight">
@@ -354,7 +739,7 @@ export default function App() {
                   <button
                     onClick={() => {
                       setFeedTypeFilter('WANTED');
-                      setCurrentTab('wanted');
+                      handleSelectTab('wanted');
                     }}
                     className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
                   >
@@ -365,42 +750,6 @@ export default function App() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   {recentWanted.map((item) => (
-                    <ListingCard
-                      key={item.id}
-                      listing={item}
-                      onClick={handleViewListing}
-                      currentUserId={currentUser.id}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              {/* Seção 2: Produtos à venda */}
-              <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
-                      <Tag className="w-4 h-4 text-amber-700" />
-                    </div>
-                    <h2 className="font-extrabold text-xl text-slate-900 tracking-tight">
-                      Últimos produtos colocados à venda
-                    </h2>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setFeedTypeFilter('SALE');
-                      setCurrentTab('sales');
-                    }}
-                    className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Ver todas ({listings.filter((l) => l.type === 'SALE').length})</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {recentSales.map((item) => (
                     <ListingCard
                       key={item.id}
                       listing={item}
@@ -443,6 +792,7 @@ export default function App() {
             <ListingsFeed
               listings={listings}
               activeType="WANTED"
+              categories={categories}
               selectedCategory={selectedCategory}
               searchQuery={searchQuery}
               onSelectType={(t) => setFeedTypeFilter(t)}
@@ -482,6 +832,7 @@ export default function App() {
             <ListingsFeed
               listings={listings}
               activeType="SALE"
+              categories={categories}
               selectedCategory={selectedCategory}
               searchQuery={searchQuery}
               onSelectType={(t) => setFeedTypeFilter(t)}
@@ -513,6 +864,9 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <UserDashboard
               user={currentUser}
+              googleUser={googleUser}
+              onOpenGoogleLogin={() => setIsGoogleModalOpen(true)}
+              onLogoutGoogle={handleLogoutGoogle}
               userWanted={userWantedListings}
               userSales={userSaleListings}
               matches={userMatches}
@@ -528,18 +882,46 @@ export default function App() {
             />
           </div>
         )}
+
+        {/* TAB 6: PAINEL DE ADMINISTRAÇÃO /admin */}
+        {currentTab === 'admin' && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <AdminPanel
+              config={siteConfig}
+              categories={categories}
+              listings={listings}
+              onSaveConfig={handleSaveConfig}
+              onResetConfig={handleResetConfig}
+              onCreateCategory={handleCreateCategory}
+              onUpdateCategory={handleUpdateCategory}
+              onDeleteCategory={handleDeleteCategory}
+              onMoveListingCategory={handleMoveListingCategory}
+              onDeleteListing={handleAdminDeleteListing}
+              onUpdateListingStatus={handleAdminUpdateListingStatus}
+              onCloseAdmin={() => handleSelectTab('home')}
+            />
+          </div>
+        )}
       </main>
 
       {/* Footer */}
       <footer className="border-t border-slate-200/90 bg-white py-8 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-2">
-            <span className="font-extrabold text-slate-800">TemAqui</span>
+            <span className="font-extrabold text-slate-800">{siteConfig.siteName}</span>
             <span>•</span>
-            <span>Marketplace local baseado em Procura e Oferta</span>
+            <span>{siteConfig.tagline}</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
+            <button
+              onClick={() => handleSelectTab('admin')}
+              className="text-slate-700 hover:text-emerald-700 font-bold transition cursor-pointer flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Painel Admin (/admin)</span>
+            </button>
+            <span>•</span>
             <button
               onClick={() => setIsSqlModalOpen(true)}
               className="text-slate-600 hover:text-emerald-600 font-semibold transition cursor-pointer flex items-center gap-1.5"
@@ -565,13 +947,22 @@ export default function App() {
               title="Restaura os dados padrão de exemplo"
             >
               <RefreshCw className="w-3 h-3" />
-              <span>Resetar dados de exemplo</span>
+              <span>Resetar dados</span>
             </button>
           </div>
         </div>
       </footer>
 
       {/* MODALS */}
+      <GoogleLoginModal
+        isOpen={isGoogleModalOpen}
+        onClose={() => setIsGoogleModalOpen(false)}
+        onOfficialGoogleSignIn={handleOfficialGoogleSignIn}
+        onLoginManual={handleLoginManual}
+        defaultEmail={currentUser.email || 'dimasrafting@gmail.com'}
+        defaultCity={currentUser.cidade || 'Socorro - SP'}
+      />
+
       <CreateWantedModal
         isOpen={isWantedModalOpen}
         onClose={() => setIsWantedModalOpen(false)}

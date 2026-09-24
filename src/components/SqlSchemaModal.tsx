@@ -32,7 +32,7 @@ export const SqlSchemaModal: React.FC<SqlSchemaModalProps> = ({ isOpen, onClose 
                 Script SQL para o Supabase
               </h2>
               <p className="text-xs text-slate-500">
-                Tabelas: profiles, categories, listings, listing_images, matches, conversas
+                Tabelas, RLS e Storage Bucket <strong>'img'</strong> com acesso público para fotos
               </p>
             </div>
           </div>
