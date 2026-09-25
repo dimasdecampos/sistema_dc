@@ -13,9 +13,12 @@ import {
   LayoutDashboard,
   Loader2,
   Cloud,
+  ShieldCheck,
+  MessageSquare,
 } from 'lucide-react';
 import { Usuario } from '../types/auth';
 import { uploadImageToSupabase } from '../services/storageService';
+import { isUserAdmin } from '../services/siteConfigService';
 
 interface UserProfileMenuProps {
   user: Usuario;
@@ -23,6 +26,7 @@ interface UserProfileMenuProps {
   onUpdateCity?: (newCity: string) => Promise<void>;
   onUpdatePhoto?: (newPhoto: string) => Promise<void>;
   onNavigateDashboard?: () => void;
+  onNavigateConversations?: () => void;
   isSupabaseSynced?: boolean;
 }
 
@@ -32,6 +36,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
   onUpdateCity,
   onUpdatePhoto,
   onNavigateDashboard,
+  onNavigateConversations,
   isSupabaseSynced = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -306,6 +311,33 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
 
           {/* Actions */}
           <div className="p-2 border-t border-slate-100 bg-slate-50/30 space-y-1">
+            {isUserAdmin(user.email, user.adminConfig) && (
+              <a
+                href="#admin"
+                onClick={() => setIsOpen(false)}
+                className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-emerald-950 bg-emerald-50/70 hover:bg-emerald-100 rounded-xl transition cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                  <span>Painel do Administrador</span>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200">
+                  Config Salva
+                </span>
+              </a>
+            )}
+            {onNavigateConversations && (
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  onNavigateConversations();
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
+                <span>Minhas Conversas</span>
+              </button>
+            )}
             {onNavigateDashboard && (
               <button
                 onClick={() => {

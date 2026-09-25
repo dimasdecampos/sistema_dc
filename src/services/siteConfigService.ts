@@ -1,4 +1,10 @@
 import { SiteConfig } from '../types/marketplace';
+import {
+  getSavedUserAdminConfig,
+  saveUserAdminConfigToLocal,
+  saveAdminConfigToUserProfile,
+  getStoredUser,
+} from './authService';
 
 const SITE_CONFIG_STORAGE_KEY = 'tem_aqui_site_config_v1';
 
@@ -23,11 +29,28 @@ export function isUserAdmin(email?: string | null, config?: SiteConfig): boolean
   const normalized = email.toLowerCase().trim();
   if (normalized === 'dimasrafting@gmail.com') return true;
   const adminList = config?.adminEmails || DEFAULT_SITE_CONFIG.adminEmails || ['dimasrafting@gmail.com'];
-  return adminList.some((e) => e.toLowerCase().trim() === normalized);
+  return adminList.some((e: string) => e.toLowerCase().trim() === normalized);
 }
 
-export function getSiteConfig(): SiteConfig {
+/**
+ * Obtém as configurações do site, priorizando as configurações salvas no perfil do usuário
+ */
+export function getSiteConfig(userEmail?: string | null): SiteConfig {
   try {
+    const activeEmail = (userEmail || getStoredUser()?.email || '').toLowerCase().trim();
+
+    // 1. Tenta carregar do perfil do usuário logado
+    if (activeEmail) {
+      const userSaved = getSavedUserAdminConfig(activeEmail);
+      if (userSaved) {
+        const adminEmails = Array.from(
+          new Set(['dimasrafting@gmail.com', ...(userSaved.adminEmails || [])])
+        );
+        return { ...DEFAULT_SITE_CONFIG, ...userSaved, adminEmails };
+      }
+    }
+
+    // 2. Fallback para configuração geral no localStorage
     const raw = localStorage.getItem(SITE_CONFIG_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -43,14 +66,30 @@ export function getSiteConfig(): SiteConfig {
   return DEFAULT_SITE_CONFIG;
 }
 
-export function saveSiteConfig(newConfig: SiteConfig): SiteConfig {
+/**
+ * Salva as configurações do site no storage global E diretamente no perfil do usuário
+ */
+export function saveSiteConfig(newConfig: SiteConfig, userEmail?: string | null): SiteConfig {
   try {
     // Garante que dimasrafting@gmail.com nunca seja removido acidentalmente
     const adminEmails = Array.from(
       new Set(['dimasrafting@gmail.com', ...(newConfig.adminEmails || [])])
     );
-    const configToSave = { ...newConfig, adminEmails };
+    const configToSave: SiteConfig = { ...newConfig, adminEmails };
+
+    // 1. Salva no localStorage geral do app
     localStorage.setItem(SITE_CONFIG_STORAGE_KEY, JSON.stringify(configToSave));
+
+    // 2. Salva diretamente no perfil do usuário
+    const targetEmail = (userEmail || getStoredUser()?.email || 'dimasrafting@gmail.com').toLowerCase().trim();
+    if (targetEmail) {
+      saveUserAdminConfigToLocal(targetEmail, configToSave);
+      // Dispara persistência assíncrona no perfil / Supabase
+      saveAdminConfigToUserProfile(configToSave, targetEmail).catch((err) => {
+        console.warn('Aviso ao sincronizar config com perfil do usuário:', err);
+      });
+    }
+
     return configToSave;
   } catch (e) {
     console.error('Erro ao salvar configurações do site:', e);
@@ -58,9 +97,16 @@ export function saveSiteConfig(newConfig: SiteConfig): SiteConfig {
   return newConfig;
 }
 
-export function resetSiteConfig(): SiteConfig {
+/**
+ * Restaura as configurações padrão do site e limpa personalizações do perfil do usuário
+ */
+export function resetSiteConfig(userEmail?: string | null): SiteConfig {
   try {
     localStorage.removeItem(SITE_CONFIG_STORAGE_KEY);
+    const targetEmail = (userEmail || getStoredUser()?.email || '').toLowerCase().trim();
+    if (targetEmail) {
+      saveAdminConfigToUserProfile(DEFAULT_SITE_CONFIG, targetEmail).catch(() => {});
+    }
   } catch (e) {
     console.error('Erro ao resetar configurações:', e);
   }

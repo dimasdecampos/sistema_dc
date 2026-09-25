@@ -103,11 +103,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1">
+            {/* Desktop Navigation Links - Limpo e Organizado */}
+            <nav className="hidden md:flex items-center gap-1.5">
               <button
                 onClick={() => onSelectTab('home')}
-                className={`px-3 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-2 ${
                   currentTab === 'home'
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -118,52 +118,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
 
               <button
-                onClick={() => onSelectTab('wanted')}
-                className={`px-3 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'wanted'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Search className="w-4 h-4 text-emerald-600" />
-                <span>Quem Procura</span>
-              </button>
-
-              <button
-                onClick={() => onSelectTab('sales')}
-                className={`px-3 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'sales'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Tag className="w-4 h-4 text-amber-600" />
-                <span>À Venda</span>
-              </button>
-
-              <button
-                onClick={() => onSelectTab('conversations')}
-                className={`px-3 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 relative ${
-                  currentTab === 'conversations'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Conversas</span>
-                {unreadCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              <button
                 onClick={() => onSelectTab('dashboard')}
-                className={`px-3 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 relative ${
+                className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-2 relative ${
                   currentTab === 'dashboard'
                     ? 'bg-emerald-600 text-white shadow-xs shadow-emerald-600/30'
-                    : 'text-slate-700 hover:text-slate-900 hover:bg-emerald-50/60'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-emerald-50/70'
                 }`}
               >
                 <User className="w-4 h-4" />
@@ -180,7 +139,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {(isAdmin || currentTab === 'admin') && (
                 <button
                   onClick={() => onSelectTab('admin')}
-                  className={`px-2.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                     currentTab === 'admin'
                       ? 'bg-slate-900 text-emerald-400 border border-emerald-500/30'
                       : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
@@ -222,6 +181,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onUpdateCity={onUpdateCity}
                   onUpdatePhoto={onUpdatePhoto}
                   onNavigateDashboard={() => onSelectTab('dashboard')}
+                  onNavigateConversations={() => onSelectTab('conversations')}
                 />
               ) : (
                 <button

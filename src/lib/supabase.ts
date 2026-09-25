@@ -34,8 +34,23 @@ create table if not exists public.profiles (
   email text,
   avatar_url text,
   cidade text default 'Socorro - SP',
+  admin_config jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Tabela de Usuários Google (com configurações admin salvas no perfil)
+create table if not exists public.usuarios (
+  id uuid default gen_random_uuid() primary key,
+  google_id text,
+  email text unique not null,
+  nome text not null,
+  foto text,
+  cidade text default 'Socorro - SP',
+  locale text default 'pt-BR',
+  admin_config jsonb,
+  last_login_at timestamp with time zone default timezone('utc'::text, now()),
+  created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
 -- 3. Anúncios (Listings): Quero Comprar (WANTED) ou Quero Vender (SALE)
@@ -101,6 +116,11 @@ alter table public.profiles enable row level security;
 create policy "Leitura pública de perfis" on public.profiles for select using (true);
 create policy "Inserção de perfil" on public.profiles for insert with check (true);
 create policy "Atualização de perfil" on public.profiles for update using (true);
+
+alter table public.usuarios enable row level security;
+create policy "Leitura pública de usuarios" on public.usuarios for select using (true);
+create policy "Inserção de usuarios" on public.usuarios for insert with check (true);
+create policy "Atualização de usuarios" on public.usuarios for update using (true);
 
 alter table public.listings enable row level security;
 create policy "Leitura pública de anúncios" on public.listings for select using (true);

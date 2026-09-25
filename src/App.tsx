@@ -45,6 +45,7 @@ import {
   updateCurrentUserProfile,
   logoutUser,
   getOfficialGooglePhoto,
+  getSavedUserAdminConfig,
 } from './services/authService';
 import {
   signInWithGoogle,
@@ -101,13 +102,21 @@ export default function App() {
         avatar_url: stored.foto || getOfficialGooglePhoto(stored.email),
         cidade: stored.cidade || 'Socorro - SP',
         created_at: stored.created_at || new Date().toISOString(),
+        adminConfig: stored.adminConfig || getSavedUserAdminConfig(stored.email) || undefined,
       };
     }
-    return SAMPLE_USERS.dimas;
+    const dimasSavedConfig = getSavedUserAdminConfig('dimasrafting@gmail.com');
+    return {
+      ...SAMPLE_USERS.dimas,
+      adminConfig: dimasSavedConfig || undefined,
+    };
   });
 
-  // Site Configuration & Categories
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getSiteConfig());
+  // Site Configuration & Categories (carrega a configuração gravada no perfil do usuário ativo)
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
+    const stored = getStoredUser();
+    return getSiteConfig(stored?.email || 'dimasrafting@gmail.com');
+  });
   const [categories, setCategories] = useState<Category[]>(() => getStoredCategories());
 
   // Home Page Product Category & Sort State
@@ -206,6 +215,7 @@ export default function App() {
   const handleUserAuthenticated = useCallback((u: Usuario) => {
     setGoogleUser(u);
     const photo = u.foto || getOfficialGooglePhoto(u.email);
+    const userAdminCfg = u.adminConfig || getSavedUserAdminConfig(u.email);
     const mapped: UserProfile = {
       id: u.id || u.google_id || 'user-google',
       nome: u.nome,
@@ -213,8 +223,16 @@ export default function App() {
       avatar_url: photo,
       cidade: u.cidade || 'Socorro - SP',
       created_at: u.created_at || new Date().toISOString(),
+      adminConfig: userAdminCfg || undefined,
     };
     setCurrentUser(mapped);
+
+    if (userAdminCfg) {
+      setSiteConfig(userAdminCfg);
+    } else {
+      const activeCfg = getSiteConfig(u.email);
+      setSiteConfig(activeCfg);
+    }
   }, []);
 
   // Login Direto com Google (100% compatível com Vercel)
@@ -283,7 +301,12 @@ export default function App() {
     await logoutGoogle();
     await logoutUser();
     setGoogleUser(null);
-    setCurrentUser(SAMPLE_USERS.dimas);
+    const dimasConfig = getSiteConfig('dimasrafting@gmail.com');
+    setCurrentUser({
+      ...SAMPLE_USERS.dimas,
+      adminConfig: dimasConfig,
+    });
+    setSiteConfig(dimasConfig);
     showToast('Sessão encerrada', 'Você saiu da sua conta do Google.', 'info');
   };
 
@@ -453,18 +476,36 @@ export default function App() {
     setIsDetailModalOpen(true);
   };
 
-  // Admin Operations
-  const handleSaveConfig = (newCfg: SiteConfig) => {
-    saveSiteConfig(newCfg);
-    setSiteConfig(newCfg);
-    showToast('Configurações salvas!', 'Os ajustes do site foram atualizados com sucesso.', 'success');
-  };
+  // Admin Operations - Cada alteração é gravada diretamente no perfil do usuário
+  const handleConfigChange = useCallback((newCfg: SiteConfig) => {
+    const activeEmail = googleUser?.email || currentUser.email || 'dimasrafting@gmail.com';
+    const saved = saveSiteConfig(newCfg, activeEmail);
+    setSiteConfig(saved);
+    setCurrentUser((prev) => ({ ...prev, adminConfig: saved }));
+    setGoogleUser((prev) => (prev ? { ...prev, adminConfig: saved } : prev));
+  }, [googleUser?.email, currentUser.email]);
 
-  const handleResetConfig = () => {
-    const def = resetSiteConfig();
+  const handleSaveConfig = useCallback((newCfg: SiteConfig) => {
+    const activeEmail = googleUser?.email || currentUser.email || 'dimasrafting@gmail.com';
+    const saved = saveSiteConfig(newCfg, activeEmail);
+    setSiteConfig(saved);
+    setCurrentUser((prev) => ({ ...prev, adminConfig: saved }));
+    setGoogleUser((prev) => (prev ? { ...prev, adminConfig: saved } : prev));
+    showToast(
+      'Configurações salvas no perfil!',
+      `Os ajustes foram salvos no perfil de ${currentUser.nome || activeEmail}.`,
+      'success'
+    );
+  }, [googleUser?.email, currentUser.email, currentUser.nome, showToast]);
+
+  const handleResetConfig = useCallback(() => {
+    const activeEmail = googleUser?.email || currentUser.email || 'dimasrafting@gmail.com';
+    const def = resetSiteConfig(activeEmail);
     setSiteConfig(def);
-    showToast('Configurações restauradas', 'Os parâmetros padrão do site foram redefinidos.', 'info');
-  };
+    setCurrentUser((prev) => ({ ...prev, adminConfig: def }));
+    setGoogleUser((prev) => (prev ? { ...prev, adminConfig: def } : prev));
+    showToast('Configurações restauradas', 'Os parâmetros padrão foram redefinidos e salvos no seu perfil.', 'info');
+  }, [googleUser?.email, currentUser.email, showToast]);
 
   const handleCreateCategory = (input: { name: string; slug?: string; icon: string }) => {
     const created = createCategory(input);
@@ -957,7 +998,10 @@ export default function App() {
                 config={siteConfig}
                 categories={categories}
                 listings={listings}
+                currentUser={currentUser}
+                googleUser={googleUser}
                 onSaveConfig={handleSaveConfig}
+                onConfigChange={handleConfigChange}
                 onResetConfig={handleResetConfig}
                 onCreateCategory={handleCreateCategory}
                 onUpdateCategory={handleUpdateCategory}

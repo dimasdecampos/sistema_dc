@@ -13,9 +13,13 @@ import {
   Clock,
   Trash2,
   Edit2,
+  ShieldCheck,
+  Settings,
+  CheckCircle2,
 } from 'lucide-react';
 import { Listing, Match, UserProfile } from '../types/marketplace';
 import { Usuario } from '../types/auth';
+import { isUserAdmin } from '../services/siteConfigService';
 
 interface UserDashboardProps {
   user: UserProfile;
@@ -32,6 +36,7 @@ interface UserDashboardProps {
   onMarkAsCompleted: (listingId: string) => void;
   onDeleteListing: (listingId: string) => void;
   onEditListing?: (listing: Listing) => void;
+  onOpenConversations?: () => void;
 }
 
 export const UserDashboard: React.FC<UserDashboardProps> = ({
@@ -49,6 +54,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   onMarkAsCompleted,
   onDeleteListing,
   onEditListing,
+  onOpenConversations,
 }) => {
   return (
     <div className="space-y-8 sm:space-y-10">
@@ -153,6 +159,78 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* CARD: Configurações de Administrador Salvas no Perfil */}
+      {(isUserAdmin(googleUser?.email || user.email, user.adminConfig) || user.adminConfig) && (
+        <div className="bg-white rounded-3xl border border-emerald-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shadow-2xs shrink-0">
+                <ShieldCheck className="w-5 h-5 text-emerald-700" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-base text-slate-900">
+                    Configurações do Admin Salvas no Seu Perfil
+                  </h3>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Sincronizado
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Todas as alterações feitas no painel administrativo ficam guardadas permanentemente neste perfil.
+                </p>
+              </div>
+            </div>
+
+            <a
+              href="#admin"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition self-start sm:self-center"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Abrir Painel Admin</span>
+            </a>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Nome do Site
+              </span>
+              <span className="font-bold text-slate-800 mt-0.5 block truncate">
+                {user.adminConfig?.siteName || 'TemAqui'}
+              </span>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Cidade de Operação
+              </span>
+              <span className="font-bold text-slate-800 mt-0.5 block truncate">
+                {user.adminConfig?.cityName || user.cidade || 'Socorro - SP'}
+              </span>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Limiar de Match
+              </span>
+              <span className="font-extrabold text-emerald-700 mt-0.5 block">
+                {user.adminConfig?.autoMatchThreshold || 35}%
+              </span>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Banner no Topo
+              </span>
+              <span className="font-bold text-slate-800 mt-0.5 block">
+                {user.adminConfig?.noticeBannerEnabled !== false ? '✅ Ativo' : '❌ Desativado'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ÁREA 3 (Destaque Principal): Encontramos para você */}
       <section className="space-y-4">

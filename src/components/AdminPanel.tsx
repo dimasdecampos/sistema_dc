@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Settings,
   FolderTree,
@@ -27,8 +27,10 @@ import {
   Cloud,
   Database,
   UploadCloud,
+  UserCheck,
 } from 'lucide-react';
-import { Category, Listing, SiteConfig } from '../types/marketplace';
+import { Category, Listing, SiteConfig, UserProfile } from '../types/marketplace';
+import { Usuario } from '../types/auth';
 import { getStoredCredentials } from '../lib/supabase';
 import {
   ensureBucketExists,
@@ -40,7 +42,10 @@ interface AdminPanelProps {
   config: SiteConfig;
   categories: Category[];
   listings: Listing[];
+  currentUser?: UserProfile;
+  googleUser?: Usuario | null;
   onSaveConfig: (newConfig: SiteConfig) => void;
+  onConfigChange?: (updatedConfig: SiteConfig) => void;
   onResetConfig: () => void;
   onCreateCategory: (input: { name: string; slug?: string; icon: string }) => void;
   onUpdateCategory: (id: string, updates: Partial<Category>) => void;
@@ -56,7 +61,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   config,
   categories,
   listings,
+  currentUser,
+  googleUser,
   onSaveConfig,
+  onConfigChange,
   onResetConfig,
   onCreateCategory,
   onUpdateCategory,
@@ -70,9 +78,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'config' | 'categories' | 'dragdrop' | 'listings' | 'metrics'>('config');
 
   // Form de Configurações
-  const [formConfig, setFormConfig] = useState<SiteConfig>({ ...config });
+  const [formConfig, setFormConfig] = useState<SiteConfig>(() => ({ ...config }));
   const [isConfigSaved, setIsConfigSaved] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [lastAutoSaved, setLastAutoSaved] = useState<string | null>(null);
+  const lastEmittedConfigRef = useRef<string>(JSON.stringify(config));
+
+  // Sincroniza form quando a prop config mudar externamente (ex: reset ou troca de perfil)
+  useEffect(() => {
+    const configStr = JSON.stringify(config);
+    if (configStr !== lastEmittedConfigRef.current) {
+      lastEmittedConfigRef.current = configStr;
+      setFormConfig({ ...config });
+    }
+  }, [config]);
+
+  // Atualiza campo e salva instantaneamente no perfil do usuário
+  const handleConfigFieldChange = <K extends keyof SiteConfig>(field: K, value: SiteConfig[K]) => {
+    const updated: SiteConfig = { ...formConfig, [field]: value };
+    setFormConfig(updated);
+    lastEmittedConfigRef.current = JSON.stringify(updated);
+    if (onConfigChange) {
+      onConfigChange(updated);
+    }
+    const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setLastAutoSaved(timeStr);
+  };
 
   // Form de Nova Categoria
   const [newCatName, setNewCatName] = useState('');
@@ -301,7 +332,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* ABA 1: CONFIGURAÇÕES GERAIS */}
       {activeTab === 'config' && (
         <form onSubmit={handleSaveConfigSubmit} className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6 shadow-sm">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <Settings className="w-5 h-5 text-emerald-600" />
@@ -332,10 +363,39 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
+          {/* Banner Informativo de Perfil do Administrador */}
+          <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50/40 to-slate-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900">
+                    Configurações salvas no perfil de: <strong className="text-emerald-700">{currentUser?.nome || googleUser?.nome || 'Dimas'}</strong>
+                  </span>
+                  <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                    {currentUser?.email || googleUser?.email || 'dimasrafting@gmail.com'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  Cada mudança que você fizer neste painel é guardada e vinculada ao seu perfil imediatamente.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 bg-white px-3 py-1 rounded-xl border border-emerald-200 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{lastAutoSaved ? `Gravado no perfil às ${lastAutoSaved}` : 'Vinculado ao seu perfil'}</span>
+              </span>
+            </div>
+          </div>
+
           {isConfigSaved && (
             <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Configurações salvas e aplicadas em tempo real!</span>
+              <span>Configurações salvas e aplicadas em tempo real ao seu perfil!</span>
             </div>
           )}
 
@@ -347,7 +407,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <input
                 type="text"
                 value={formConfig.siteName}
-                onChange={(e) => setFormConfig({ ...formConfig, siteName: e.target.value })}
+                onChange={(e) => handleConfigFieldChange('siteName', e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-emerald-500"
                 placeholder="Ex.: TemAqui"
               />
@@ -360,7 +420,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <input
                 type="text"
                 value={formConfig.cityName}
-                onChange={(e) => setFormConfig({ ...formConfig, cityName: e.target.value })}
+                onChange={(e) => handleConfigFieldChange('cityName', e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-emerald-500"
                 placeholder="Ex.: Socorro - SP"
               />
@@ -373,7 +433,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <input
                 type="text"
                 value={formConfig.tagline}
-                onChange={(e) => setFormConfig({ ...formConfig, tagline: e.target.value })}
+                onChange={(e) => handleConfigFieldChange('tagline', e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-emerald-500"
                 placeholder="Ex.: Marketplace local baseado em Procura e Oferta"
               />
@@ -386,7 +446,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <input
                 type="text"
                 value={formConfig.heroTitle}
-                onChange={(e) => setFormConfig({ ...formConfig, heroTitle: e.target.value })}
+                onChange={(e) => handleConfigFieldChange('heroTitle', e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-emerald-500"
                 placeholder="Ex.: O que você está procurando em Socorro?"
               />
@@ -399,7 +459,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <input
                 type="text"
                 value={formConfig.heroSubtitle}
-                onChange={(e) => setFormConfig({ ...formConfig, heroSubtitle: e.target.value })}
+                onChange={(e) => handleConfigFieldChange('heroSubtitle', e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-emerald-500"
                 placeholder="Ex.: Diga o que você precisa. O sistema te avisa quando um morador cadastrar uma oferta."
               />
@@ -415,7 +475,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   id="noticeBannerEnabled"
                   checked={formConfig.noticeBannerEnabled}
                   onChange={(e) =>
-                    setFormConfig({ ...formConfig, noticeBannerEnabled: e.target.checked })
+                    handleConfigFieldChange('noticeBannerEnabled', e.target.checked)
                   }
                   className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
                 />
@@ -427,10 +487,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <select
                 value={formConfig.noticeBannerType}
                 onChange={(e) =>
-                  setFormConfig({
-                    ...formConfig,
-                    noticeBannerType: e.target.value as 'info' | 'warning' | 'success',
-                  })
+                  handleConfigFieldChange(
+                    'noticeBannerType',
+                    e.target.value as 'info' | 'warning' | 'success'
+                  )
                 }
                 className="text-xs font-bold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700"
               >
@@ -445,7 +505,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 type="text"
                 value={formConfig.noticeBannerText}
                 onChange={(e) =>
-                  setFormConfig({ ...formConfig, noticeBannerText: e.target.value })
+                  handleConfigFieldChange('noticeBannerText', e.target.value)
                 }
                 className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-emerald-500"
                 placeholder="Texto do aviso exibido para todos os usuários..."
@@ -463,7 +523,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <input
                 type="text"
                 value={formConfig.contactPhone}
-                onChange={(e) => setFormConfig({ ...formConfig, contactPhone: e.target.value })}
+                onChange={(e) => handleConfigFieldChange('contactPhone', e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-emerald-500"
               />
             </div>
@@ -476,7 +536,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <input
                 type="text"
                 value={formConfig.contactEmail}
-                onChange={(e) => setFormConfig({ ...formConfig, contactEmail: e.target.value })}
+                onChange={(e) => handleConfigFieldChange('contactEmail', e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-emerald-500"
               />
             </div>
@@ -493,7 +553,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 step={5}
                 value={formConfig.autoMatchThreshold}
                 onChange={(e) =>
-                  setFormConfig({ ...formConfig, autoMatchThreshold: Number(e.target.value) })
+                  handleConfigFieldChange('autoMatchThreshold', Number(e.target.value))
                 }
                 className="w-full accent-emerald-600 mt-2"
               />
@@ -578,7 +638,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     if (!newAdminEmail.trim() || !newAdminEmail.includes('@')) return;
                     const currentList = formConfig.adminEmails || ['dimasrafting@gmail.com'];
                     const updated = Array.from(new Set([...currentList, newAdminEmail.trim().toLowerCase()]));
-                    setFormConfig({ ...formConfig, adminEmails: updated });
+                    handleConfigFieldChange('adminEmails', updated);
                     setNewAdminEmail('');
                   }}
                   className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
@@ -605,7 +665,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           type="button"
                           onClick={() => {
                             const updated = (formConfig.adminEmails || []).filter((e) => e !== email);
-                            setFormConfig({ ...formConfig, adminEmails: updated });
+                            handleConfigFieldChange('adminEmails', updated);
                           }}
                           className="text-slate-400 hover:text-rose-600 transition cursor-pointer p-0.5"
                           title="Remover admin"

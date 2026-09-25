@@ -18,6 +18,7 @@ export interface UserProfile {
   cidade: string;
   created_at: string;
   updated_at?: string;
+  adminConfig?: SiteConfig;
 }
 
 export interface ListingImage {
