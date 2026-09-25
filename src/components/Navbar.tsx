@@ -35,6 +35,7 @@ interface NavbarProps {
   onOpenSqlModal: () => void;
   onOpenSupabaseModal: () => void;
   onSwitchUser?: (userKey: string) => void;
+  isAdmin?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -43,6 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   user,
   googleUser,
   config,
+  isAdmin = false,
   onOpenGoogleLogin,
   onLogoutGoogle,
   onUpdateCity,
@@ -174,19 +176,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </button>
 
-              {/* Botão Admin Direct Access */}
-              <button
-                onClick={() => onSelectTab('admin')}
-                className={`px-2.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin'
-                    ? 'bg-slate-900 text-emerald-400 border border-emerald-500/30'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-                title="Acessar painel de administração"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>/admin</span>
-              </button>
+              {/* Botão Admin Direct Access - Visível para administradores autorizados */}
+              {(isAdmin || currentTab === 'admin') && (
+                <button
+                  onClick={() => onSelectTab('admin')}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    currentTab === 'admin'
+                      ? 'bg-slate-900 text-emerald-400 border border-emerald-500/30'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                  title="Acessar painel de administração"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>/admin</span>
+                </button>
+              )}
             </nav>
 
             {/* Top Action Buttons: Estou Procurando & Quero Vender */}
@@ -318,15 +322,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
 
-          <button
-            onClick={() => onSelectTab('admin')}
-            className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition ${
-              currentTab === 'admin' ? 'text-emerald-600 font-bold' : 'text-slate-500'
-            }`}
-          >
-            <ShieldCheck className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">Admin</span>
-          </button>
+          {(isAdmin || currentTab === 'admin') && (
+            <button
+              onClick={() => onSelectTab('admin')}
+              className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition ${
+                currentTab === 'admin' ? 'text-emerald-600 font-bold' : 'text-slate-500'
+              }`}
+            >
+              <ShieldCheck className="w-5 h-5" />
+              <span className="text-[10px] mt-0.5">Admin</span>
+            </button>
+          )}
         </div>
       </div>
     </>

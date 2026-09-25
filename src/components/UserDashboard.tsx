@@ -12,6 +12,7 @@ import {
   MapPin,
   Clock,
   Trash2,
+  Edit2,
 } from 'lucide-react';
 import { Listing, Match, UserProfile } from '../types/marketplace';
 import { Usuario } from '../types/auth';
@@ -30,6 +31,7 @@ interface UserDashboardProps {
   onStartChatWithSeller: (listing: Listing) => void;
   onMarkAsCompleted: (listingId: string) => void;
   onDeleteListing: (listingId: string) => void;
+  onEditListing?: (listing: Listing) => void;
 }
 
 export const UserDashboard: React.FC<UserDashboardProps> = ({
@@ -46,6 +48,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   onStartChatWithSeller,
   onMarkAsCompleted,
   onDeleteListing,
+  onEditListing,
 }) => {
   return (
     <div className="space-y-8 sm:space-y-10">
@@ -351,6 +354,15 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     >
                       <Eye className="w-4 h-4" />
                     </button>
+                    {onEditListing && (
+                      <button
+                        onClick={() => onEditListing(item)}
+                        title="Editar procura"
+                        className="p-1.5 text-slate-400 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 cursor-pointer"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => onDeleteListing(item.id)}
                       title="Excluir procura"
@@ -428,6 +440,15 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     >
                       <Eye className="w-4 h-4" />
                     </button>
+                    {onEditListing && (
+                      <button
+                        onClick={() => onEditListing(item)}
+                        title="Editar anúncio"
+                        className="p-1.5 text-slate-400 hover:text-amber-800 rounded-lg hover:bg-amber-50 cursor-pointer"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => onDeleteListing(item.id)}
                       title="Excluir anúncio"

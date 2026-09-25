@@ -20,6 +20,7 @@ import {
   getMatchesForUser,
   getBuyersInterestedInSale,
 } from './matchingService';
+import { deleteMultipleImagesFromSupabase } from './storageService';
 
 const LOCAL_STORAGE_LISTINGS_KEY = 'tem_aqui_listings_v1';
 const LOCAL_STORAGE_MATCHES_KEY = 'tem_aqui_matches_v1';
@@ -376,12 +377,22 @@ export async function updateListingStatus(
 }
 
 /**
- * Exclui um anúncio
+ * Exclui um anúncio e remove suas fotos do Supabase Storage
  */
 export async function deleteListing(listingId: string): Promise<void> {
   const current = getLocalListings();
+  const toDelete = current.find((l) => l.id === listingId);
   const updated = current.filter((l) => l.id !== listingId);
   saveLocalListings(updated);
+
+  // Exclui fotos associadas do Supabase Storage
+  if (toDelete?.images && toDelete.images.length > 0) {
+    try {
+      await deleteMultipleImagesFromSupabase(toDelete.images);
+    } catch (err) {
+      console.warn('Erro ao excluir fotos do anúncio no Supabase Storage:', err);
+    }
+  }
 
   const supabase = getSupabase();
   if (supabase) {
@@ -391,6 +402,61 @@ export async function deleteListing(listingId: string): Promise<void> {
       console.warn(e);
     }
   }
+}
+
+/**
+ * Atualiza um anúncio (edição de título, descrição, preço, categoria, status, fotos)
+ */
+export async function updateListing(
+  listingId: string,
+  updates: Partial<Listing>
+): Promise<Listing> {
+  const current = getLocalListings();
+  const existing = current.find((l) => l.id === listingId);
+  if (!existing) {
+    throw new Error('Anúncio não encontrado.');
+  }
+
+  const updatedListing: Listing = {
+    ...existing,
+    ...updates,
+    updated_at: new Date().toISOString(),
+  };
+
+  const updated = current.map((l) => (l.id === listingId ? updatedListing : l));
+  saveLocalListings(updated);
+
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const payload: Record<string, any> = {
+        updated_at: updatedListing.updated_at,
+      };
+      if (updates.title !== undefined) payload.title = updates.title;
+      if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.price !== undefined) payload.price = updates.price;
+      if (updates.category_id !== undefined) payload.category_id = updates.category_id;
+      if (updates.condition !== undefined) payload.condition = updates.condition;
+      if (updates.status !== undefined) payload.status = updates.status;
+
+      await supabase.from('listings').update(payload).eq('id', listingId);
+
+      if (updates.images) {
+        await supabase.from('listing_images').delete().eq('listing_id', listingId);
+        if (updates.images.length > 0) {
+          const imgRows = updates.images.map((img) => ({
+            listing_id: listingId,
+            image_url: img,
+          }));
+          await supabase.from('listing_images').insert(imgRows);
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao atualizar anúncio no Supabase:', e);
+    }
+  }
+
+  return updatedListing;
 }
 
 /**

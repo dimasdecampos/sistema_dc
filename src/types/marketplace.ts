@@ -111,6 +111,7 @@ export interface SiteConfig {
   contactEmail: string;
   autoMatchThreshold: number;
   currencySymbol: string;
+  adminEmails?: string[];
 }
 
 export interface WantedRankItem {

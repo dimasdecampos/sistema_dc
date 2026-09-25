@@ -48,6 +48,7 @@ interface AdminPanelProps {
   onMoveListingCategory: (listingId: string, targetCategoryId: string) => void;
   onDeleteListing: (listingId: string) => void;
   onUpdateListingStatus: (listingId: string, status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED') => void;
+  onEditListing?: (listing: Listing) => void;
   onCloseAdmin: () => void;
 }
 
@@ -63,6 +64,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onMoveListingCategory,
   onDeleteListing,
   onUpdateListingStatus,
+  onEditListing,
   onCloseAdmin,
 }) => {
   const [activeTab, setActiveTab] = useState<'config' | 'categories' | 'dragdrop' | 'listings' | 'metrics'>('config');
@@ -70,6 +72,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Form de Configurações
   const [formConfig, setFormConfig] = useState<SiteConfig>({ ...config });
   const [isConfigSaved, setIsConfigSaved] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
 
   // Form de Nova Categoria
   const [newCatName, setNewCatName] = useState('');
@@ -542,8 +545,77 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   className="px-3 py-2 text-xs font-bold bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-xl shadow-2xs transition cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
                 >
                   <UploadCloud className="w-4 h-4 text-emerald-600" />
-                  <span>{isCheckingBucket ? 'Verificando...' : 'Verificar / Criar Bucket img'}</span>
+                  <span>{isCheckingBucket ? 'Verificando...' : 'Verificar / Criar Bucket Img'}</span>
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Administradores Autorizados */}
+          <div className="pt-4 border-t border-slate-100 space-y-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Administradores Autorizados</h3>
+                <p className="text-xs text-slate-500">
+                  Qualquer pessoa que logar com um e-mail desta lista terá acesso liberado ao painel <code>/admin</code>.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="email"
+                  placeholder="adicionar.novo.admin@gmail.com"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!newAdminEmail.trim() || !newAdminEmail.includes('@')) return;
+                    const currentList = formConfig.adminEmails || ['dimasrafting@gmail.com'];
+                    const updated = Array.from(new Set([...currentList, newAdminEmail.trim().toLowerCase()]));
+                    setFormConfig({ ...formConfig, adminEmails: updated });
+                    setNewAdminEmail('');
+                  }}
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  + Adicionar Admin
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {(formConfig.adminEmails || ['dimasrafting@gmail.com']).map((email) => {
+                  const isPrimary = email.toLowerCase() === 'dimasrafting@gmail.com';
+                  return (
+                    <span
+                      key={email}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200"
+                    >
+                      <span>{email}</span>
+                      {isPrimary ? (
+                        <span className="text-[10px] text-emerald-800 font-extrabold bg-emerald-100 px-1.5 py-0.5 rounded-md">
+                          Admin Principal
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = (formConfig.adminEmails || []).filter((e) => e !== email);
+                            setFormConfig({ ...formConfig, adminEmails: updated });
+                          }}
+                          className="text-slate-400 hover:text-rose-600 transition cursor-pointer p-0.5"
+                          title="Remover admin"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -991,17 +1063,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           </select>
                         </td>
                         <td className="py-3 px-3 text-right">
-                          <button
-                            onClick={() => {
-                              if (confirm(`Excluir publicação "${item.title}" definitivamente?`)) {
-                                onDeleteListing(item.id);
-                              }
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                            title="Excluir publicação"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            {onEditListing && (
+                              <button
+                                type="button"
+                                onClick={() => onEditListing(item)}
+                                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                                title="Editar publicação"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Excluir publicação "${item.title}" definitivamente? Todas as fotos deste anúncio serão removidas do Supabase Storage.`)) {
+                                  onDeleteListing(item.id);
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                              title="Excluir publicação e fotos"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

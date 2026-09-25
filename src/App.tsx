@@ -34,6 +34,7 @@ import {
   createSaleListing,
   getUserMatches,
   updateListingStatus,
+  updateListing,
   deleteListing,
   startOrGetConversation,
 } from './services/marketplaceService';
@@ -64,12 +65,13 @@ import { ConversationsView } from './components/ConversationsView';
 import { CreateWantedModal } from './components/CreateWantedModal';
 import { CreateSaleModal } from './components/CreateSaleModal';
 import { ListingDetailModal } from './components/ListingDetailModal';
+import { EditListingModal } from './components/EditListingModal';
 import { SqlSchemaModal } from './components/SqlSchemaModal';
 import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { ListingCard } from './components/ListingCard';
 import { getBuyersInterestedInSale } from './services/matchingService';
-import { getSiteConfig, saveSiteConfig, resetSiteConfig } from './services/siteConfigService';
+import { getSiteConfig, saveSiteConfig, resetSiteConfig, isUserAdmin } from './services/siteConfigService';
 import {
   getStoredCategories,
   createCategory,
@@ -164,6 +166,26 @@ export default function App() {
   // Selected item for detail view
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [initialWantedQuery, setInitialWantedQuery] = useState('');
+
+  // Edit Listing State & Handlers
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedListingForEdit, setSelectedListingForEdit] = useState<Listing | null>(null);
+
+  // Verificação de privilégio Admin (dimasrafting@gmail.com ou administradores configurados)
+  const isAdmin = isUserAdmin(googleUser?.email || currentUser.email, siteConfig);
+
+  const handleOpenEditListing = (listing: Listing) => {
+    setSelectedListingForEdit(listing);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditListing = async (listingId: string, updates: Partial<Listing>) => {
+    const updated = await updateListing(listingId, updates);
+    setListings((prev) => prev.map((l) => (l.id === listingId ? updated : l)));
+    if (selectedListing?.id === listingId) {
+      setSelectedListing(updated);
+    }
+  };
 
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -573,6 +595,7 @@ export default function App() {
         user={currentUser}
         googleUser={googleUser}
         config={siteConfig}
+        isAdmin={isAdmin}
         onOpenGoogleLogin={() => setIsGoogleModalOpen(true)}
         onLogoutGoogle={handleLogoutGoogle}
         onUpdateCity={handleUpdateCity}
@@ -921,6 +944,7 @@ export default function App() {
               onStartChatWithSeller={handleStartChat}
               onMarkAsCompleted={handleMarkAsCompleted}
               onDeleteListing={handleDeleteListing}
+              onEditListing={handleOpenEditListing}
             />
           </div>
         )}
@@ -928,20 +952,47 @@ export default function App() {
         {/* TAB 6: PAINEL DE ADMINISTRAÇÃO /admin */}
         {currentTab === 'admin' && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-            <AdminPanel
-              config={siteConfig}
-              categories={categories}
-              listings={listings}
-              onSaveConfig={handleSaveConfig}
-              onResetConfig={handleResetConfig}
-              onCreateCategory={handleCreateCategory}
-              onUpdateCategory={handleUpdateCategory}
-              onDeleteCategory={handleDeleteCategory}
-              onMoveListingCategory={handleMoveListingCategory}
-              onDeleteListing={handleAdminDeleteListing}
-              onUpdateListingStatus={handleAdminUpdateListingStatus}
-              onCloseAdmin={() => handleSelectTab('home')}
-            />
+            {isAdmin ? (
+              <AdminPanel
+                config={siteConfig}
+                categories={categories}
+                listings={listings}
+                onSaveConfig={handleSaveConfig}
+                onResetConfig={handleResetConfig}
+                onCreateCategory={handleCreateCategory}
+                onUpdateCategory={handleUpdateCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onMoveListingCategory={handleMoveListingCategory}
+                onDeleteListing={handleAdminDeleteListing}
+                onUpdateListingStatus={handleAdminUpdateListingStatus}
+                onEditListing={handleOpenEditListing}
+                onCloseAdmin={() => handleSelectTab('home')}
+              />
+            ) : (
+              <div className="max-w-md mx-auto bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-4 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-xs">
+                  <ShieldCheck className="w-7 h-7" />
+                </div>
+                <h3 className="font-extrabold text-xl text-slate-900">Acesso Restrito ao Admin</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Esta área é exclusiva para a administração do TemAqui (dimasrafting@gmail.com ou administradores cadastrados).
+                </p>
+                <div className="pt-2 flex flex-col gap-2">
+                  <button
+                    onClick={() => setIsGoogleModalOpen(true)}
+                    className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Fazer Login com Google
+                  </button>
+                  <button
+                    onClick={() => handleSelectTab('home')}
+                    className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
+                  >
+                    Voltar ao Início
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -1036,6 +1087,17 @@ export default function App() {
         onStartChat={handleStartChat}
         currentUser={currentUser}
         relatedMatches={relatedMatchesForSelected}
+        onEditListing={handleOpenEditListing}
+        isAdmin={isAdmin}
+      />
+
+      <EditListingModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        listing={selectedListingForEdit}
+        categories={categories}
+        onSave={handleSaveEditListing}
+        onShowToast={showToast}
       />
 
       <SqlSchemaModal

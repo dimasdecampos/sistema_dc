@@ -92,17 +92,30 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Anon / Public API Key
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block font-bold text-slate-700 uppercase tracking-wider">
+                Anon / Public API Key
+              </label>
+              <a
+                href="https://supabase.com/dashboard/project/dangvvcagfpbtzjepqkr/settings/api"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold underline"
+              >
+                Pegar chave no Supabase →
+              </a>
+            </div>
             <textarea
               rows={3}
               required
               value={anonKey}
               onChange={(e) => setAnonKey(e.target.value)}
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              placeholder="Cole sua chave anon pública (ex: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)"
               className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-mono text-[11px] resize-none"
             />
+            <p className="text-[10px] text-slate-500 mt-1">
+              Necessário para salvar as fotos diretamente no bucket <strong>Img</strong> do seu projeto Supabase.
+            </p>
           </div>
 
           {msg && (

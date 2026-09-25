@@ -1,7 +1,7 @@
 import { getSupabase } from '../lib/supabase';
 
-export const SUPABASE_STORAGE_BUCKET = 'img';
-export const SUPABASE_STORAGE_FOLDER = 'img';
+export const SUPABASE_STORAGE_BUCKET = 'Img';
+export const SUPABASE_STORAGE_FOLDER = '';
 export const MAX_PHOTOS_PER_PRODUCT = 5;
 
 export interface OptimizationStats {
@@ -311,7 +311,27 @@ export async function uploadImageToSupabase(
         });
 
       if (error) {
-        console.warn(`Erro no upload para Supabase Storage (${bucketName}/${filePath}):`, error);
+        console.warn(`Tentando upload alternativo no Supabase (${bucketName}/${filePath}):`, error);
+
+        // Tenta a capitalização alternativa ('Img' <-> 'img')
+        const altBucket = bucketName === 'Img' ? 'img' : 'Img';
+        const { error: altError, data: altData } = await supabase.storage
+          .from(altBucket)
+          .upload(filePath, fileToUpload, {
+            cacheControl: '31536000',
+            upsert: true,
+            contentType: fileToUpload.type || 'image/webp',
+          });
+
+        if (!altError && altData) {
+          const { data: pubData } = supabase.storage.from(altBucket).getPublicUrl(filePath);
+          return {
+            url: pubData.publicUrl,
+            path: filePath,
+            isSupabase: true,
+            stats,
+          };
+        }
 
         // Se o bucket não existe, tenta criar e tentar novamente
         if (
@@ -412,6 +432,54 @@ export async function uploadMultipleImagesToSupabase(
   }
 
   return { urls, results };
+}
+
+/**
+ * Exclui uma imagem do Supabase Storage dado seu caminho ou URL pública.
+ * Suporta buckets 'Img' e 'img'.
+ */
+export async function deleteImageFromSupabase(urlOrPath: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase || !urlOrPath) return false;
+
+  // Se for DataURL (base64) ou foto externa (ex: Unsplash), não precisa apagar do Supabase
+  if (urlOrPath.startsWith('data:') || urlOrPath.includes('images.unsplash.com')) {
+    return true;
+  }
+
+  let targetBucket = SUPABASE_STORAGE_BUCKET;
+  let filePath = urlOrPath;
+
+  // Se for URL pública do Supabase (.../storage/v1/object/public/<bucket>/<path>)
+  const match = urlOrPath.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+  if (match) {
+    targetBucket = match[1];
+    filePath = match[2];
+  } else {
+    // Remove possíveis prefixos de bucket se passados no path
+    filePath = filePath.replace(/^Img\//, '').replace(/^img\//, '');
+  }
+
+  try {
+    const { error } = await supabase.storage.from(targetBucket).remove([filePath]);
+    if (error) {
+      // Tenta na capitalização alternativa
+      const altBucket = targetBucket === 'Img' ? 'img' : 'Img';
+      await supabase.storage.from(altBucket).remove([filePath]);
+    }
+    return true;
+  } catch (err) {
+    console.warn('Erro ao remover imagem do Supabase Storage:', err);
+    return false;
+  }
+}
+
+/**
+ * Exclui múltiplas fotos de um anúncio do Supabase Storage
+ */
+export async function deleteMultipleImagesFromSupabase(urlsOrPaths: string[]): Promise<void> {
+  if (!urlsOrPaths || urlsOrPaths.length === 0) return;
+  await Promise.allSettled(urlsOrPaths.map((p) => deleteImageFromSupabase(p)));
 }
 
 /**

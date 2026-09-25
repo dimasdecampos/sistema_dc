@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
   X,
-  ShieldCheck,
   MapPin,
   Mail,
   User,
@@ -142,20 +141,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
     }
   };
 
-  // 3. ATALHO RÁPIDO PARA O ADMINISTRADOR (Dimas)
-  const handleLoginAsDimas = async () => {
-    setIsDirectLoading(true);
-    try {
-      await onOfficialGoogleSignIn('dimasrafting@gmail.com', 'Dimas');
-      onClose();
-    } catch (err) {
-      console.warn('Erro login Dimas:', err);
-    } finally {
-      setIsDirectLoading(false);
-    }
-  };
-
-  // 4. LOGIN MANUAL AVANÇADO COM FOTO CUSTOMIZADA
+  // 3. LOGIN MANUAL AVANÇADO COM FOTO CUSTOMIZADA
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !nome) return;
@@ -411,28 +397,6 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
                 )}
               </button>
             </form>
-          </div>
-
-          {/* ATALHO PARA O ADMINISTRADOR (DIMAS) */}
-          <div className="p-3 bg-slate-100/70 border border-slate-200/60 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div className="text-left">
-                <span className="text-xs font-bold text-slate-800">É o Dimas?</span>
-                <span className="text-[10px] text-slate-500 block">
-                  dimasrafting@gmail.com
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleLoginAsDimas}
-              disabled={isDirectLoading || isPopupLoading}
-              className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 transition cursor-pointer hover:border-slate-400 shadow-2xs"
-            >
-              Entrar como Dimas →
-            </button>
           </div>
 
           {/* GUIA DE AUTORIZAÇÃO DO DOMÍNIO NO FIREBASE */}

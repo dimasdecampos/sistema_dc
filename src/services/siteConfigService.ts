@@ -15,13 +15,27 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   contactEmail: 'contato@temaquisocorro.com.br',
   autoMatchThreshold: 35,
   currencySymbol: 'R$',
+  adminEmails: ['dimasrafting@gmail.com'],
 };
+
+export function isUserAdmin(email?: string | null, config?: SiteConfig): boolean {
+  if (!email) return false;
+  const normalized = email.toLowerCase().trim();
+  if (normalized === 'dimasrafting@gmail.com') return true;
+  const adminList = config?.adminEmails || DEFAULT_SITE_CONFIG.adminEmails || ['dimasrafting@gmail.com'];
+  return adminList.some((e) => e.toLowerCase().trim() === normalized);
+}
 
 export function getSiteConfig(): SiteConfig {
   try {
     const raw = localStorage.getItem(SITE_CONFIG_STORAGE_KEY);
     if (raw) {
-      return { ...DEFAULT_SITE_CONFIG, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      // Garante que dimasrafting@gmail.com sempre está na lista de admins
+      const adminEmails = Array.from(
+        new Set(['dimasrafting@gmail.com', ...(parsed.adminEmails || [])])
+      );
+      return { ...DEFAULT_SITE_CONFIG, ...parsed, adminEmails };
     }
   } catch (e) {
     console.warn('Erro ao carregar configurações do site:', e);
@@ -31,7 +45,13 @@ export function getSiteConfig(): SiteConfig {
 
 export function saveSiteConfig(newConfig: SiteConfig): SiteConfig {
   try {
-    localStorage.setItem(SITE_CONFIG_STORAGE_KEY, JSON.stringify(newConfig));
+    // Garante que dimasrafting@gmail.com nunca seja removido acidentalmente
+    const adminEmails = Array.from(
+      new Set(['dimasrafting@gmail.com', ...(newConfig.adminEmails || [])])
+    );
+    const configToSave = { ...newConfig, adminEmails };
+    localStorage.setItem(SITE_CONFIG_STORAGE_KEY, JSON.stringify(configToSave));
+    return configToSave;
   } catch (e) {
     console.error('Erro ao salvar configurações do site:', e);
   }

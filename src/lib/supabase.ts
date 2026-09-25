@@ -172,6 +172,7 @@ values (
 
 const LOCAL_STORAGE_URL_KEY = 'sb_client_url';
 const LOCAL_STORAGE_ANON_KEY = 'sb_client_anon_key';
+export const DEFAULT_SUPABASE_PROJECT_URL = 'https://dangvvcagfpbtzjepqkr.supabase.co';
 
 export function getStoredCredentials(): { url: string; anonKey: string } {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
@@ -186,15 +187,10 @@ export function getStoredCredentials(): { url: string; anonKey: string } {
   const localUrl = (localStorage.getItem(LOCAL_STORAGE_URL_KEY) || '').trim();
   const localAnonKey = (localStorage.getItem(LOCAL_STORAGE_ANON_KEY) || '').trim();
 
-  if (localUrl && localAnonKey) {
-    return { url: localUrl, anonKey: localAnonKey };
-  }
+  const finalUrl = localUrl || (isEnvValid ? envUrl : DEFAULT_SUPABASE_PROJECT_URL);
+  const finalAnonKey = localAnonKey || (isEnvValid ? envAnonKey : '');
 
-  if (isEnvValid) {
-    return { url: envUrl, anonKey: envAnonKey };
-  }
-
-  return { url: '', anonKey: '' };
+  return { url: finalUrl, anonKey: finalAnonKey };
 }
 
 export function saveCredentials(url: string, anonKey: string) {

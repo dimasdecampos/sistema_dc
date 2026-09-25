@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Share2,
+  Edit2,
 } from 'lucide-react';
 import { Listing, Match, UserProfile } from '../types/marketplace';
 
@@ -20,6 +21,8 @@ interface ListingDetailModalProps {
   onStartChat: (listing: Listing) => void;
   currentUser: UserProfile;
   relatedMatches?: Match[];
+  onEditListing?: (listing: Listing) => void;
+  isAdmin?: boolean;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -29,6 +32,8 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   onStartChat,
   currentUser,
   relatedMatches = [],
+  onEditListing,
+  isAdmin = false,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
 
@@ -212,6 +217,23 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             </div>
           </div>
 
+          {/* Ação de Edição para Dono ou Admin */}
+          {(isOwner || isAdmin) && onEditListing && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onEditListing(listing);
+                }}
+                className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <Edit2 className="w-4 h-4 text-emerald-400" />
+                <span>Editar Anúncio {isAdmin && !isOwner ? '(Painel Admin)' : ''}</span>
+              </button>
+            </div>
+          )}
+
           {/* Ação Principal: Botão para Iniciar Conversa */}
           {!isOwner ? (
             <button
@@ -230,7 +252,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             </button>
           ) : (
             <div className="p-3 bg-slate-100 rounded-2xl text-center text-xs text-slate-500 font-semibold">
-              Este é o seu próprio anúncio. Você pode gerenciá-lo em seu Painel.
+              Este é o seu próprio anúncio. Você pode editá-lo pelo botão acima ou em seu Painel.
             </div>
           )}
 
