@@ -1,8 +1,11 @@
 import { getSupabase } from '../lib/supabase';
 
-export const SUPABASE_STORAGE_BUCKET = 'Img';
+export const SUPABASE_STORAGE_BUCKET = 'img';
 export const SUPABASE_STORAGE_FOLDER = '';
 export const MAX_PHOTOS_PER_PRODUCT = 5;
+
+// Buckets suportados em ordem de tentativa
+export const STORAGE_BUCKET_CANDIDATES = ['img', 'Img', 'images'];
 
 export interface OptimizationStats {
   originalSize: number;
@@ -16,9 +19,16 @@ export interface UploadResult {
   url: string;
   path: string;
   isSupabase: boolean;
+  bucketUsed?: string;
   stats?: OptimizationStats;
   error?: string;
+  isRlsError?: boolean;
 }
+
+export function isSupabaseConfigured(): boolean {
+  return getSupabase() !== null;
+}
+
 
 export interface ImageOptimizationOptions {
   maxWidth?: number;
@@ -192,69 +202,200 @@ export function dataUrlToFile(dataUrl: string, fileName = 'upload.jpg'): File {
 }
 
 /**
+ * Testa ativamente a conexão e escrita no bucket de imagens do Supabase
+ */
+export async function testSupabaseStorageBucket(
+  preferredBucket = SUPABASE_STORAGE_BUCKET
+): Promise<{
+  success: boolean;
+  bucketName: string;
+  message: string;
+  isRlsError?: boolean;
+  isBucketNotFoundError?: boolean;
+  details?: string;
+  publicUrl?: string;
+}> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    return {
+      success: false,
+      bucketName: preferredBucket,
+      message: 'Supabase não conectado. Configure a URL e a Chave Anon.',
+    };
+  }
+
+  // Tenta primeiro o bucket preferido, depois candidatos alternativos
+  const candidates = Array.from(
+    new Set([preferredBucket, ...STORAGE_BUCKET_CANDIDATES])
+  );
+
+  let lastError: string | undefined;
+  let isRls = false;
+  let isNotFound = false;
+
+  // Tiny 1x1 WebP pixel para teste
+  const testPixel = dataUrlToFile(
+    'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=',
+    'ping.webp'
+  );
+  const testPath = `_probe_test_${Date.now()}.webp`;
+
+  for (const bucket of candidates) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(testPath, testPixel, {
+          cacheControl: '60',
+          upsert: true,
+          contentType: 'image/webp',
+        });
+
+      if (!error && data) {
+        const { data: pubData } = supabase.storage.from(bucket).getPublicUrl(testPath);
+        // Remove arquivo de teste (best-effort)
+        supabase.storage.from(bucket).remove([testPath]).catch(() => {});
+
+        return {
+          success: true,
+          bucketName: bucket,
+          message: `Bucket '${bucket}' está ativo e gravando fotos com sucesso!`,
+          publicUrl: pubData.publicUrl,
+        };
+      }
+
+      if (error) {
+        lastError = error.message;
+        const msg = error.message?.toLowerCase() || '';
+        if (
+          msg.includes('row-level security') ||
+          msg.includes('violates') ||
+          msg.includes('policy') ||
+          (error as any).statusCode === '403'
+        ) {
+          isRls = true;
+          // Bucket existe, mas RLS bloqueou inserção
+          return {
+            success: false,
+            bucketName: bucket,
+            message: `O bucket '${bucket}' existe, mas as Políticas RLS de acesso público precisam ser executadas no Supabase SQL Editor.`,
+            isRlsError: true,
+            details: error.message,
+          };
+        }
+        if (msg.includes('not found') || (error as any).statusCode === '404') {
+          isNotFound = true;
+        }
+      }
+    } catch (e: unknown) {
+      lastError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  if (isNotFound) {
+    return {
+      success: false,
+      bucketName: preferredBucket,
+      message: `Nenhum dos buckets ('${candidates.join("', '")}') foi encontrado. Crie o bucket 'img' como público ou execute o script SQL.`,
+      isBucketNotFoundError: true,
+      details: lastError,
+    };
+  }
+
+  return {
+    success: false,
+    bucketName: preferredBucket,
+    message: `Falha no teste do bucket: ${lastError || 'Erro desconhecido'}`,
+    isRlsError: isRls,
+    details: lastError,
+  };
+}
+
+/**
  * Verifica se o bucket existe no Supabase Storage
  */
 export async function checkBucketExists(
   bucketName = SUPABASE_STORAGE_BUCKET
-): Promise<{ exists: boolean; error?: string }> {
+): Promise<{ exists: boolean; bucketName: string; error?: string }> {
   const supabase = getSupabase();
   if (!supabase) {
-    return { exists: false, error: 'Supabase não configurado ou desconectado' };
+    return { exists: false, bucketName, error: 'Supabase não configurado ou desconectado' };
   }
 
-  try {
-    const { data, error } = await supabase.storage.getBucket(bucketName);
-    if (error || !data) {
-      return { exists: false, error: error?.message || 'Bucket não encontrado' };
+  const candidates = Array.from(new Set([bucketName, ...STORAGE_BUCKET_CANDIDATES]));
+  for (const b of candidates) {
+    try {
+      const { data, error } = await supabase.storage.getBucket(b);
+      if (!error && data) {
+        return { exists: true, bucketName: b };
+      }
+    } catch {
+      // Ignora erro e tenta o próximo
     }
-    return { exists: true };
-  } catch (err: unknown) {
-    return { exists: false, error: err instanceof Error ? err.message : String(err) };
   }
+
+  // Tenta teste prático com probe
+  const testRes = await testSupabaseStorageBucket(bucketName);
+  if (testRes.success || testRes.isRlsError) {
+    return { exists: true, bucketName: testRes.bucketName };
+  }
+
+  return { exists: false, bucketName, error: testRes.message };
 }
 
 /**
- * Tenta criar o bucket 'img' no Supabase se ainda não existir
+ * Tenta criar ou validar o bucket 'img' no Supabase
  */
 export async function ensureBucketExists(
   bucketName = SUPABASE_STORAGE_BUCKET
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; bucketName: string }> {
   const supabase = getSupabase();
   if (!supabase) {
-    return { success: false, message: 'Supabase não conectado' };
+    return { success: false, message: 'Supabase não conectado', bucketName };
   }
 
   try {
-    const check = await checkBucketExists(bucketName);
-    if (check.exists) {
-      return { success: true, message: `Bucket '${bucketName}' já existe e está pronto.` };
+    const test = await testSupabaseStorageBucket(bucketName);
+    if (test.success) {
+      return { success: true, message: `Bucket '${test.bucketName}' já existe e está funcionando!`, bucketName: test.bucketName };
     }
 
+    if (test.isRlsError) {
+      return {
+        success: false,
+        bucketName: test.bucketName,
+        message: `Bucket '${test.bucketName}' existe, mas bloqueou o envio por RLS. Execute o script de correção no SQL Editor do Supabase.`,
+      };
+    }
+
+    // Tenta criar via API administrativa se permitido
     const { error } = await supabase.storage.createBucket(bucketName, {
       public: true,
-      fileSizeLimit: 5242880, // 5MB
+      fileSizeLimit: 52428800, // 50MB
     });
 
     if (error) {
       return {
         success: false,
-        message: `Não foi possível criar o bucket '${bucketName}' automaticamente (${error.message}). Crie pelo painel do Supabase com acesso público.`,
+        bucketName,
+        message: `Não foi possível criar o bucket '${bucketName}' automaticamente via chave Anon (${error.message}). Crie pelo painel do Supabase (Storage > New Bucket: img, marcado como Public) ou execute o script SQL.`,
       };
     }
 
-    return { success: true, message: `Bucket '${bucketName}' criado com sucesso!` };
+    return { success: true, message: `Bucket '${bucketName}' criado com sucesso!`, bucketName };
   } catch (err: unknown) {
     return {
       success: false,
+      bucketName,
       message: err instanceof Error ? err.message : String(err),
     };
   }
 }
 
 /**
- * Faz upload de uma imagem diretamente para a pasta do bucket 'img' no Supabase Storage.
- * Aplica redimensionamento e otimização automática para economizar espaço no Supabase.
- * Caminho padrão salvo: img/${timestamp}-${nome_arquivo}.webp
+ * Faz upload de uma imagem para o bucket do Supabase Storage.
+ * - Tenta os buckets suportados ('img', 'Img', 'images').
+ * - Aplica redimensionamento e otimização automática para economizar ~90% de espaço.
+ * - Se falhar no Supabase, salva com fallback base64 MAS retorna diagnóstico transparente.
  */
 export async function uploadImageToSupabase(
   fileOrBlob: File | Blob,
@@ -268,7 +409,7 @@ export async function uploadImageToSupabase(
     skipResize?: boolean;
   }
 ): Promise<UploadResult> {
-  const bucketName = options?.bucket || SUPABASE_STORAGE_BUCKET;
+  const primaryBucket = options?.bucket || SUPABASE_STORAGE_BUCKET;
   const folder = (options?.folder || SUPABASE_STORAGE_FOLDER).replace(/^\/+|\/+$/g, '');
   const supabase = getSupabase();
 
@@ -301,95 +442,71 @@ export async function uploadImageToSupabase(
 
   // Se o Supabase estiver configurado e conectado
   if (supabase) {
-    try {
-      const { error } = await supabase.storage
-        .from(bucketName)
-        .upload(filePath, fileToUpload, {
-          cacheControl: '31536000', // 1 ano de cache para assets estáticos
-          upsert: true,
-          contentType: fileToUpload.type || 'image/webp',
-        });
+    const candidateBuckets = Array.from(
+      new Set([primaryBucket, ...STORAGE_BUCKET_CANDIDATES])
+    );
 
-      if (error) {
-        console.warn(`Tentando upload alternativo no Supabase (${bucketName}/${filePath}):`, error);
+    let lastError: string | undefined;
+    let isRlsError = false;
 
-        // Tenta a capitalização alternativa ('Img' <-> 'img')
-        const altBucket = bucketName === 'Img' ? 'img' : 'Img';
-        const { error: altError, data: altData } = await supabase.storage
-          .from(altBucket)
+    for (const b of candidateBuckets) {
+      try {
+        const { error, data } = await supabase.storage
+          .from(b)
           .upload(filePath, fileToUpload, {
-            cacheControl: '31536000',
+            cacheControl: '31536000', // 1 ano de cache
             upsert: true,
             contentType: fileToUpload.type || 'image/webp',
           });
 
-        if (!altError && altData) {
-          const { data: pubData } = supabase.storage.from(altBucket).getPublicUrl(filePath);
+        if (!error && data) {
+          // Sucesso no upload para o Supabase! Retorna a URL pública
+          const { data: pubData } = supabase.storage.from(b).getPublicUrl(filePath);
           return {
             url: pubData.publicUrl,
             path: filePath,
             isSupabase: true,
+            bucketUsed: b,
             stats,
           };
         }
 
-        // Se o bucket não existe, tenta criar e tentar novamente
-        if (
-          error.message?.toLowerCase().includes('bucket not found') ||
-          error.message?.toLowerCase().includes('not found')
-        ) {
-          const creation = await ensureBucketExists(bucketName);
-          if (creation.success) {
-            const retry = await supabase.storage
-              .from(bucketName)
-              .upload(filePath, fileToUpload, {
-                cacheControl: '31536000',
-                upsert: true,
-                contentType: fileToUpload.type || 'image/webp',
-              });
-
-            if (!retry.error && retry.data) {
-              const { data: pubData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
-              return {
-                url: pubData.publicUrl,
-                path: filePath,
-                isSupabase: true,
-                stats,
-              };
-            }
+        if (error) {
+          lastError = error.message;
+          const msg = error.message?.toLowerCase() || '';
+          if (
+            msg.includes('row-level security') ||
+            msg.includes('violates') ||
+            msg.includes('policy') ||
+            (error as any).statusCode === '403'
+          ) {
+            isRlsError = true;
           }
         }
-
-        // Fallback para base64 local
-        const fallbackUrl = await blobToDataUrl(fileToUpload);
-        return {
-          url: fallbackUrl,
-          path: filePath,
-          isSupabase: false,
-          stats,
-          error: `Falha no Supabase: ${error.message}. Salvo localmente para não perder a publicação.`,
-        };
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err.message : String(err);
       }
-
-      // Sucesso no upload para o Supabase! Retorna a URL pública
-      const { data: pubData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
-      return {
-        url: pubData.publicUrl,
-        path: filePath,
-        isSupabase: true,
-        stats,
-      };
-    } catch (err: unknown) {
-      console.error('Erro de conexão com Supabase Storage:', err);
-      const fallbackUrl = await blobToDataUrl(fileToUpload);
-      return {
-        url: fallbackUrl,
-        path: filePath,
-        isSupabase: false,
-        stats,
-        error: err instanceof Error ? err.message : 'Falha desconhecida',
-      };
     }
+
+    // Se chegou aqui, todos os buckets candidatos falharam no Supabase
+    console.warn(`Falha ao salvar no Supabase Storage:`, lastError);
+    const fallbackUrl = await blobToDataUrl(fileToUpload);
+
+    let errorDetail = `Falha no Supabase: ${lastError || 'Erro desconhecido'}.`;
+    if (isRlsError) {
+      errorDetail = `Erro de Permissão (RLS): O bucket existe, mas falta a política de inserção pública no Supabase. Execute o script SQL no SQL Editor.`;
+    } else if (lastError?.toLowerCase().includes('not found')) {
+      errorDetail = `Bucket '${primaryBucket}' não encontrado no seu Supabase. Crie o bucket com nome 'img' e acesso público (Public).`;
+    }
+
+    return {
+      url: fallbackUrl,
+      path: filePath,
+      isSupabase: false,
+      stats,
+      isRlsError,
+      error: `${errorDetail} (Foto mantida localmente para não perder seu anúncio).`,
+    };
   }
 
   // Fallback se o Supabase não estiver conectado ainda
@@ -399,7 +516,7 @@ export async function uploadImageToSupabase(
     path: filePath,
     isSupabase: false,
     stats,
-    error: 'Supabase não conectado. Foto salva em armazenamento local temporário.',
+    error: 'Supabase não conectado. Configure a URL e Chave Anon para gravar as fotos na nuvem.',
   };
 }
 

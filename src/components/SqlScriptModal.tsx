@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { X, Code2, Copy, Check, ExternalLink, ShieldCheck, Terminal, PlusCircle } from 'lucide-react';
-import { SUPABASE_SQL_SCHEMA, SUPABASE_INSERT_SAMPLE_SQL } from '../lib/supabase';
+import { X, Code2, Copy, Check, ExternalLink, ShieldCheck, Terminal, PlusCircle, Cloud } from 'lucide-react';
+import {
+  SUPABASE_SQL_SCHEMA,
+  SUPABASE_INSERT_SAMPLE_SQL,
+  SUPABASE_STORAGE_FIX_SQL,
+} from '../lib/supabase';
 
 interface SqlScriptModalProps {
   isOpen: boolean;
@@ -13,22 +17,35 @@ export const SqlScriptModal: React.FC<SqlScriptModalProps> = ({
   onClose,
   onShowToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<'schema' | 'insert'>('schema');
+  const [activeTab, setActiveTab] = useState<'schema' | 'storage' | 'insert'>('storage');
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
-  const currentCode = activeTab === 'schema' ? SUPABASE_SQL_SCHEMA : SUPABASE_INSERT_SAMPLE_SQL;
-  const currentFileName = activeTab === 'schema' ? 'schema_clientes_rls.sql' : 'insert_cliente.sql';
+  const currentCode =
+    activeTab === 'schema'
+      ? SUPABASE_SQL_SCHEMA
+      : activeTab === 'storage'
+      ? SUPABASE_STORAGE_FIX_SQL
+      : SUPABASE_INSERT_SAMPLE_SQL;
+
+  const currentFileName =
+    activeTab === 'schema'
+      ? 'schema_marketplace_completo.sql'
+      : activeTab === 'storage'
+      ? 'fix_storage_bucket_img.sql'
+      : 'insert_exemplo.sql';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(currentCode);
     setCopied(true);
     onShowToast(
       'Script copiado!',
-      activeTab === 'schema'
-        ? 'Cole no SQL Editor do Supabase e execute para criar a tabela e RLS.'
-        : 'Cole no SQL Editor do Supabase para inserir o novo cliente na tabela.',
+      activeTab === 'storage'
+        ? 'Cole no SQL Editor do Supabase e clique em Run para liberar o bucket de fotos.'
+        : activeTab === 'schema'
+        ? 'Cole no SQL Editor do Supabase e execute para criar as tabelas e RLS.'
+        : 'Cole no SQL Editor do Supabase para inserir dados de teste.',
       'success'
     );
     setTimeout(() => setCopied(false), 2500);
@@ -54,41 +71,55 @@ export const SqlScriptModal: React.FC<SqlScriptModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 px-5 pt-3 border-b border-slate-100 bg-slate-50/25">
+        <div className="flex items-center gap-2 px-5 pt-3 border-b border-slate-100 bg-slate-50/25 overflow-x-auto">
+          <button
+            onClick={() => {
+              setActiveTab('storage');
+              setCopied(false);
+            }}
+            className={`flex items-center gap-1.5 pb-2.5 px-3 text-xs font-bold border-b-2 transition shrink-0 cursor-pointer ${
+              activeTab === 'storage'
+                ? 'border-emerald-600 text-emerald-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+            <span>1. Corrigir Bucket de Fotos (img)</span>
+          </button>
           <button
             onClick={() => {
               setActiveTab('schema');
               setCopied(false);
             }}
-            className={`flex items-center gap-1.5 pb-2.5 px-3 text-xs font-semibold border-b-2 transition ${
+            className={`flex items-center gap-1.5 pb-2.5 px-3 text-xs font-semibold border-b-2 transition shrink-0 cursor-pointer ${
               activeTab === 'schema'
                 ? 'border-emerald-600 text-emerald-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>1. Criar Tabela & RLS</span>
+            <span>2. Schema Completo & Tabelas</span>
           </button>
           <button
             onClick={() => {
               setActiveTab('insert');
               setCopied(false);
             }}
-            className={`flex items-center gap-1.5 pb-2.5 px-3 text-xs font-semibold border-b-2 transition ${
+            className={`flex items-center gap-1.5 pb-2.5 px-3 text-xs font-semibold border-b-2 transition shrink-0 cursor-pointer ${
               activeTab === 'insert'
                 ? 'border-emerald-600 text-emerald-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>2. Inserir Registro (INSERT SQL)</span>
+            <span>3. Exemplo INSERT</span>
           </button>
         </div>
 

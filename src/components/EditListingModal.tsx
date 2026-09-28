@@ -76,11 +76,20 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
 
     try {
       const fileList = Array.from(files);
+      let anyError: string | null = null;
       for (const file of fileList) {
-        const res = await uploadImageToSupabase(file, { bucket: 'Img' });
+        const res = await uploadImageToSupabase(file);
         setImages((prev) => [...prev, res.url]);
+        if (!res.isSupabase && res.error) {
+          anyError = res.error;
+        }
       }
-      onShowToast?.('Fotos enviadas!', 'As imagens foram salvas no Supabase.', 'success');
+      if (anyError) {
+        setErrorMsg(anyError);
+        onShowToast?.('Aviso no envio de fotos', anyError, 'info');
+      } else {
+        onShowToast?.('Fotos enviadas!', 'As imagens foram salvas no bucket do Supabase.', 'success');
+      }
     } catch (err: unknown) {
       console.error('Erro no upload da foto:', err);
       setErrorMsg('Falha ao enviar foto para o Supabase Storage.');

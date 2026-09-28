@@ -147,33 +147,89 @@ create policy "Acesso a mensagens" on public.messages for all using (true);
 -- ========================================================
 -- 7. STORAGE BUCKET: img (Armazenamento de Fotos na pasta img/)
 -- ========================================================
--- Cria o bucket 'img' caso não exista e define como público
+-- Cria os buckets 'img' e 'Img' caso não existam e define como públicos
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'img',
-  'img',
-  true,
-  5242880, -- limite de 5MB por foto
-  array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
-)
-on conflict (id) do update set public = true;
+values
+  ('img', 'img', true, 52428800, array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']),
+  ('Img', 'Img', true, 52428800, array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
+on conflict (id) do update set public = true, file_size_limit = 52428800;
 
--- Políticas de acesso público para o bucket 'img'
-create policy "Visualização pública de fotos no bucket img"
+-- Remove políticas anteriores para evitar erro 42710 (policy already exists)
+drop policy if exists "Visualização pública de fotos no bucket img" on storage.objects;
+drop policy if exists "Upload de fotos no bucket img" on storage.objects;
+drop policy if exists "Atualização de fotos no bucket img" on storage.objects;
+drop policy if exists "Exclusão de fotos no bucket img" on storage.objects;
+drop policy if exists "Public Access img" on storage.objects;
+drop policy if exists "Public Insert img" on storage.objects;
+drop policy if exists "Public Update img" on storage.objects;
+drop policy if exists "Public Delete img" on storage.objects;
+drop policy if exists "Permitir leitura publica de fotos" on storage.objects;
+drop policy if exists "Permitir upload publico de fotos" on storage.objects;
+drop policy if exists "Permitir update publico de fotos" on storage.objects;
+drop policy if exists "Permitir delete publico de fotos" on storage.objects;
+
+-- Políticas de acesso público para 'img' e 'Img'
+create policy "Permitir leitura publica de fotos"
   on storage.objects for select
-  using (bucket_id = 'img');
+  using (bucket_id in ('img', 'Img') or lower(bucket_id) = 'img');
 
-create policy "Upload de fotos no bucket img"
+create policy "Permitir upload publico de fotos"
   on storage.objects for insert
-  with check (bucket_id = 'img');
+  with check (bucket_id in ('img', 'Img') or lower(bucket_id) = 'img');
 
-create policy "Atualização de fotos no bucket img"
+create policy "Permitir update publico de fotos"
   on storage.objects for update
-  using (bucket_id = 'img');
+  using (bucket_id in ('img', 'Img') or lower(bucket_id) = 'img');
 
-create policy "Exclusão de fotos no bucket img"
+create policy "Permitir delete publico de fotos"
   on storage.objects for delete
-  using (bucket_id = 'img');
+  using (bucket_id in ('img', 'Img') or lower(bucket_id) = 'img');
+`;
+
+export const SUPABASE_STORAGE_FIX_SQL = `-- ========================================================
+-- SCRIPT DE CORREÇÃO DO BUCKET DE IMAGENS (Supabase Storage)
+-- Execute no SQL Editor do Supabase (supabase.com > SQL Editor > New Query)
+-- ========================================================
+
+-- 1. Cria ou atualiza os buckets 'img' e 'Img' como públicos
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values
+  ('img', 'img', true, 52428800, array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']),
+  ('Img', 'Img', true, 52428800, array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
+on conflict (id) do update set
+  public = true,
+  file_size_limit = 52428800;
+
+-- 2. Limpa políticas anteriores para evitar erro 42710 (policy already exists)
+drop policy if exists "Visualização pública de fotos no bucket img" on storage.objects;
+drop policy if exists "Upload de fotos no bucket img" on storage.objects;
+drop policy if exists "Atualização de fotos no bucket img" on storage.objects;
+drop policy if exists "Exclusão de fotos no bucket img" on storage.objects;
+drop policy if exists "Public Access img" on storage.objects;
+drop policy if exists "Public Insert img" on storage.objects;
+drop policy if exists "Public Update img" on storage.objects;
+drop policy if exists "Public Delete img" on storage.objects;
+drop policy if exists "Permitir leitura publica de fotos" on storage.objects;
+drop policy if exists "Permitir upload publico de fotos" on storage.objects;
+drop policy if exists "Permitir update publico de fotos" on storage.objects;
+drop policy if exists "Permitir delete publico de fotos" on storage.objects;
+
+-- 3. Cria políticas RLS liberando leitura, upload, atualização e exclusão públicas
+create policy "Permitir leitura publica de fotos"
+  on storage.objects for select
+  using (bucket_id in ('img', 'Img') or lower(bucket_id) = 'img');
+
+create policy "Permitir upload publico de fotos"
+  on storage.objects for insert
+  with check (bucket_id in ('img', 'Img') or lower(bucket_id) = 'img');
+
+create policy "Permitir update publico de fotos"
+  on storage.objects for update
+  using (bucket_id in ('img', 'Img') or lower(bucket_id) = 'img');
+
+create policy "Permitir delete publico de fotos"
+  on storage.objects for delete
+  using (bucket_id in ('img', 'Img') or lower(bucket_id) = 'img');
 `;
 
 export const SUPABASE_INSERT_SAMPLE_SQL = `-- Inserir exemplo de anúncio de procura (WANTED)
@@ -251,3 +307,55 @@ export function getSupabase(): SupabaseClient | null {
     return null;
   }
 }
+
+/**
+ * Testa a conexão com o Supabase fornecendo URL e AnonKey (ou usando as armazenadas)
+ */
+export async function testSupabaseConnection(
+  customUrl?: string,
+  customKey?: string
+): Promise<{ connected: boolean; message: string; hasTables?: boolean }> {
+  const url = (customUrl || getStoredCredentials().url || '').trim();
+  const anonKey = (customKey || getStoredCredentials().anonKey || '').trim();
+
+  if (!url || !anonKey) {
+    return {
+      connected: false,
+      message: 'URL ou Chave Anon não configuradas.',
+    };
+  }
+
+  try {
+    const client = createClient(url, anonKey);
+    // Testa leitura simples na tabela de categorias
+    const { data, error } = await client.from('categories').select('id').limit(1);
+    if (error) {
+      if (
+        error.code === '42P01' ||
+        error.message?.includes('does not exist') ||
+        error.message?.includes('relation "public.categories"')
+      ) {
+        return {
+          connected: true,
+          hasTables: false,
+          message: 'Conectado ao Supabase! Porém as tabelas ainda não foram criadas. Execute o script SQL no SQL Editor.',
+        };
+      }
+      return {
+        connected: false,
+        message: `Falha na autenticação com o Supabase: ${error.message}`,
+      };
+    }
+    return {
+      connected: true,
+      hasTables: true,
+      message: 'Conexão e tabelas validadas com sucesso no Supabase!',
+    };
+  } catch (err: unknown) {
+    return {
+      connected: false,
+      message: `Erro ao testar cliente: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+

@@ -1122,6 +1122,8 @@ export default function App() {
         isOpen={isSaleModalOpen}
         onClose={() => setIsSaleModalOpen(false)}
         onSubmit={handleCreateSale}
+        onOpenSqlModal={() => setIsSqlModalOpen(true)}
+        onOpenSupabaseConfig={() => setIsSupabaseModalOpen(true)}
       />
 
       <ListingDetailModal

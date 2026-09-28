@@ -28,12 +28,14 @@ import {
   Database,
   UploadCloud,
   UserCheck,
+  Copy,
 } from 'lucide-react';
 import { Category, Listing, SiteConfig, UserProfile } from '../types/marketplace';
 import { Usuario } from '../types/auth';
-import { getStoredCredentials } from '../lib/supabase';
+import { getStoredCredentials, SUPABASE_STORAGE_FIX_SQL } from '../lib/supabase';
 import {
   ensureBucketExists,
+  testSupabaseStorageBucket,
   SUPABASE_STORAGE_BUCKET,
   SUPABASE_STORAGE_FOLDER,
 } from '../services/storageService';
@@ -131,18 +133,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Supabase Storage Bucket Test State
   const [bucketStatus, setBucketStatus] = useState<string | null>(null);
   const [isCheckingBucket, setIsCheckingBucket] = useState(false);
+  const [bucketTestSuccess, setBucketTestSuccess] = useState<boolean | null>(null);
+  const [bucketRlsError, setBucketRlsError] = useState(false);
+  const [isCopiedBucketSql, setIsCopiedBucketSql] = useState(false);
 
   const handleTestBucket = async () => {
     setIsCheckingBucket(true);
     setBucketStatus(null);
+    setBucketTestSuccess(null);
+    setBucketRlsError(false);
     try {
-      const res = await ensureBucketExists(SUPABASE_STORAGE_BUCKET);
+      const res = await testSupabaseStorageBucket(SUPABASE_STORAGE_BUCKET);
       setBucketStatus(res.message);
+      setBucketTestSuccess(res.success);
+      setBucketRlsError(!!res.isRlsError);
     } catch (e: unknown) {
       setBucketStatus(`Erro ao testar bucket: ${e instanceof Error ? e.message : String(e)}`);
+      setBucketTestSuccess(false);
     } finally {
       setIsCheckingBucket(false);
     }
+  };
+
+  const handleCopyBucketSql = () => {
+    navigator.clipboard.writeText(SUPABASE_STORAGE_FIX_SQL);
+    setIsCopiedBucketSql(true);
+    setTimeout(() => setIsCopiedBucketSql(false), 3000);
   };
 
   // Manipulação de Configurações
@@ -589,9 +605,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     Todos os uploads são salvos na pasta <strong>{SUPABASE_STORAGE_FOLDER}/</strong> do bucket <strong>{SUPABASE_STORAGE_BUCKET}</strong>. As imagens são redimensionadas no navegador antes do upload para economizar ~90% a 95% do armazenamento do Supabase.
                   </p>
                   {bucketStatus && (
-                    <div className="mt-2 text-xs font-semibold text-emerald-800 bg-white p-2 rounded-lg border border-emerald-200 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>{bucketStatus}</span>
+                    <div
+                      className={`mt-2.5 p-2.5 rounded-xl border text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 ${
+                        bucketTestSuccess
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                          : 'bg-amber-50 border-amber-200 text-amber-950'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {bucketTestSuccess ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        )}
+                        <span className="font-semibold">{bucketStatus}</span>
+                      </div>
+
+                      {!bucketTestSuccess && (
+                        <button
+                          type="button"
+                          onClick={handleCopyBucketSql}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shrink-0 flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        >
+                          {isCopiedBucketSql ? (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Copiado!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Copiar SQL de Correção</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -602,10 +650,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   type="button"
                   onClick={handleTestBucket}
                   disabled={isCheckingBucket}
-                  className="px-3 py-2 text-xs font-bold bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-xl shadow-2xs transition cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
+                  className="px-3.5 py-2 text-xs font-bold bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-xl shadow-2xs transition cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
                 >
                   <UploadCloud className="w-4 h-4 text-emerald-600" />
-                  <span>{isCheckingBucket ? 'Verificando...' : 'Verificar / Criar Bucket Img'}</span>
+                  <span>{isCheckingBucket ? 'Verificando Bucket...' : 'Testar Bucket Img'}</span>
                 </button>
               </div>
             </div>
