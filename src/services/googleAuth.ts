@@ -220,20 +220,42 @@ export const signInWithGoogleDirect = async (preferredEmail?: string, preferredN
 
   const existing = getStoredUser();
   const email = (preferredEmail || existing?.email || 'dimasrafting@gmail.com').toLowerCase().trim();
-  const nome = preferredName?.trim() || (email === 'dimasrafting@gmail.com' ? 'Dimas' : (existing?.nome || (email ? email.split('@')[0] : 'Usuário Google')));
-  const photo = getOfficialGooglePhoto(email, existing?.foto);
+  const isSameAsExisting = existing && existing.email.toLowerCase() === email;
+
+  const resolvedName = preferredName?.trim()
+    || (isSameAsExisting ? existing.nome : null)
+    || (email === 'dimasrafting@gmail.com' ? 'Dimas' : email.split('@')[0]);
+
+  const userId = isSameAsExisting && existing.id
+    ? existing.id
+    : email === 'dimasrafting@gmail.com'
+    ? 'google_dimas_official'
+    : `user_${email.replace(/[^a-z0-9]/g, '_')}`;
+
+  const photo = getOfficialGooglePhoto(email, isSameAsExisting ? existing?.foto : undefined);
 
   const userObj: Usuario = {
-    id: existing?.id || (email === 'dimasrafting@gmail.com' ? 'google_dimas_official' : `google_${Date.now()}`),
-    google_id: existing?.google_id || (email === 'dimasrafting@gmail.com' ? 'google_dimas_official' : `google_${Date.now()}`),
+    id: userId,
+    google_id: userId,
     email: email,
-    nome: nome,
+    nome: resolvedName,
     foto: photo,
-    cidade: existing?.cidade || 'Socorro - SP',
+    cidade: (isSameAsExisting && existing?.cidade) ? existing.cidade : 'Socorro - SP',
     last_login_at: new Date().toISOString(),
   };
 
   saveStoredUser(userObj);
+
+  // Sincroniza usuário com o servidor compartilhado
+  try {
+    await fetch('/api/users/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: userObj }),
+    });
+  } catch {
+    // continua normalmente
+  }
   try {
     const syncRes = await syncUserWithSupabase(userObj);
     return syncRes.user;

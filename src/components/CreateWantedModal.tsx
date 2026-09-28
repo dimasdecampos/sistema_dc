@@ -11,7 +11,7 @@ import {
   DollarSign,
   Cloud,
 } from 'lucide-react';
-import { CreateWantedInput, ListingCondition } from '../types/marketplace';
+import { CreateWantedInput, ListingCondition, UserProfile } from '../types/marketplace';
 import { getStoredCategories } from '../services/categoryService';
 import { uploadImageToSupabase } from '../services/storageService';
 
@@ -20,6 +20,7 @@ interface CreateWantedModalProps {
   onClose: () => void;
   onSubmit: (input: CreateWantedInput) => Promise<void>;
   initialQuery?: string;
+  currentUser?: UserProfile;
 }
 
 export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
@@ -27,6 +28,7 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
   onClose,
   onSubmit,
   initialQuery = '',
+  currentUser,
 }) => {
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState('cat-ferramentas');
@@ -139,6 +141,24 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+          {currentUser && (
+            <div className="flex items-center gap-3 p-3 bg-emerald-50/70 border border-emerald-200/70 rounded-2xl">
+              <img
+                src={currentUser.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'}
+                alt={currentUser.nome}
+                className="w-8 h-8 rounded-full object-cover border border-emerald-300 shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-800 truncate">
+                  Comprador: {currentUser.nome}
+                </p>
+                <p className="text-[10px] text-slate-500 truncate">
+                  {currentUser.email || currentUser.cidade || 'Conta Google conectada'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Campo: O que você procura? */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search,
   Tag,
@@ -199,6 +199,37 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const pendingActionRef = useRef<{ type: 'wanted'; query?: string } | { type: 'sale' } | null>(null);
+
+  const handleRequestOpenWanted = useCallback((queryText?: string) => {
+    if (!googleUser) {
+      pendingActionRef.current = { type: 'wanted', query: queryText || searchQuery };
+      setIsGoogleModalOpen(true);
+      showToast(
+        'Login com Google necessário',
+        'Faça login com sua conta do Google para registrar o que você procura.',
+        'info'
+      );
+      return;
+    }
+    setInitialWantedQuery(queryText || searchQuery);
+    setIsWantedModalOpen(true);
+  }, [googleUser, searchQuery, showToast]);
+
+  const handleRequestOpenSale = useCallback(() => {
+    if (!googleUser) {
+      pendingActionRef.current = { type: 'sale' };
+      setIsGoogleModalOpen(true);
+      showToast(
+        'Login com Google necessário',
+        'Faça login com sua conta do Google para anunciar seu desapego.',
+        'info'
+      );
+      return;
+    }
+    setIsSaleModalOpen(true);
+  }, [googleUser, showToast]);
+
   // Helper para sincronizar usuário Google com o perfil do marketplace
   const handleUserAuthenticated = useCallback((u: Usuario) => {
     setGoogleUser(u);
@@ -220,6 +251,20 @@ export default function App() {
     } else {
       const activeCfg = getSiteConfig(u.email);
       setSiteConfig(activeCfg);
+    }
+
+    // Se o usuário clicou em comprar ou vender antes de se autenticar, abre o modal desejado
+    if (pendingActionRef.current) {
+      const pending = pendingActionRef.current;
+      pendingActionRef.current = null;
+      setTimeout(() => {
+        if (pending.type === 'wanted') {
+          setInitialWantedQuery(pending.query || '');
+          setIsWantedModalOpen(true);
+        } else if (pending.type === 'sale') {
+          setIsSaleModalOpen(true);
+        }
+      }, 350);
     }
   }, []);
 
@@ -363,7 +408,23 @@ export default function App() {
       }
     });
 
+    // Sincronização periódica a cada 5 segundos para que novos anúncios publicados no celular apareçam no PC automaticamente
+    const pollInterval = setInterval(() => {
+      fetchListings().then((res) => {
+        if (res.listings && res.listings.length > 0) {
+          setListings(res.listings);
+        }
+      }).catch(() => {});
+    }, 5000);
+
+    const handleWindowFocus = () => {
+      loadData();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+
     return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleWindowFocus);
       cleanupGsi();
       unsubGoogle();
     };
@@ -644,11 +705,8 @@ export default function App() {
         isLoggingIn={isLoggingIn}
         matchesCount={userMatches.length}
         unreadCount={conversations.length}
-        onOpenWantedModal={() => {
-          setInitialWantedQuery('');
-          setIsWantedModalOpen(true);
-        }}
-        onOpenSaleModal={() => setIsSaleModalOpen(true)}
+        onOpenWantedModal={() => handleRequestOpenWanted('')}
+        onOpenSaleModal={handleRequestOpenSale}
       />
 
       {/* Main Container */}
@@ -660,11 +718,8 @@ export default function App() {
             <HomeHero
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
-              onOpenWantedModal={(queryText) => {
-                setInitialWantedQuery(queryText || searchQuery || '');
-                setIsWantedModalOpen(true);
-              }}
-              onOpenSaleModal={() => setIsSaleModalOpen(true)}
+              onOpenWantedModal={(queryText) => handleRequestOpenWanted(queryText || searchQuery || '')}
+              onOpenSaleModal={handleRequestOpenSale}
               cityName={siteConfig.cityName}
             />
 
@@ -800,16 +855,13 @@ export default function App() {
                   </p>
                   <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
                     <button
-                      onClick={() => {
-                        setInitialWantedQuery(searchQuery);
-                        setIsWantedModalOpen(true);
-                      }}
+                      onClick={() => handleRequestOpenWanted(searchQuery)}
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
                     >
                       Eu quero comprar
                     </button>
                     <button
-                      onClick={() => setIsSaleModalOpen(true)}
+                      onClick={handleRequestOpenSale}
                       className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold rounded-xl transition cursor-pointer"
                     >
                       Eu quero vender
@@ -1061,12 +1113,14 @@ export default function App() {
         onClose={() => setIsWantedModalOpen(false)}
         onSubmit={handleCreateWanted}
         initialQuery={initialWantedQuery}
+        currentUser={currentUser}
       />
 
       <CreateSaleModal
         isOpen={isSaleModalOpen}
         onClose={() => setIsSaleModalOpen(false)}
         onSubmit={handleCreateSale}
+        currentUser={currentUser}
       />
 
       <ListingDetailModal

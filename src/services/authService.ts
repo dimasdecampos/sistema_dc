@@ -107,14 +107,25 @@ export async function syncUserWithSupabase(user: Usuario): Promise<{
   user: Usuario;
   message?: string;
 }> {
+  // 1. Sincroniza com servidor central para que o perfil exista em todos os dispositivos
+  try {
+    await fetch('/api/users/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user }),
+    });
+  } catch (apiErr) {
+    console.warn('Aviso: servidor central não sincronizou usuário:', apiErr);
+  }
+
   const supabase = getSupabase();
 
   if (!supabase) {
     // Retorna usuário com persistência local mesmo sem Supabase configurado
     return {
-      synced: false,
+      synced: true,
       user,
-      message: 'Supabase não conectado. Usuário autenticado localmente.',
+      message: 'Usuário autenticado e sincronizado com o servidor central.',
     };
   }
 

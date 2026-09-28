@@ -9,7 +9,7 @@ import {
   AlertCircle,
   Sparkles,
 } from 'lucide-react';
-import { CreateSaleInput } from '../types/marketplace';
+import { CreateSaleInput, UserProfile } from '../types/marketplace';
 import { getStoredCategories } from '../services/categoryService';
 import {
   uploadImageToSupabase,
@@ -20,12 +20,14 @@ interface CreateSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (input: CreateSaleInput) => Promise<void>;
+  currentUser?: UserProfile;
 }
 
 export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  currentUser,
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -165,6 +167,24 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+          {currentUser && (
+            <div className="flex items-center gap-3 p-3 bg-amber-50/70 border border-amber-200/70 rounded-2xl">
+              <img
+                src={currentUser.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'}
+                alt={currentUser.nome}
+                className="w-8 h-8 rounded-full object-cover border border-amber-300 shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-800 truncate">
+                  Vendedor: {currentUser.nome}
+                </p>
+                <p className="text-[10px] text-slate-500 truncate">
+                  {currentUser.email || currentUser.cidade || 'Conta Google conectada'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Título */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
