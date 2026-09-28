@@ -4,41 +4,28 @@ import {
   Tag,
   Camera,
   Upload,
-  Sparkles,
   Loader2,
   DollarSign,
-  Plus,
-  Cloud,
-  CheckCircle2,
-  AlertTriangle,
-  Database,
-  Copy,
-  Check,
+  AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { CreateSaleInput } from '../types/marketplace';
 import { getStoredCategories } from '../services/categoryService';
 import {
   uploadImageToSupabase,
   MAX_PHOTOS_PER_PRODUCT,
-  isSupabaseConfigured,
-  SUPABASE_STORAGE_BUCKET,
 } from '../services/storageService';
-import { SUPABASE_STORAGE_FIX_SQL } from '../lib/supabase';
 
 interface CreateSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (input: CreateSaleInput) => Promise<void>;
-  onOpenSqlModal?: () => void;
-  onOpenSupabaseConfig?: () => void;
 }
 
 export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  onOpenSqlModal,
-  onOpenSupabaseConfig,
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -50,18 +37,10 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [photoWarning, setPhotoWarning] = useState<string | null>(null);
-  const [storageError, setStorageError] = useState<string | null>(null);
-  const [isCopiedSql, setIsCopiedSql] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
-
-  const handleCopyStorageSql = () => {
-    navigator.clipboard.writeText(SUPABASE_STORAGE_FIX_SQL);
-    setIsCopiedSql(true);
-    setTimeout(() => setIsCopiedSql(false), 3000);
-  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -79,7 +58,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
 
     if (fileList.length > remainingSlots) {
       setPhotoWarning(
-        `Você selecionou ${fileList.length} fotos. Como o limite é de ${MAX_PHOTOS_PER_PRODUCT} por produto, apenas as ${remainingSlots} primeira(s) foram adicionadas.`
+        `Você selecionou ${fileList.length} fotos. Foram adicionadas apenas as ${remainingSlots} primeira(s) permitidas.`
       );
       filesToProcess = fileList.slice(0, remainingSlots);
     } else {
@@ -87,16 +66,13 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
     }
 
     setIsUploadingPhotos(true);
-    setStorageError(null);
     setUploadProgress({ current: 0, total: filesToProcess.length });
 
     const newUrls: string[] = [];
-    let hadSupabaseError: string | null = null;
 
     for (let i = 0; i < filesToProcess.length; i++) {
       const file = filesToProcess[i];
       try {
-        // Redimensiona para max 1200px e comprime para WebP (economia de 90%+ no Supabase)
         const res = await uploadImageToSupabase(file, {
           folder: 'img',
           maxWidth: 1200,
@@ -105,19 +81,10 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
         });
 
         newUrls.push(res.url);
-
-        if (!res.isSupabase && res.error) {
-          hadSupabaseError = res.error;
-        }
       } catch (err: unknown) {
         console.error('Falha no upload da foto:', err);
-        hadSupabaseError = err instanceof Error ? err.message : String(err);
       }
       setUploadProgress({ current: i + 1, total: filesToProcess.length });
-    }
-
-    if (hadSupabaseError) {
-      setStorageError(hadSupabaseError);
     }
 
     setPhotos((prev) => [...prev, ...newUrls].slice(0, MAX_PHOTOS_PER_PRODUCT));
@@ -154,7 +121,6 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
       setPrice('');
       setPhotos([]);
       setPhotoWarning(null);
-      setStorageError(null);
       onClose();
     } finally {
       setIsLoading(false);
@@ -312,46 +278,19 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
                 <span className="text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
                   {photos.length}/{MAX_PHOTOS_PER_PRODUCT}
                 </span>
-                {isSupabaseConfigured() ? (
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
-                    <Cloud className="w-3 h-3 text-emerald-600" />
-                    <span>Bucket: {SUPABASE_STORAGE_BUCKET}</span>
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-amber-200">
-                    <Database className="w-3 h-3 text-amber-600" />
-                    <span>Supabase não configurado</span>
-                  </span>
-                )}
               </label>
 
-              <div className="flex items-center gap-2">
-                {!isSupabaseConfigured() && onOpenSupabaseConfig && (
-                  <button
-                    type="button"
-                    onClick={onOpenSupabaseConfig}
-                    className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold underline cursor-pointer"
-                  >
-                    Conectar Supabase
-                  </button>
-                )}
-
-                {photos.length < MAX_PHOTOS_PER_PRODUCT ? (
-                  <button
-                    type="button"
-                    disabled={isUploadingPhotos}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 font-semibold cursor-pointer disabled:opacity-50"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>+ Adicionar ({MAX_PHOTOS_PER_PRODUCT - photos.length} restante{MAX_PHOTOS_PER_PRODUCT - photos.length > 1 ? 's' : ''})</span>
-                  </button>
-                ) : (
-                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-lg">
-                    Limite de 5 fotos atingido
-                  </span>
-                )}
-              </div>
+              {photos.length < MAX_PHOTOS_PER_PRODUCT && (
+                <button
+                  type="button"
+                  disabled={isUploadingPhotos}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>+ Adicionar foto</span>
+                </button>
+              )}
             </div>
 
             {/* Banner de Aviso de Limite */}
@@ -368,100 +307,32 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
               </div>
             )}
 
-            {/* Banner de Erro do Supabase com Botão de Copiar SQL de Correção */}
-            {storageError && (
-              <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 space-y-2 animate-in fade-in">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-bold text-rose-950">
-                      Não foi possível gravar no bucket 'img' do Supabase
-                    </p>
-                    <p className="text-[11px] text-rose-800 mt-0.5">
-                      {storageError}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-rose-200/80">
-                  <button
-                    type="button"
-                    onClick={handleCopyStorageSql}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-[11px] font-bold shadow-2xs transition cursor-pointer"
-                  >
-                    {isCopiedSql ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>SQL de Correção Copiado!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copiar SQL de Correção do Bucket</span>
-                      </>
-                    )}
-                  </button>
-
-                  {onOpenSqlModal && (
-                    <button
-                      type="button"
-                      onClick={onOpenSqlModal}
-                      className="px-2.5 py-1.5 text-[11px] font-semibold text-rose-800 hover:text-rose-950 hover:bg-rose-100 rounded-xl transition cursor-pointer"
-                    >
-                      Ver Scripts SQL →
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Upload Progress Banner */}
             {isUploadingPhotos && uploadProgress && (
               <div className="mb-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800 animate-in fade-in">
                 <Loader2 className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
                 <span>
-                  Otimizando (WebP/1200px) e enviando para o Supabase (bucket <strong>img</strong>): foto {uploadProgress.current} de {uploadProgress.total}...
+                  Otimizando imagem: foto {uploadProgress.current} de {uploadProgress.total}...
                 </span>
               </div>
             )}
 
             <div className="flex flex-wrap gap-2">
-              {photos.map((p, idx) => {
-                const isSavedInSupabase = p.includes('supabase.co/storage') || (!p.startsWith('data:') && p.startsWith('http'));
-                return (
-                  <div
-                    key={idx}
-                    className="relative w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 shadow-2xs group"
+              {photos.map((p, idx) => (
+                <div
+                  key={idx}
+                  className="relative w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 shadow-2xs group"
+                >
+                  <img src={p} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePhoto(idx)}
+                    className="absolute top-1 right-1 p-0.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition cursor-pointer"
                   >
-                    <img src={p} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
-                    {/* Badge indicando se está no Supabase ou Local */}
-                    {isSavedInSupabase ? (
-                      <span
-                        title="Foto gravada no bucket de imagens do Supabase!"
-                        className="absolute bottom-1 left-1 bg-emerald-600/95 backdrop-blur-xs text-white px-1.5 py-0.5 rounded-md text-[8px] font-bold shadow-xs flex items-center gap-0.5"
-                      >
-                        <Cloud className="w-2.5 h-2.5" />
-                        <span>Supabase</span>
-                      </span>
-                    ) : (
-                      <span
-                        title="Foto armazenada temporariamente em memória local (não salva no Supabase)"
-                        className="absolute bottom-1 left-1 bg-amber-600/95 backdrop-blur-xs text-white px-1.5 py-0.5 rounded-md text-[8px] font-bold shadow-xs flex items-center gap-0.5"
-                      >
-                        <Database className="w-2.5 h-2.5" />
-                        <span>Local</span>
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePhoto(idx)}
-                      className="absolute top-1 right-1 p-0.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition cursor-pointer"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                );
-              })}
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
 
               {photos.length < MAX_PHOTOS_PER_PRODUCT && (
                 <button
@@ -484,7 +355,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
 
             <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span>Fotos são redimensionadas automaticamente (máx 1200px / WebP) para não consumir espaço desnecessário no Supabase.</span>
+              <span>Fotos otimizadas automaticamente em alta qualidade para carregamento rápido.</span>
             </p>
           </div>
 

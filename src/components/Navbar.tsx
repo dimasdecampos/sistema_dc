@@ -32,8 +32,6 @@ interface NavbarProps {
   unreadCount: number;
   onOpenWantedModal: () => void;
   onOpenSaleModal: () => void;
-  onOpenSqlModal: () => void;
-  onOpenSupabaseModal: () => void;
   onSwitchUser?: (userKey: string) => void;
   isAdmin?: boolean;
 }
@@ -54,8 +52,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadCount,
   onOpenWantedModal,
   onOpenSaleModal,
-  onOpenSqlModal,
-  onOpenSupabaseModal,
 }) => {
   return (
     <>

@@ -11,6 +11,7 @@ import {
   Check,
   Cloud,
   DollarSign,
+  Sparkles,
 } from 'lucide-react';
 import { Listing, Category, ListingCondition, ListingStatus } from '../types/marketplace';
 import { uploadImageToSupabase, deleteImageFromSupabase } from '../services/storageService';
@@ -88,11 +89,11 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
         setErrorMsg(anyError);
         onShowToast?.('Aviso no envio de fotos', anyError, 'info');
       } else {
-        onShowToast?.('Fotos enviadas!', 'As imagens foram salvas no bucket do Supabase.', 'success');
+        onShowToast?.('Fotos adicionadas!', 'As imagens foram anexadas ao anúncio com sucesso.', 'success');
       }
     } catch (err: unknown) {
       console.error('Erro no upload da foto:', err);
-      setErrorMsg('Falha ao enviar foto para o Supabase Storage.');
+      setErrorMsg('Falha ao processar a foto.');
     } finally {
       setIsUploadingPhoto(false);
       if (fileInputRef.current) {
@@ -290,15 +291,15 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
             />
           </div>
 
-          {/* Fotos com Supabase Storage Bucket Img */}
+          {/* Fotos do anúncio */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                 Fotos ({images.length}/5)
               </label>
               <span className="text-[10px] text-slate-500 flex items-center gap-1 font-semibold">
-                <Cloud className="w-3 h-3 text-emerald-600" />
-                <span>Salvas no Supabase Storage</span>
+                <Sparkles className="w-3 h-3 text-emerald-600" />
+                <span>Alta qualidade</span>
               </span>
             </div>
 
@@ -313,7 +314,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
                     type="button"
                     onClick={() => handleRemovePhoto(index)}
                     className="absolute top-1 right-1 p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg opacity-90 group-hover:opacity-100 transition shadow-xs cursor-pointer"
-                    title="Remover foto do Supabase"
+                    title="Remover foto"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>

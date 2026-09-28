@@ -469,22 +469,47 @@ export async function getUserMatches(userId: string): Promise<Match[]> {
 }
 
 /**
+ * Busca todas as conversas do usuário ou todas as salvas localmente
+ */
+export async function fetchConversations(userId?: string): Promise<Conversation[]> {
+  const all = getLocalConversations();
+  if (!userId) return all;
+  const filtered = all.filter(
+    (c) =>
+      c.buyer_id === userId ||
+      c.seller_id === userId ||
+      c.buyer?.id === userId ||
+      c.seller?.id === userId
+  );
+  // Se for o usuário Dimas e o array estiver vazio, recarrega os seeds padrão
+  if (filtered.length === 0 && (userId === 'user-dimas' || userId.includes('dimas'))) {
+    saveLocalConversations(INITIAL_CONVERSATIONS);
+    return INITIAL_CONVERSATIONS;
+  }
+  return filtered.length > 0 ? filtered : all;
+}
+
+/**
  * Envia mensagem / Inicia conversa direta entre Comprador e Vendedor
  */
 export async function startOrGetConversation(
   listing: Listing,
-  buyer: UserProfile,
+  activeUser: UserProfile,
   initialMessageText?: string
 ): Promise<{ conversation: Conversation; message?: Message }> {
-  const seller = listing.user || SAMPLE_USERS.joao;
+  // Identifica quem é o comprador e quem é o vendedor dependendo do tipo do anúncio
+  const isListingSale = listing.type === 'SALE';
+  const seller = isListingSale ? listing.user || SAMPLE_USERS.joao : activeUser;
+  const buyer = isListingSale ? activeUser : listing.user || SAMPLE_USERS.dimas;
+
   const convs = getLocalConversations();
 
   // Verifica se já existe conversa entre eles para este anúncio
   let conv = convs.find(
     (c) =>
       c.listing_id === listing.id &&
-      c.buyer_id === buyer.id &&
-      c.seller_id === seller.id
+      ((c.buyer_id === buyer.id && c.seller_id === seller.id) ||
+        (c.buyer_id === seller.id && c.seller_id === buyer.id))
   );
 
   const now = new Date().toISOString();
@@ -504,14 +529,22 @@ export async function startOrGetConversation(
       unread_count: 0,
     };
     saveLocalConversations([conv, ...convs]);
+  } else {
+    // Atualiza dados da listagem na conversa para garantir fotos e títulos recentes
+    conv.listing = listing;
+    conv.updated_at = now;
+    if (initialMessageText) {
+      conv.last_message = initialMessageText;
+    }
+    saveLocalConversations(convs.map((c) => (c.id === conv?.id ? conv : c)));
   }
 
   let msg: Message | undefined;
   if (initialMessageText) {
     msg = {
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       conversation_id: conv.id,
-      sender_id: buyer.id,
+      sender_id: activeUser.id,
       text: initialMessageText,
       created_at: now,
       read: false,
@@ -528,7 +561,18 @@ export async function startOrGetConversation(
  */
 export async function fetchConversationMessages(convId: string): Promise<Message[]> {
   const all = getLocalMessages();
-  return all.filter((m) => m.conversation_id === convId).sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
+  const convMessages = all
+    .filter((m) => m.conversation_id === convId)
+    .sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
+
+  // Se não encontrar nenhuma mensagem local e for a conversa conv-1 inicial
+  if (convMessages.length === 0 && convId === 'conv-1') {
+    const defaultInit = INITIAL_MESSAGES.filter((m) => m.conversation_id === 'conv-1');
+    saveLocalMessages([...all, ...defaultInit]);
+    return defaultInit;
+  }
+
+  return convMessages;
 }
 
 /**
@@ -541,7 +585,7 @@ export async function sendMessage(
 ): Promise<Message> {
   const now = new Date().toISOString();
   const newMsg: Message = {
-    id: `msg-${Date.now()}`,
+    id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     conversation_id: convId,
     sender_id: senderId,
     text,

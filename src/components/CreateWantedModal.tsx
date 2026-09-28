@@ -286,7 +286,7 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
             {isUploadingPhoto && (
               <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800 animate-in fade-in">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
-                <span>Otimizando (WebP/1200px) e enviando foto para a pasta <strong>img/</strong> no Supabase...</span>
+                <span>Otimizando e carregando foto de referência...</span>
               </div>
             )}
 
@@ -294,11 +294,11 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
               <div className="mt-2 relative w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 group shadow-2xs">
                 <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
                 <span
-                  title="Foto otimizada e salva na pasta img/ do bucket img no Supabase"
-                  className="absolute bottom-1 left-1 bg-emerald-600/90 text-white px-1 py-0.5 rounded-md text-[8px] font-bold shadow-xs flex items-center gap-0.5"
+                  title="Foto de referência anexada"
+                  className="absolute bottom-1 left-1 bg-emerald-600/90 text-white px-1.5 py-0.5 rounded-md text-[9px] font-bold shadow-xs flex items-center gap-0.5"
                 >
-                  <Cloud className="w-2.5 h-2.5" />
-                  <span>WebP</span>
+                  <Sparkles className="w-2.5 h-2.5" />
+                  <span>Foto</span>
                 </span>
                 <button
                   type="button"

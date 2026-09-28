@@ -225,12 +225,12 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                   {isUploadingPhoto ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
-                      <span>Enviando para Supabase...</span>
+                      <span>Salvando foto...</span>
                     </>
                   ) : (
                     <>
                       <Upload className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Carregar foto (Bucket: img/)</span>
+                      <span>Escolher nova foto</span>
                     </>
                   )}
                 </button>
@@ -302,10 +302,10 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
               )}
             </div>
 
-            {/* Supabase sync badge */}
+            {/* Profile status badge */}
             <div className="p-2.5 bg-emerald-50/60 border border-emerald-100 rounded-xl flex items-center gap-2 text-[11px] text-emerald-900">
-              <Database className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>Foto e dados salvos na tabela usuarios</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Perfil e anúncios vinculados com segurança</span>
             </div>
           </div>
 
