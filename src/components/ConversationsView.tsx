@@ -304,7 +304,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 </div>
                 <p className="text-[11px] text-slate-400 flex items-center gap-1 truncate">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Online agora • {otherUser?.cidade || 'Socorro - SP'}</span>
+                  <span>Online agora • {otherUser?.cidade || 'São Luis do Paraitinga - SP'}</span>
                 </p>
               </div>
             </div>

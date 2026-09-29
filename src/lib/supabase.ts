@@ -33,7 +33,7 @@ create table if not exists public.profiles (
   nome text not null,
   email text,
   avatar_url text,
-  cidade text default 'Socorro - SP',
+  cidade text default 'São Luis do Paraitinga - SP',
   admin_config jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
@@ -46,7 +46,7 @@ create table if not exists public.usuarios (
   email text unique not null,
   nome text not null,
   foto text,
-  cidade text default 'Socorro - SP',
+  cidade text default 'São Luis do Paraitinga - SP',
   locale text default 'pt-BR',
   admin_config jsonb,
   last_login_at timestamp with time zone default timezone('utc'::text, now()),

@@ -269,6 +269,17 @@ export async function updateCurrentUserProfile(updates: Partial<Usuario>): Promi
     saveUserAdminConfigToLocal(updated.email, updated.adminConfig);
   }
 
+  // Sincroniza com o servidor central compartilhado (/api/users/sync)
+  try {
+    await fetch('/api/users/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: updated }),
+    });
+  } catch (syncErr) {
+    console.warn('Aviso: falha na sincronização do perfil com o servidor:', syncErr);
+  }
+
   // Se conectado ao Supabase, propaga a atualização
   const supabase = getSupabase();
   if (supabase && updated.email) {

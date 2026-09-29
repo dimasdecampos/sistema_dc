@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Search,
   Tag,
@@ -37,6 +37,7 @@ interface UserDashboardProps {
   onDeleteListing: (listingId: string) => void;
   onEditListing?: (listing: Listing) => void;
   onOpenConversations?: () => void;
+  onUpdateCity?: (newCity: string) => Promise<void>;
 }
 
 export const UserDashboard: React.FC<UserDashboardProps> = ({
@@ -55,7 +56,12 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   onDeleteListing,
   onEditListing,
   onOpenConversations,
+  onUpdateCity,
 }) => {
+  const [isEditingCity, setIsEditingCity] = useState(false);
+  const [cityInput, setCityInput] = useState(user.cidade || 'São Luis do Paraitinga - SP');
+  const [isSavingCity, setIsSavingCity] = useState(false);
+
   return (
     <div className="space-y-8 sm:space-y-10">
       {/* User Header Profile Banner */}
@@ -74,10 +80,54 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   Morador Verificado
                 </span>
               </div>
-              <p className="text-xs text-slate-300 flex items-center gap-1 mt-1">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{user.cidade}</span>
-              </p>
+              <div className="text-xs text-slate-300 flex flex-wrap items-center gap-1.5 mt-1">
+                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="font-medium">{user.cidade || 'São Luis do Paraitinga - SP'}</span>
+                {onUpdateCity && !isEditingCity && (
+                  <button
+                    onClick={() => {
+                      setCityInput(user.cidade || 'São Luis do Paraitinga - SP');
+                      setIsEditingCity(true);
+                    }}
+                    className="ml-1 text-[11px] text-emerald-300 hover:text-emerald-200 underline font-semibold cursor-pointer"
+                  >
+                    Alterar cidade
+                  </button>
+                )}
+              </div>
+
+              {isEditingCity && (
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={cityInput}
+                    onChange={(e) => setCityInput(e.target.value)}
+                    placeholder="Ex: São Luis do Paraitinga - SP"
+                    className="px-2.5 py-1 text-xs rounded-lg bg-white/20 text-white placeholder-slate-400 border border-white/30 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (cityInput.trim() && onUpdateCity) {
+                        setIsSavingCity(true);
+                        await onUpdateCity(cityInput.trim());
+                        setIsSavingCity(false);
+                        setIsEditingCity(false);
+                      }
+                    }}
+                    disabled={isSavingCity}
+                    className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-lg cursor-pointer"
+                  >
+                    {isSavingCity ? 'Salvando...' : 'Salvar'}
+                  </button>
+                  <button
+                    onClick={() => setIsEditingCity(false)}
+                    className="text-xs text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+
               <p className="text-[11px] text-slate-400 mt-1">
                 {user.email || 'dimasrafting@gmail.com'}
               </p>
@@ -207,7 +257,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 Cidade de Operação
               </span>
               <span className="font-bold text-slate-800 mt-0.5 block truncate">
-                {user.adminConfig?.cityName || user.cidade || 'Socorro - SP'}
+                {user.adminConfig?.cityName || user.cidade || 'São Luis do Paraitinga - SP'}
               </span>
             </div>
 

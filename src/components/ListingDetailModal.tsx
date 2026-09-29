@@ -203,7 +203,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 </h4>
                 <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                   <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{listing.user?.cidade || 'Socorro - SP'}</span>
+                  <span>{listing.user?.cidade || 'São Luis do Paraitinga - SP'}</span>
                 </p>
               </div>
             </div>

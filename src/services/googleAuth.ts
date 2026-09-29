@@ -185,17 +185,31 @@ export const initGoogleAuth = (
       const existing = getStoredUser();
       const email = (firebaseUser.email || '').toLowerCase().trim();
       const nome = firebaseUser.displayName || email.split('@')[0] || 'Usuário Google';
+      const resolvedCity = (existing?.cidade && existing.cidade !== 'Socorro - SP')
+        ? existing.cidade
+        : 'São Luis do Paraitinga - SP';
+
       const userObj: Usuario = {
         id: firebaseUser.uid,
         google_id: firebaseUser.uid,
         email: email,
         nome: nome,
         foto: firebaseUser.photoURL || getOfficialGooglePhoto(email, existing?.foto),
-        cidade: existing?.cidade || 'Socorro - SP',
+        cidade: resolvedCity,
         last_login_at: new Date().toISOString(),
       };
 
       saveStoredUser(userObj);
+
+      try {
+        await fetch('/api/users/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: userObj }),
+        });
+      } catch {
+        // ignore
+      }
 
       try {
         const res = await syncUserWithSupabase(userObj);
@@ -234,13 +248,17 @@ export const signInWithGoogleDirect = async (preferredEmail?: string, preferredN
 
   const photo = getOfficialGooglePhoto(email, isSameAsExisting ? existing?.foto : undefined);
 
+  const resolvedCity = (isSameAsExisting && existing?.cidade && existing.cidade !== 'Socorro - SP')
+    ? existing.cidade
+    : 'São Luis do Paraitinga - SP';
+
   const userObj: Usuario = {
     id: userId,
     google_id: userId,
     email: email,
     nome: resolvedName,
     foto: photo,
-    cidade: (isSameAsExisting && existing?.cidade) ? existing.cidade : 'Socorro - SP',
+    cidade: resolvedCity,
     last_login_at: new Date().toISOString(),
   };
 
@@ -280,17 +298,33 @@ export const signInWithGooglePopup = async (): Promise<Usuario> => {
   const nome = firebaseUser.displayName || (email ? email.split('@')[0] : 'Usuário Google');
   const photo = firebaseUser.photoURL || getOfficialGooglePhoto(email, existing?.foto);
 
+  const resolvedCity = (existing?.cidade && existing.cidade !== 'Socorro - SP')
+    ? existing.cidade
+    : 'São Luis do Paraitinga - SP';
+
   const userObj: Usuario = {
     id: firebaseUser.uid,
     google_id: firebaseUser.uid,
     email: email,
     nome: nome,
     foto: photo,
-    cidade: existing?.cidade || 'Socorro - SP',
+    cidade: resolvedCity,
     last_login_at: new Date().toISOString(),
   };
 
   saveStoredUser(userObj);
+
+  // Sincroniza usuário com o servidor compartilhado
+  try {
+    await fetch('/api/users/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: userObj }),
+    });
+  } catch {
+    // continua normalmente
+  }
+
   try {
     const syncRes = await syncUserWithSupabase(userObj);
     return syncRes.user;

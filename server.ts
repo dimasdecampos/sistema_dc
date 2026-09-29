@@ -23,175 +23,11 @@ interface DatabaseState {
   siteConfig: any;
 }
 
-// Seed inicial caso o arquivo não exista
+// Seed inicial limpo (apenas dados publicados por usuários são mantidos)
 const DEFAULT_INITIAL_STATE: DatabaseState = {
-  listings: [
-    {
-      id: 'wanted-1',
-      user_id: 'user-dimas',
-      type: 'WANTED',
-      title: 'Quero comprar um martelo usado',
-      description: 'Preciso de um martelo em bom estado para pequenos consertos no sítio. Não precisa ser novo.',
-      category_id: 'cat-ferramentas',
-      price: 40,
-      condition: 'USED',
-      status: 'ACTIVE',
-      created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
-      images: [
-        'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=500&auto=format&fit=crop&q=80',
-      ],
-      user: {
-        id: 'user-dimas',
-        nome: 'Dimas',
-        email: 'dimasrafting@gmail.com',
-        avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-        cidade: 'Socorro - SP',
-      },
-    },
-    {
-      id: 'wanted-2',
-      user_id: 'user-maria',
-      type: 'WANTED',
-      title: 'Procuro bicicleta infantil aro 16',
-      description: 'Bicicleta aro 16 para menina de 5 anos. Pode ter marcas de uso se estiver com freios e pneus bons.',
-      category_id: 'cat-esportes',
-      price: 180,
-      condition: 'USED',
-      status: 'ACTIVE',
-      created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
-      images: [
-        'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=500&auto=format&fit=crop&q=80',
-      ],
-      user: {
-        id: 'user-maria',
-        nome: 'Maria da Silva',
-        email: 'maria.silva@gmail.com',
-        avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-        cidade: 'Socorro - SP',
-      },
-    },
-    {
-      id: 'sale-1',
-      user_id: 'user-joao',
-      type: 'SALE',
-      title: 'Jogo de ferramentas manuais com martelo e chaves',
-      description: 'Vendo kit com martelo de aço forjado, chaves de fenda e alicate universal. Pouco uso, excelente estado.',
-      category_id: 'cat-ferramentas',
-      price: 55,
-      condition: 'USED',
-      status: 'ACTIVE',
-      created_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-      images: [
-        'https://images.unsplash.com/photo-1581783898377-1c85bf937427?w=500&auto=format&fit=crop&q=80',
-      ],
-      user: {
-        id: 'user-joao',
-        nome: 'João Ferramentas',
-        email: 'joao.ferramentas@gmail.com',
-        avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
-        cidade: 'Socorro - SP',
-      },
-    },
-    {
-      id: 'sale-2',
-      user_id: 'user-carlos',
-      type: 'SALE',
-      title: 'Mesa de madeira maciça rústica com 4 cadeiras',
-      description: 'Mesa redonda de madeira de demolição com 4 cadeiras. Muito firme e bonita para varanda ou cozinha.',
-      category_id: 'cat-moveis',
-      price: 450,
-      condition: 'USED',
-      status: 'ACTIVE',
-      created_at: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
-      images: [
-        'https://images.unsplash.com/photo-1615066390971-03e4e1c36ddf?w=500&auto=format&fit=crop&q=80',
-      ],
-      user: {
-        id: 'user-carlos',
-        nome: 'Carlos Pedreiro',
-        email: 'carlos.pedreiro@gmail.com',
-        avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        cidade: 'Socorro - SP',
-      },
-    },
-    {
-      id: 'sale-3',
-      user_id: 'user-ana',
-      type: 'SALE',
-      title: 'Bicicleta infantil Caloi aro 16 rosa com cestinha',
-      description: 'Bicicleta em ótimo estado, revisada recentemente. Minha filha cresceu e trocou por aro 20.',
-      category_id: 'cat-esportes',
-      price: 190,
-      condition: 'USED',
-      status: 'ACTIVE',
-      created_at: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-      images: [
-        'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?w=500&auto=format&fit=crop&q=80',
-      ],
-      user: {
-        id: 'user-ana',
-        nome: 'Ana Marcenaria',
-        email: 'ana.marcenaria@gmail.com',
-        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        cidade: 'Socorro - SP',
-      },
-    },
-  ],
-  conversations: [
-    {
-      id: 'conv-sample-1',
-      listing_id: 'sale-1',
-      buyer_id: 'user-dimas',
-      seller_id: 'user-joao',
-      created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-      listing: {
-        id: 'sale-1',
-        title: 'Jogo de ferramentas manuais com martelo e chaves',
-        price: 55,
-        type: 'SALE',
-        images: [
-          'https://images.unsplash.com/photo-1581783898377-1c85bf937427?w=500&auto=format&fit=crop&q=80',
-        ],
-      },
-      buyer: {
-        id: 'user-dimas',
-        nome: 'Dimas',
-        email: 'dimasrafting@gmail.com',
-        cidade: 'Socorro - SP',
-      },
-      seller: {
-        id: 'user-joao',
-        nome: 'João Ferramentas',
-        email: 'joao.ferramentas@gmail.com',
-        cidade: 'Socorro - SP',
-      },
-      last_message: 'Sim! Pode retirar hoje mesmo na oficina perto da praça.',
-    },
-  ],
-  messages: [
-    {
-      id: 'msg-1',
-      conversation_id: 'conv-sample-1',
-      sender_id: 'user-dimas',
-      text: 'Olá João! Vi seu anúncio das ferramentas. Ainda está disponível?',
-      created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-      read: true,
-    },
-    {
-      id: 'msg-2',
-      conversation_id: 'conv-sample-1',
-      sender_id: 'user-joao',
-      text: 'Sim! Pode retirar hoje mesmo na oficina perto da praça.',
-      created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-      read: true,
-    },
-  ],
+  listings: [],
+  conversations: [],
+  messages: [],
   users: [
     {
       id: 'google_dimas_official',
@@ -199,27 +35,47 @@ const DEFAULT_INITIAL_STATE: DatabaseState = {
       email: 'dimasrafting@gmail.com',
       nome: 'Dimas',
       foto: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      cidade: 'Socorro - SP',
+      cidade: 'São Luis do Paraitinga - SP',
     },
   ],
   siteConfig: {
     siteName: 'TemAqui',
-    cityName: 'Socorro - SP',
+    cityName: 'São Luis do Paraitinga - SP',
     siteTagline: 'O classificado colaborativo da nossa cidade',
   },
 };
+
+const MOCK_IDS = ['wanted-1', 'wanted-2', 'wanted-3', 'sale-1', 'sale-2', 'sale-3'];
 
 function readDb(): DatabaseState {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const raw = fs.readFileSync(DATA_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
+      // Remove quaisquer anúncios ou dados de exemplo que tenham sobrado
+      const cleanListings = Array.isArray(parsed.listings)
+        ? parsed.listings.filter((l: any) => l && l.id && !MOCK_IDS.includes(l.id))
+        : [];
+      const cleanConversations = Array.isArray(parsed.conversations)
+        ? parsed.conversations.filter((c: any) => c && c.id && !c.id.includes('sample'))
+        : [];
+      const cleanMessages = Array.isArray(parsed.messages)
+        ? parsed.messages.filter((m: any) => m && m.conversation_id && !m.conversation_id.includes('sample'))
+        : [];
+
       return {
-        listings: parsed.listings || DEFAULT_INITIAL_STATE.listings,
-        conversations: parsed.conversations || DEFAULT_INITIAL_STATE.conversations,
-        messages: parsed.messages || DEFAULT_INITIAL_STATE.messages,
-        users: parsed.users || DEFAULT_INITIAL_STATE.users,
-        siteConfig: parsed.siteConfig || DEFAULT_INITIAL_STATE.siteConfig,
+        listings: cleanListings,
+        conversations: cleanConversations,
+        messages: cleanMessages,
+        users: Array.isArray(parsed.users) ? parsed.users : DEFAULT_INITIAL_STATE.users,
+        siteConfig: {
+          ...DEFAULT_INITIAL_STATE.siteConfig,
+          ...(parsed.siteConfig || {}),
+          // Garante que a cidade padrão nunca volte para Socorro
+          cityName: (parsed.siteConfig?.cityName && parsed.siteConfig.cityName !== 'Socorro - SP')
+            ? parsed.siteConfig.cityName
+            : 'São Luis do Paraitinga - SP',
+        },
       };
     }
   } catch (err) {
@@ -466,7 +322,7 @@ async function startServer() {
         seller: listing.user || {
           id: sellerId,
           nome: 'Vendedor',
-          cidade: 'Socorro - SP',
+          cidade: 'São Luis do Paraitinga - SP',
         },
       };
 
@@ -544,13 +400,19 @@ async function startServer() {
     );
 
     const now = new Date().toISOString();
+    const resolvedCity = user.cidade && user.cidade !== 'Socorro - SP'
+      ? user.cidade
+      : (existingIndex !== -1 && db.users[existingIndex].cidade && db.users[existingIndex].cidade !== 'Socorro - SP'
+          ? db.users[existingIndex].cidade
+          : 'São Luis do Paraitinga - SP');
+
     const updatedUser = {
       id: user.id || `user_${Date.now()}`,
       google_id: user.google_id || user.id,
       email: email,
       nome: user.nome || email.split('@')[0],
       foto: user.foto || user.avatar_url || '',
-      cidade: user.cidade || 'Socorro - SP',
+      cidade: resolvedCity,
       admin_config: user.admin_config || user.adminConfig,
       last_login_at: now,
     };
@@ -562,6 +424,14 @@ async function startServer() {
       };
     } else {
       db.users = [...(db.users || []), updatedUser];
+    }
+
+    // Se o usuário for Dimas ou administrador e alterou a cidade, reflete na configuração geral da cidade
+    if (email === 'dimasrafting@gmail.com' && resolvedCity) {
+      db.siteConfig = {
+        ...(db.siteConfig || {}),
+        cityName: resolvedCity,
+      };
     }
 
     writeDb(db);
@@ -591,10 +461,11 @@ async function startServer() {
   // VITE DEV SERVER OU STATIC PROD SERVING
   // ==========================================
 
-  if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+  const distPath = path.resolve(__dirname, 'dist');
+  if (process.env.NODE_ENV === 'production' && fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
     app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      res.sendFile(path.resolve(distPath, 'index.html'));
     });
   } else {
     const vite = await createViteServer({

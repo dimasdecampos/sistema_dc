@@ -10,15 +10,15 @@ const SITE_CONFIG_STORAGE_KEY = 'tem_aqui_site_config_v1';
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
   siteName: 'TemAqui',
-  cityName: 'Socorro - SP',
+  cityName: 'São Luis do Paraitinga - SP',
   tagline: 'Marketplace local baseado em Procura e Oferta',
-  heroTitle: 'O que você está procurando em Socorro?',
+  heroTitle: 'O que você está procurando em São Luis do Paraitinga?',
   heroSubtitle: 'Diga o que você precisa. Quando um morador anunciar, você recebe recomendação imediata.',
   noticeBannerEnabled: true,
-  noticeBannerText: '🎉 Bem-vindo ao TemAqui Socorro! Publique o que você procura ou tem parado em casa.',
+  noticeBannerText: '🎉 Bem-vindo ao TemAqui São Luis do Paraitinga! Publique o que você procura ou tem parado em casa.',
   noticeBannerType: 'success',
-  contactPhone: '(19) 99876-5432',
-  contactEmail: 'contato@temaquisocorro.com.br',
+  contactPhone: '(12) 99876-5432',
+  contactEmail: 'contato@temaquislp.com.br',
   autoMatchThreshold: 35,
   currencySymbol: 'R$',
   adminEmails: ['dimasrafting@gmail.com'],
@@ -46,7 +46,10 @@ export function getSiteConfig(userEmail?: string | null): SiteConfig {
         const adminEmails = Array.from(
           new Set(['dimasrafting@gmail.com', ...(userSaved.adminEmails || [])])
         );
-        return { ...DEFAULT_SITE_CONFIG, ...userSaved, adminEmails };
+        const resolvedCity = (userSaved.cityName && userSaved.cityName !== 'Socorro - SP')
+          ? userSaved.cityName
+          : 'São Luis do Paraitinga - SP';
+        return { ...DEFAULT_SITE_CONFIG, ...userSaved, cityName: resolvedCity, adminEmails };
       }
     }
 
@@ -58,7 +61,10 @@ export function getSiteConfig(userEmail?: string | null): SiteConfig {
       const adminEmails = Array.from(
         new Set(['dimasrafting@gmail.com', ...(parsed.adminEmails || [])])
       );
-      return { ...DEFAULT_SITE_CONFIG, ...parsed, adminEmails };
+      const resolvedCity = (parsed.cityName && parsed.cityName !== 'Socorro - SP')
+        ? parsed.cityName
+        : 'São Luis do Paraitinga - SP';
+      return { ...DEFAULT_SITE_CONFIG, ...parsed, cityName: resolvedCity, adminEmails };
     }
   } catch (e) {
     console.warn('Erro ao carregar configurações do site:', e);
@@ -75,12 +81,26 @@ export function saveSiteConfig(newConfig: SiteConfig, userEmail?: string | null)
     const adminEmails = Array.from(
       new Set(['dimasrafting@gmail.com', ...(newConfig.adminEmails || [])])
     );
-    const configToSave: SiteConfig = { ...newConfig, adminEmails };
+    const resolvedCity = (newConfig.cityName && newConfig.cityName !== 'Socorro - SP')
+      ? newConfig.cityName
+      : 'São Luis do Paraitinga - SP';
+    const configToSave: SiteConfig = { ...newConfig, cityName: resolvedCity, adminEmails };
 
     // 1. Salva no localStorage geral do app
     localStorage.setItem(SITE_CONFIG_STORAGE_KEY, JSON.stringify(configToSave));
 
-    // 2. Salva diretamente no perfil do usuário
+    // 2. Salva no servidor central compartilhado
+    try {
+      fetch('/api/site-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configToSave),
+      }).catch(() => {});
+    } catch {
+      // ignore
+    }
+
+    // 3. Salva diretamente no perfil do usuário
     const targetEmail = (userEmail || getStoredUser()?.email || 'dimasrafting@gmail.com').toLowerCase().trim();
     if (targetEmail) {
       saveUserAdminConfigToLocal(targetEmail, configToSave);

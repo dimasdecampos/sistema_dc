@@ -24,19 +24,24 @@ const LOCAL_STORAGE_LISTINGS_KEY = 'tem_aqui_listings_v1';
 const LOCAL_STORAGE_CONVERSATIONS_KEY = 'tem_aqui_conversations_v1';
 const LOCAL_STORAGE_MESSAGES_KEY = 'tem_aqui_messages_v1';
 
+const MOCK_LISTING_IDS = ['wanted-1', 'wanted-2', 'wanted-3', 'sale-1', 'sale-2', 'sale-3'];
+
 /**
- * Carrega a lista de anúncios do LocalStorage ou do seed inicial
+ * Carrega a lista de anúncios do LocalStorage (apenas anúncios reais publicados, sem exemplos)
  */
 function getLocalListings(): Listing[] {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_LISTINGS_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((l: any) => l && l.id && !MOCK_LISTING_IDS.includes(l.id));
+      }
     }
   } catch (e) {
     console.warn('Erro ao carregar anúncios locais:', e);
   }
-  return INITIAL_SAMPLE_LISTINGS;
+  return [];
 }
 
 function saveLocalListings(listings: Listing[]) {
@@ -626,7 +631,7 @@ export async function startOrGetConversation(
     seller: listing.user || {
       id: listing.user_id,
       nome: 'Vendedor',
-      cidade: 'Socorro - SP',
+      cidade: 'São Luis do Paraitinga - SP',
       created_at: now,
     },
   };

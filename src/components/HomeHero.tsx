@@ -14,7 +14,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
   onSearchChange,
   onOpenWantedModal,
   onOpenSaleModal,
-  cityName = 'Socorro - SP',
+  cityName = 'São Luis do Paraitinga - SP',
 }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

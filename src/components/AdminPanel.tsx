@@ -438,7 +438,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 value={formConfig.cityName}
                 onChange={(e) => handleConfigFieldChange('cityName', e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-emerald-500"
-                placeholder="Ex.: Socorro - SP"
+                placeholder="Ex.: São Luis do Paraitinga - SP"
               />
             </div>
 
@@ -464,7 +464,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 value={formConfig.heroTitle}
                 onChange={(e) => handleConfigFieldChange('heroTitle', e.target.value)}
                 className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-emerald-500"
-                placeholder="Ex.: O que você está procurando em Socorro?"
+                placeholder="Ex.: O que você está procurando em São Luis do Paraitinga?"
               />
             </div>
 

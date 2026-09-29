@@ -94,7 +94,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 <p className="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1 font-medium mt-0.5 truncate max-w-[90px] xs:max-w-[120px] sm:max-w-none">
                   <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 shrink-0" />
-                  <span className="truncate">{config?.cityName || user.cidade || 'Socorro - SP'}</span>
+                  <span className="truncate">{config?.cityName || user.cidade || 'São Luis do Paraitinga - SP'}</span>
                 </p>
               </div>
             </div>

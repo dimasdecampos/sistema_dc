@@ -85,12 +85,15 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     const stored = getStoredUser();
     if (stored) {
+      const resolvedCity = (stored.cidade && stored.cidade !== 'Socorro - SP')
+        ? stored.cidade
+        : 'São Luis do Paraitinga - SP';
       return {
         id: stored.id || stored.google_id || 'user-dimas',
         nome: stored.nome,
         email: stored.email,
         avatar_url: stored.foto || getOfficialGooglePhoto(stored.email),
-        cidade: stored.cidade || 'Socorro - SP',
+        cidade: resolvedCity,
         created_at: stored.created_at || new Date().toISOString(),
         adminConfig: stored.adminConfig || getSavedUserAdminConfig(stored.email) || undefined,
       };
@@ -98,6 +101,7 @@ export default function App() {
     const dimasSavedConfig = getSavedUserAdminConfig('dimasrafting@gmail.com');
     return {
       ...SAMPLE_USERS.dimas,
+      cidade: 'São Luis do Paraitinga - SP',
       adminConfig: dimasSavedConfig || undefined,
     };
   });
@@ -235,12 +239,15 @@ export default function App() {
     setGoogleUser(u);
     const photo = u.foto || getOfficialGooglePhoto(u.email);
     const userAdminCfg = u.adminConfig || getSavedUserAdminConfig(u.email);
+    const resolvedCity = (u.cidade && u.cidade !== 'Socorro - SP')
+      ? u.cidade
+      : 'São Luis do Paraitinga - SP';
     const mapped: UserProfile = {
       id: u.id || u.google_id || 'user-google',
       nome: u.nome,
       email: u.email,
       avatar_url: photo,
-      cidade: u.cidade || 'Socorro - SP',
+      cidade: resolvedCity,
       created_at: u.created_at || new Date().toISOString(),
       adminConfig: userAdminCfg || undefined,
     };
@@ -389,6 +396,24 @@ export default function App() {
   }, [currentUser.id]);
 
   useEffect(() => {
+    // Limpeza única e imediata de quaisquer anúncios de exemplo no localStorage do navegador
+    try {
+      const storedRaw = localStorage.getItem('tem_aqui_listings_v1');
+      if (storedRaw) {
+        const parsed = JSON.parse(storedRaw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((l: any) =>
+            l && l.id && !['wanted-1', 'wanted-2', 'wanted-3', 'sale-1', 'sale-2', 'sale-3'].includes(l.id)
+          );
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem('tem_aqui_listings_v1', JSON.stringify(cleaned));
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     loadData();
 
     // Inicializa Google Identity Services (GSI - One Tap e Auto-Select no Chrome Mobile)
@@ -408,14 +433,14 @@ export default function App() {
       }
     });
 
-    // Sincronização periódica a cada 5 segundos para que novos anúncios publicados no celular apareçam no PC automaticamente
+    // Sincronização periódica a cada 4 segundos para que novos anúncios publicados no celular apareçam no PC automaticamente
     const pollInterval = setInterval(() => {
       fetchListings().then((res) => {
-        if (res.listings && res.listings.length > 0) {
+        if (Array.isArray(res.listings)) {
           setListings(res.listings);
         }
       }).catch(() => {});
-    }, 5000);
+    }, 4000);
 
     const handleWindowFocus = () => {
       loadData();
@@ -1014,6 +1039,7 @@ export default function App() {
               onMarkAsCompleted={handleMarkAsCompleted}
               onDeleteListing={handleDeleteListing}
               onEditListing={handleOpenEditListing}
+              onUpdateCity={handleUpdateCity}
             />
           </div>
         )}
@@ -1104,7 +1130,7 @@ export default function App() {
         onTryPopupGoogleSignIn={handlePopupGoogleSignIn}
         onLoginManual={handleLoginManual}
         defaultEmail={currentUser.email || 'dimasrafting@gmail.com'}
-        defaultCity={currentUser.cidade || 'Socorro - SP'}
+        defaultCity={currentUser.cidade || 'São Luis do Paraitinga - SP'}
         onOpenGithubModal={() => setIsGithubModalOpen(true)}
       />
 
