@@ -15,6 +15,7 @@ import {
   clearStoredUser,
   getStoredUser,
   getOfficialGooglePhoto,
+  decodeGoogleJwt,
 } from './authService';
 
 // Permite ler configuração do Firebase de variáveis de ambiente na Vercel ou localStorage
@@ -63,8 +64,6 @@ provider.setCustomParameters({
   prompt: 'select_account',
 });
 
-let cachedAccessToken: string | null = null;
-
 // Declaração de tipos para Google Identity Services (GSI)
 declare global {
   interface Window {
@@ -83,7 +82,7 @@ declare global {
 }
 
 /**
- * Converte erros do Google OAuth / Firebase em mensagens claras com diagnóstico para Vercel
+ * Converte erros do Google OAuth / Firebase em mensagens claras com diagnóstico amigável
  */
 export function parseOAuthError(err: unknown): {
   title: string;
@@ -95,27 +94,16 @@ export function parseOAuthError(err: unknown): {
 } {
   const msg = err instanceof Error ? err.message : String(err);
   const code = (err as { code?: string })?.code || '';
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'seu-site.vercel.app';
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://seu-site.vercel.app';
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
   if (
     code === 'auth/unauthorized-domain' ||
     msg.includes('unauthorized-domain')
   ) {
     return {
-      title: 'Domínio precisa ser liberado no Firebase',
-      message: `O Firebase ainda não autorizou o domínio "${hostname}". Basta adicioná-lo no Firebase Console > Authentication > Settings (Configurações) > Authorized domains (Domínios autorizados).`,
-      isOriginMismatch: true,
-      isUnauthorizedDomain: true,
-      currentOrigin,
-      hostname,
-    };
-  }
-
-  if (msg.includes('origin_mismatch') || code.includes('origin_mismatch') || msg.includes('400')) {
-    return {
-      title: 'Autorização do domínio pendente no Firebase',
-      message: `O domínio "${hostname}" deve estar cadastrado em "Domínios autorizados" no Firebase Console. No Google Cloud Console você NÃO precisa alterar nada, pois o Firebase cuida disso automaticamente.`,
+      title: 'Domínio ainda não cadastrado no Firebase',
+      message: `O domínio atual "${hostname}" precisa ser adicionado no Firebase Console > Authentication > Settings > Authorized domains. Enquanto isso, use o login direto com seu e-mail do Google abaixo para entrar instantaneamente!`,
       isOriginMismatch: true,
       isUnauthorizedDomain: true,
       currentOrigin,
@@ -125,8 +113,8 @@ export function parseOAuthError(err: unknown): {
 
   if (code === 'auth/popup-blocked') {
     return {
-      title: 'Popup bloqueado pelo navegador',
-      message: 'Seu navegador bloqueou a abertura da janela do Google. Permita popups para este site ou entre digitando seu e-mail do Google abaixo.',
+      title: 'Janela Popup bloqueada pelo navegador',
+      message: 'O navegador impediu a abertura do popup do Google. Permita popups ou entre diretamente digitando seu e-mail do Google abaixo.',
       isOriginMismatch: false,
       isUnauthorizedDomain: false,
       currentOrigin,
@@ -137,7 +125,7 @@ export function parseOAuthError(err: unknown): {
   if (code === 'auth/popup-closed-by-user') {
     return {
       title: 'Janela do Google fechada',
-      message: 'O login foi cancelado porque a janela de seleção de conta do Google foi fechada antes de concluir.',
+      message: 'A janela de seleção de conta do Google foi fechada antes da confirmação.',
       isOriginMismatch: false,
       isUnauthorizedDomain: false,
       currentOrigin,
@@ -146,8 +134,8 @@ export function parseOAuthError(err: unknown): {
   }
 
   return {
-    title: 'Falha ao conectar com o Google',
-    message: msg || 'Ocorreu um erro ao tentar autenticar via OAuth.',
+    title: 'Não foi possível abrir o popup do Google',
+    message: msg || 'Ocorreu um erro ao conectar com o Google.',
     isOriginMismatch: false,
     isUnauthorizedDomain: false,
     currentOrigin,
@@ -155,21 +143,104 @@ export function parseOAuthError(err: unknown): {
   };
 }
 
+/**
+ * Inicializa Google Identity Services (GSI - One Tap e Botão Oficial do Google)
+ */
 export const initGoogleIdentityServices = (
-  _onUserAuthenticated: (user: Usuario) => void
+  onUserAuthenticated: (user: Usuario) => void
 ): (() => void) => {
+  if (typeof window === 'undefined') return () => {};
+
+  const setupGsi = () => {
+    if (window.google?.accounts?.id && firebaseConfig.oAuthClientId) {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: firebaseConfig.oAuthClientId,
+          callback: async (response: any) => {
+            if (response?.credential) {
+              const decoded = decodeGoogleJwt(response.credential);
+              if (decoded && decoded.email) {
+                const email = decoded.email.toLowerCase().trim();
+                const nome = decoded.name || email.split('@')[0];
+                const photo = decoded.picture || getOfficialGooglePhoto(email);
+                const userObj: Usuario = {
+                  id: decoded.sub || `google_${email.replace(/[^a-z0-9]/g, '_')}`,
+                  google_id: decoded.sub,
+                  email: email,
+                  nome: nome,
+                  foto: photo,
+                  cidade: 'São Luis do Paraitinga - SP',
+                  last_login_at: new Date().toISOString(),
+                };
+
+                saveStoredUser(userObj);
+
+                try {
+                  await fetch('/api/users/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: userObj }),
+                  });
+                } catch {
+                  // ignore
+                }
+
+                try {
+                  const syncRes = await syncUserWithSupabase(userObj);
+                  onUserAuthenticated(syncRes.user);
+                } catch {
+                  onUserAuthenticated(userObj);
+                }
+              }
+            }
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+      } catch (e) {
+        console.warn('Aviso ao inicializar GSI:', e);
+      }
+    }
+  };
+
+  if (window.google?.accounts?.id) {
+    setupGsi();
+  } else {
+    const timer = setTimeout(setupGsi, 1000);
+    return () => clearTimeout(timer);
+  }
+
   return () => {};
 };
 
+/**
+ * Renderiza o botão oficial do Google dentro de um container HTML
+ */
 export const renderOfficialGoogleButton = (
-  _container: HTMLElement,
-  _options?: { width?: number; theme?: 'outline' | 'filled_blue' | 'filled_black' }
+  container: HTMLElement,
+  options?: { width?: number; theme?: 'outline' | 'filled_blue' | 'filled_black' }
 ) => {
-  // Safe no-op
+  if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+    try {
+      container.innerHTML = '';
+      window.google.accounts.id.renderButton(container, {
+        type: 'standard',
+        shape: 'rectangular',
+        theme: options?.theme || 'outline',
+        text: 'continue_with',
+        size: 'large',
+        logo_alignment: 'left',
+        width: options?.width || 280,
+      });
+    } catch (e) {
+      console.warn('Erro ao renderizar botão oficial GSI:', e);
+    }
+  }
 };
 
 /**
  * Escuta mudanças no estado de autenticação oficial do Firebase/Google.
+ * Qualquer usuário novo que se autentique com o Google é imediatamente registrado e sincronizado.
  */
 export const initGoogleAuth = (
   onUserChanged: (user: Usuario | null, rawFirebaseUser: FirebaseUser | null) => void
@@ -182,15 +253,11 @@ export const initGoogleAuth = (
 
   return onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
-      const existing = getStoredUser();
-      // Não sobrescreve se o usuário atual escolheu outro perfil/e-mail no app
-      if (existing && existing.email && firebaseUser.email && existing.email.toLowerCase() !== firebaseUser.email.toLowerCase()) {
-        return;
-      }
-
       const email = (firebaseUser.email || '').toLowerCase().trim();
-      const nome = firebaseUser.displayName || email.split('@')[0] || 'Usuário Google';
-      const resolvedCity = (existing?.cidade && existing.cidade !== 'Socorro - SP')
+      const nome = firebaseUser.displayName || (email ? email.split('@')[0] : 'Usuário Google');
+      const photo = firebaseUser.photoURL || getOfficialGooglePhoto(email);
+      const existing = getStoredUser();
+      const resolvedCity = (existing?.email?.toLowerCase() === email && existing?.cidade && existing.cidade !== 'Socorro - SP')
         ? existing.cidade
         : 'São Luis do Paraitinga - SP';
 
@@ -199,7 +266,7 @@ export const initGoogleAuth = (
         google_id: firebaseUser.uid,
         email: email,
         nome: nome,
-        foto: firebaseUser.photoURL || getOfficialGooglePhoto(email, existing?.foto),
+        foto: photo,
         cidade: resolvedCity,
         last_login_at: new Date().toISOString(),
       };
@@ -223,7 +290,6 @@ export const initGoogleAuth = (
         onUserChanged(userObj, firebaseUser);
       }
     } else {
-      cachedAccessToken = null;
       const stored = getStoredUser();
       onUserChanged(stored, null);
     }
@@ -231,37 +297,24 @@ export const initGoogleAuth = (
 };
 
 /**
- * Login com e-mail do Google para qualquer pessoa (100% GARANTIDO na Vercel e AI Studio)
- * Não depende de popup nem de liberação prévia do Google.
+ * Login direto com e-mail do Google (100% GARANTIDO em celulares, computadores, Vercel e AI Studio).
+ * Permite que qualquer morador entre informando seu e-mail do Google (@gmail.com).
  */
-export const signInWithGoogleDirect = async (preferredEmail?: string, preferredName?: string): Promise<Usuario> => {
-  if (auth && auth.currentUser && preferredEmail && auth.currentUser.email?.toLowerCase() !== preferredEmail.toLowerCase()) {
-    try {
-      await signOut(auth);
-    } catch {
-      // ignore
-    }
+export const signInWithGoogleDirect = async (
+  emailInput: string,
+  preferredName?: string
+): Promise<Usuario> => {
+  const email = (emailInput || '').toLowerCase().trim();
+  if (!email || !email.includes('@')) {
+    throw new Error('Informe um e-mail válido para conectar.');
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 150));
+  const resolvedName = preferredName?.trim() || email.split('@')[0];
+  const userId = `user_${email.replace(/[^a-z0-9]/g, '_')}`;
+  const photo = getOfficialGooglePhoto(email);
 
   const existing = getStoredUser();
-  const email = (preferredEmail || existing?.email || 'dimasrafting@gmail.com').toLowerCase().trim();
-  const isSameAsExisting = existing && existing.email.toLowerCase() === email;
-
-  const resolvedName = preferredName?.trim()
-    || (isSameAsExisting ? existing.nome : null)
-    || (email === 'dimasrafting@gmail.com' ? 'Dimas' : email.split('@')[0]);
-
-  const userId = isSameAsExisting && existing.id
-    ? existing.id
-    : email === 'dimasrafting@gmail.com'
-    ? 'google_dimas_official'
-    : `user_${email.replace(/[^a-z0-9]/g, '_')}`;
-
-  const photo = getOfficialGooglePhoto(email, isSameAsExisting ? existing?.foto : undefined);
-
-  const resolvedCity = (isSameAsExisting && existing?.cidade && existing.cidade !== 'Socorro - SP')
+  const resolvedCity = (existing?.email?.toLowerCase() === email && existing?.cidade && existing.cidade !== 'Socorro - SP')
     ? existing.cidade
     : 'São Luis do Paraitinga - SP';
 
@@ -277,7 +330,7 @@ export const signInWithGoogleDirect = async (preferredEmail?: string, preferredN
 
   saveStoredUser(userObj);
 
-  // Sincroniza usuário com o servidor compartilhado
+  // Sincroniza usuário com o servidor compartilhado /api/users/sync
   try {
     await fetch('/api/users/sync', {
       method: 'POST',
@@ -287,6 +340,7 @@ export const signInWithGoogleDirect = async (preferredEmail?: string, preferredN
   } catch {
     // continua normalmente
   }
+
   try {
     const syncRes = await syncUserWithSupabase(userObj);
     return syncRes.user;
@@ -296,8 +350,7 @@ export const signInWithGoogleDirect = async (preferredEmail?: string, preferredN
 };
 
 /**
- * Tenta abrir o Popup nativo do Firebase / Google OAuth 2.0 para QUALQUER conta Google.
- * Se falhar (ex: na Vercel se o domínio ainda não foi propagado no Firebase), repassa o erro detalhado para o modal.
+ * Abre o popup nativo do Firebase / Google OAuth 2.0 para qualquer conta Google.
  */
 export const signInWithGooglePopup = async (): Promise<Usuario> => {
   if (!auth) {
@@ -306,12 +359,12 @@ export const signInWithGooglePopup = async (): Promise<Usuario> => {
 
   const result = await signInWithPopup(auth, provider);
   const firebaseUser = result.user;
-  const existing = getStoredUser();
   const email = (firebaseUser.email || '').toLowerCase().trim();
   const nome = firebaseUser.displayName || (email ? email.split('@')[0] : 'Usuário Google');
-  const photo = firebaseUser.photoURL || getOfficialGooglePhoto(email, existing?.foto);
+  const photo = firebaseUser.photoURL || getOfficialGooglePhoto(email);
 
-  const resolvedCity = (existing?.cidade && existing.cidade !== 'Socorro - SP')
+  const existing = getStoredUser();
+  const resolvedCity = (existing?.email?.toLowerCase() === email && existing?.cidade && existing.cidade !== 'Socorro - SP')
     ? existing.cidade
     : 'São Luis do Paraitinga - SP';
 
@@ -346,47 +399,10 @@ export const signInWithGooglePopup = async (): Promise<Usuario> => {
   }
 };
 
-export const QUICK_TEST_USERS: Array<{
-  email: string;
-  nome: string;
-  role: string;
-  cidade: string;
-  foto: string;
-}> = [
-  {
-    email: 'dimasrafting@gmail.com',
-    nome: 'Dimas',
-    role: 'Administrador & Criador',
-    cidade: 'São Luis do Paraitinga - SP',
-    foto: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    email: 'maria.santos@gmail.com',
-    nome: 'Maria Santos',
-    role: 'Moradora (Compradora)',
-    cidade: 'São Luis do Paraitinga - SP',
-    foto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    email: 'carlos.silva@gmail.com',
-    nome: 'Carlos Silva',
-    role: 'Morador (Vendedor)',
-    cidade: 'São Luis do Paraitinga - SP',
-    foto: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
-  },
-];
-
-export const loginAsDimasDirect = async (): Promise<Usuario> => {
-  return signInWithGoogleDirect('dimasrafting@gmail.com', 'Dimas');
-};
+export const signInWithGoogle = signInWithGooglePopup;
 
 /**
- * Método padrão: usa o login direto rápido
- */
-export const signInWithGoogle = signInWithGoogleDirect;
-
-/**
- * Desconecta a conta do Google
+ * Desconecta a conta do Google e limpa dados da sessão
  */
 export const logoutGoogle = async (): Promise<void> => {
   if (auth) {
@@ -403,6 +419,5 @@ export const logoutGoogle = async (): Promise<void> => {
       // ignore
     }
   }
-  cachedAccessToken = null;
   clearStoredUser();
 };

@@ -18,7 +18,6 @@ import {
   CreateSaleInput,
   SiteConfig,
 } from './types/marketplace';
-import { SAMPLE_USERS } from './data/sampleMarketplaceData';
 import {
   fetchListings,
   fetchConversations,
@@ -81,7 +80,7 @@ export default function App() {
   const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Current active user (defaults to stored Google user, or Dimas from prompt specification)
+  // Usuário ativo (carrega do armazenamento do Google ou visitante)
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     const stored = getStoredUser();
     if (stored) {
@@ -89,7 +88,7 @@ export default function App() {
         ? stored.cidade
         : 'São Luis do Paraitinga - SP';
       return {
-        id: stored.id || stored.google_id || 'user-dimas',
+        id: stored.id || stored.google_id || 'user-google',
         nome: stored.nome,
         email: stored.email,
         avatar_url: stored.foto || getOfficialGooglePhoto(stored.email),
@@ -98,18 +97,20 @@ export default function App() {
         adminConfig: stored.adminConfig || getSavedUserAdminConfig(stored.email) || undefined,
       };
     }
-    const dimasSavedConfig = getSavedUserAdminConfig('dimasrafting@gmail.com');
     return {
-      ...SAMPLE_USERS.dimas,
+      id: '',
+      nome: 'Visitante',
+      email: '',
+      avatar_url: '',
       cidade: 'São Luis do Paraitinga - SP',
-      adminConfig: dimasSavedConfig || undefined,
+      created_at: new Date().toISOString(),
     };
   });
 
-  // Site Configuration & Categories (carrega a configuração gravada no perfil do usuário ativo)
+  // Site Configuration & Categories
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     const stored = getStoredUser();
-    return getSiteConfig(stored?.email || 'dimasrafting@gmail.com');
+    return getSiteConfig(stored?.email || null);
   });
   const [categories, setCategories] = useState<Category[]>(() => getStoredCategories());
 
@@ -275,8 +276,8 @@ export default function App() {
     }
   }, []);
 
-  // Login Direto com Google (100% compatível com Vercel)
-  const handleOfficialGoogleSignIn = async (email?: string, name?: string) => {
+  // Login com Google
+  const handleOfficialGoogleSignIn = async (email: string, name?: string) => {
     setIsLoggingIn(true);
     try {
       const u = await signInWithGoogleDirect(email, name);
@@ -337,17 +338,20 @@ export default function App() {
   };
 
   // Logout Google
-  // Logout Google
   const handleLogoutGoogle = async () => {
     await logoutGoogle();
     await logoutUser();
     setGoogleUser(null);
-    const dimasConfig = getSiteConfig('dimasrafting@gmail.com');
+    const guestConfig = getSiteConfig(null);
     setCurrentUser({
-      ...SAMPLE_USERS.dimas,
-      adminConfig: dimasConfig,
+      id: '',
+      nome: 'Visitante',
+      email: '',
+      avatar_url: '',
+      cidade: guestConfig.cityName || 'São Luis do Paraitinga - SP',
+      created_at: new Date().toISOString(),
     });
-    setSiteConfig(dimasConfig);
+    setSiteConfig(guestConfig);
     showToast('Sessão encerrada', 'Você saiu da sua conta do Google.', 'info');
   };
 
@@ -546,6 +550,16 @@ export default function App() {
 
   // Iniciar conversa direta sobre um anúncio
   const handleStartChat = async (listing: Listing) => {
+    if (!googleUser || !currentUser.email) {
+      setIsGoogleModalOpen(true);
+      showToast(
+        'Login com Google necessário',
+        'Faça login com sua conta do Google para conversar com o anunciante.',
+        'info'
+      );
+      return;
+    }
+
     try {
       const initialText =
         listing.type === 'WANTED'
@@ -781,12 +795,10 @@ export default function App() {
         {/* TAB 1: INÍCIO */}
         {currentTab === 'home' && (
           <div className="space-y-6 sm:space-y-8">
-            {/* Acima dos anúncios: apenas o campo de busca com botões Eu Quero Comprar e Eu Quero Vender */}
+            {/* Campo de Busca Principal da Cidade */}
             <HomeHero
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
-              onOpenWantedModal={(queryText) => handleRequestOpenWanted(queryText || searchQuery || '')}
-              onOpenSaleModal={handleRequestOpenSale}
               cityName={siteConfig.cityName}
             />
 
@@ -1056,6 +1068,7 @@ export default function App() {
               onSelectConversation={setActiveConvId}
               onRefreshConversations={loadData}
               onViewListing={handleViewListing}
+              onOpenGoogleLogin={() => setIsGoogleModalOpen(true)}
             />
           </div>
         )}
@@ -1168,9 +1181,8 @@ export default function App() {
         onOfficialGoogleSignIn={handleOfficialGoogleSignIn}
         onTryPopupGoogleSignIn={handlePopupGoogleSignIn}
         onLoginManual={handleLoginManual}
-        defaultEmail={currentUser.email || 'dimasrafting@gmail.com'}
+        defaultEmail={currentUser.email || ''}
         defaultCity={currentUser.cidade || 'São Luis do Paraitinga - SP'}
-        onOpenGithubModal={() => setIsGithubModalOpen(true)}
       />
 
       <CreateWantedModal

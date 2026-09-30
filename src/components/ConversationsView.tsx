@@ -4,18 +4,10 @@ import {
   Send,
   User,
   Tag,
-  Search,
   ArrowLeft,
-  Clock,
-  Sparkles,
   CheckCheck,
-  Phone,
   ShieldCheck,
   ExternalLink,
-  Bot,
-  UserCheck,
-  Smile,
-  RefreshCw,
 } from 'lucide-react';
 import { Conversation, Message, UserProfile, Listing } from '../types/marketplace';
 import {
@@ -30,6 +22,7 @@ interface ConversationsViewProps {
   onSelectConversation: (id: string) => void;
   onRefreshConversations: () => void;
   onViewListing?: (listing: Listing) => void;
+  onOpenGoogleLogin?: () => void;
 }
 
 export const ConversationsView: React.FC<ConversationsViewProps> = ({
@@ -39,23 +32,46 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
   onSelectConversation,
   onRefreshConversations,
   onViewListing,
+  onOpenGoogleLogin,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingUser, setTypingUser] = useState<string>('');
   const [showMobileList, setShowMobileList] = useState(!activeConversationId);
-  const [isTestAsOtherUser, setIsTestAsOtherUser] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Usuário não autenticado
+  if (!currentUser.id || !currentUser.email) {
+    return (
+      <div className="bg-white rounded-3xl p-10 sm:p-14 text-center border border-slate-200/90 shadow-2xs space-y-4 max-w-lg mx-auto">
+        <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+          <MessageSquare className="w-8 h-8" />
+        </div>
+        <h3 className="font-extrabold text-xl text-slate-900">
+          Suas Conversas
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
+          Faça login com sua conta do Google para conversar com compradores e vendedores da cidade em tempo real.
+        </p>
+        {onOpenGoogleLogin && (
+          <button
+            onClick={onOpenGoogleLogin}
+            className="inline-flex items-center gap-2 px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+          >
+            <span>Entrar com o Google</span>
+          </button>
+        )}
+      </div>
+    );
+  }
 
   const selectedConv =
     conversations.find((c) => c.id === activeConversationId) ||
     conversations[0];
 
-  // Identifica quem é o outro participante da conversa (verifica id e e-mail)
+  // Identifica quem é o outro participante da conversa
   const userEmail = (currentUser.email || '').toLowerCase().trim();
   const buyerEmail = (selectedConv?.buyer?.email || '').toLowerCase().trim();
   const isBuyer =
@@ -63,9 +79,8 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
     (Boolean(userEmail) && Boolean(buyerEmail) && userEmail === buyerEmail);
 
   const otherUser = isBuyer ? selectedConv?.seller : selectedConv?.buyer;
-  const activeSender = isTestAsOtherUser ? otherUser : currentUser;
 
-  // Carrega mensagens e sincroniza a cada 2.5s para chat em tempo real entre dois usuários
+  // Carrega mensagens reais do banco e sincroniza a cada 2.5s para chat em tempo real
   useEffect(() => {
     if (selectedConv) {
       fetchConversationMessages(selectedConv.id).then((msgs) => {
@@ -74,13 +89,15 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 120);
       });
-      // Em mobile, ao selecionar conversa, abre a tela de chat
       setShowMobileList(false);
 
       const msgInterval = setInterval(() => {
         fetchConversationMessages(selectedConv.id).then((freshMsgs) => {
           setMessages((prev) => {
-            if (freshMsgs.length !== prev.length || (freshMsgs.length > 0 && freshMsgs[freshMsgs.length - 1].id !== prev[prev.length - 1]?.id)) {
+            if (
+              freshMsgs.length !== prev.length ||
+              (freshMsgs.length > 0 && freshMsgs[freshMsgs.length - 1].id !== prev[prev.length - 1]?.id)
+            ) {
               setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
               return freshMsgs;
             }
@@ -97,63 +114,18 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Resposta simulada inteligente do vendedor ou comprador
-  const triggerAutomatedReply = (userMessage: string, conv: Conversation) => {
-    const responder = isBuyer ? conv.seller : conv.buyer;
-    if (!responder) return;
-
-    const responderName = responder.nome || 'Vendedor';
-    setTypingUser(responderName);
-    setIsTyping(true);
-
-    const lower = userMessage.toLowerCase();
-    let replyText = '';
-
-    if (lower.includes('disponível') || lower.includes('ainda tem')) {
-      replyText = `Olá! Sim, ainda está disponível! Encontra-se em excelente estado. Podemos combinar para você ver ou retirar no centro?`;
-    } else if (lower.includes('valor') || lower.includes('menor') || lower.includes('desconto') || lower.includes('preço')) {
-      replyText = `Consigo fazer um pequeno desconto se for pagamento via Pix e você retirar hoje. O que acha?`;
-    } else if (lower.includes('onde') || lower.includes('retirar') || lower.includes('bairro') || lower.includes('lugar')) {
-      replyText = `Podemos nos encontrar na praça central da matriz ou no comércio do centro, fica bem prático e seguro para nós dois!`;
-    } else if (lower.includes('hoje') || lower.includes('buscar') || lower.includes('hora') || lower.includes('horário')) {
-      replyText = `Perfeito! Posso por volta das 17h30 ou 18h no ponto combinado. Fico no seu aguardo!`;
-    } else if (lower.includes('sim') || lower.includes('fechado') || lower.includes('vou querer')) {
-      replyText = `Maravilha! Negócio fechado. Vou deixar reservado para você. Até mais!`;
-    } else {
-      replyText = `Olá! Obrigado pelo contato referente ao anúncio "${conv.listing?.title || 'item'}". Qualquer dúvida ou para combinarmos a entrega, estou à disposição!`;
-    }
-
-    setTimeout(async () => {
-      try {
-        const replyMsg = await sendMessage(conv.id, responder.id, replyText);
-        setMessages((prev) => [...prev, replyMsg]);
-        setIsTyping(false);
-        onRefreshConversations();
-        setTimeout(scrollToBottom, 60);
-      } catch (err) {
-        console.error('Erro na resposta do chat:', err);
-        setIsTyping(false);
-      }
-    }, 1400);
-  };
-
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
-    if (!text || !selectedConv || !activeSender) return;
+    if (!text || !selectedConv || !currentUser.id) return;
 
     setInputText('');
     setIsLoading(true);
 
     try {
-      const newMsg = await sendMessage(selectedConv.id, activeSender.id, text);
+      const newMsg = await sendMessage(selectedConv.id, currentUser.id, text);
       setMessages((prev) => [...prev, newMsg]);
       onRefreshConversations();
       setTimeout(scrollToBottom, 60);
-
-      // Se a mensagem foi enviada pelo usuário real, aciona resposta automática do vendedor após 1.4s
-      if (!isTestAsOtherUser && otherUser) {
-        triggerAutomatedReply(text, selectedConv);
-      }
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
@@ -162,11 +134,6 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
 
   const handleQuickChip = (chipText: string) => {
     handleSendMessage(chipText);
-  };
-
-  const handleSimulateSellerReply = () => {
-    if (!selectedConv || !otherUser) return;
-    triggerAutomatedReply('Olá, gostaria de combinar os detalhes da compra!', selectedConv);
   };
 
   if (conversations.length === 0) {
@@ -179,7 +146,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
           Nenhuma conversa aberta ainda
         </h3>
         <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
-          Para iniciar uma conversa, navegue pelos anúncios de venda ou procura na cidade e clique no botão <strong>"Tenho interesse (Iniciar conversa com vendedor)"</strong>.
+          Para iniciar uma conversa, navegue pelos anúncios de venda ou procura na cidade e clique no botão <strong>"Tenho interesse (Falar com anunciante)"</strong>.
         </p>
       </div>
     );
@@ -213,7 +180,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
               <span>Suas Conversas</span>
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Chat direto entre comprador e vendedor
+              Chat direto entre moradores
             </p>
           </div>
           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
@@ -287,119 +254,81 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
             showMobileList ? 'hidden md:flex' : 'flex'
           }`}
         >
-          {/* Top Bar of Active Conversation */}
-          <div className="p-3.5 sm:p-4 border-b border-slate-200/80 flex items-center justify-between bg-white shrink-0 gap-2">
+          {/* Chat Header */}
+          <div className="p-3 sm:p-4 border-b border-slate-200/80 bg-white flex items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
-              {/* Mobile Back Button */}
               <button
-                type="button"
                 onClick={() => setShowMobileList(true)}
-                className="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-                title="Voltar para lista de conversas"
+                className="md:hidden p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
 
-              <div className="relative shrink-0">
-                <img
-                  src={
-                    otherUser?.avatar_url ||
-                    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'
-                  }
-                  alt={otherUser?.nome || 'Usuário'}
-                  className="w-10 h-10 rounded-2xl object-cover border border-slate-200"
-                />
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
-              </div>
+              <img
+                src={
+                  otherUser?.avatar_url ||
+                  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'
+                }
+                alt=""
+                className="w-10 h-10 rounded-2xl object-cover border border-slate-200 shrink-0"
+              />
 
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <h3 className="font-extrabold text-sm text-slate-900 leading-tight truncate">
-                    {otherUser?.nome || 'Morador'}
-                  </h3>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md font-semibold">
-                    {isBuyer ? 'Vendedor' : 'Comprador'}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 flex items-center gap-1 truncate">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Online agora • {otherUser?.cidade || 'São Luis do Paraitinga - SP'}</span>
+                <h3 className="font-bold text-sm text-slate-900 truncate">
+                  {otherUser?.nome || 'Morador'}
+                </h3>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {otherUser?.cidade || 'São Luis do Paraitinga - SP'}
                 </p>
               </div>
             </div>
 
-            {/* Ações e Produto negociado */}
-            <div className="flex items-center gap-2 shrink-0">
-              {selectedConv.listing && (
-                <div
-                  onClick={() => onViewListing?.(selectedConv.listing!)}
-                  className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer transition max-w-[160px] sm:max-w-xs"
-                  title="Ver anúncio completo"
-                >
-                  {selectedConv.listing.images?.[0] && (
-                    <img
-                      src={selectedConv.listing.images[0]}
-                      alt=""
-                      className="w-7 h-7 rounded-lg object-cover shrink-0"
-                    />
-                  )}
-                  <div className="min-w-0 hidden sm:block">
-                    <p className="text-[11px] font-bold text-slate-800 truncate">
-                      {selectedConv.listing.title}
-                    </p>
-                    <p className="text-[10px] font-extrabold text-emerald-700">
-                      {selectedConv.listing.price
-                        ? `R$ ${selectedConv.listing.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                        : 'A combinar'}
-                    </p>
-                  </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                </div>
-              )}
-
-              {/* Botão de teste: simular resposta rápida do vendedor */}
-              <button
-                type="button"
-                onClick={handleSimulateSellerReply}
-                disabled={isTyping}
-                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-xl transition cursor-pointer disabled:opacity-50"
-                title="Simula uma resposta rápida automática do vendedor"
+            {/* Product Card Pill */}
+            {selectedConv.listing && (
+              <div
+                onClick={() => onViewListing && onViewListing(selectedConv.listing as Listing)}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition cursor-pointer max-w-[220px] shrink-0"
+                title="Ver detalhes do anúncio"
               >
-                <Bot className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Simular resposta</span>
-              </button>
-            </div>
+                {selectedConv.listing.images && selectedConv.listing.images.length > 0 && (
+                  <img
+                    src={selectedConv.listing.images[0]}
+                    alt=""
+                    className="w-7 h-7 rounded-lg object-cover shrink-0"
+                  />
+                )}
+                <div className="min-w-0 hidden sm:block">
+                  <p className="text-[11px] font-bold text-slate-800 truncate">
+                    {selectedConv.listing.title}
+                  </p>
+                  <p className="text-[10px] font-extrabold text-emerald-700">
+                    {selectedConv.listing.price
+                      ? `R$ ${selectedConv.listing.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                      : 'A combinar'}
+                  </p>
+                </div>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              </div>
+            )}
           </div>
 
           {/* Banner de negociação segura */}
-          <div className="bg-emerald-50/70 border-b border-emerald-100 px-4 py-2 flex items-center justify-between text-[11px] text-emerald-900 shrink-0">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>Negociação direta na cidade: combine a entrega ou retirada em locais públicos e movimentados.</span>
-            </div>
-            {/* Alternar teste de envio como vendedor */}
-            <button
-              type="button"
-              onClick={() => setIsTestAsOtherUser(!isTestAsOtherUser)}
-              className="text-[10px] font-bold text-emerald-800 hover:underline cursor-pointer shrink-0 ml-2"
-            >
-              {isTestAsOtherUser ? '← Digitando como Vendedor' : 'Alternar para responder'}
-            </button>
+          <div className="bg-emerald-50/70 border-b border-emerald-100 px-4 py-2 flex items-center gap-1.5 text-[11px] text-emerald-900 shrink-0">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Negociação direta na cidade: combine a entrega ou retirada em locais públicos e movimentados.</span>
           </div>
 
           {/* Messages Stream */}
           <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-3 bg-slate-50/40">
             {messages.length === 0 ? (
               <div className="text-center py-8 text-xs text-slate-400">
-                Nenhuma mensagem enviada ainda. Envie uma mensagem para iniciar a negociação!
+                Nenhuma mensagem enviada ainda. Envie uma mensagem para iniciar a conversa!
               </div>
             ) : (
               messages.map((m) => {
                 const isMine =
                   m.sender_id === currentUser.id ||
-                  (isBuyer
-                    ? m.sender_id === selectedConv?.buyer_id
-                    : m.sender_id === selectedConv?.seller_id);
+                  (userEmail && m.sender_id === userEmail);
 
                 return (
                   <div
@@ -433,26 +362,6 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
               })
             )}
 
-            {/* Typing Indicator */}
-            {isTyping && (
-              <div className="flex items-center gap-2 text-xs text-slate-500 animate-in fade-in">
-                <img
-                  src={
-                    otherUser?.avatar_url ||
-                    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'
-                  }
-                  alt=""
-                  className="w-6 h-6 rounded-full object-cover"
-                />
-                <div className="bg-white border border-slate-200 rounded-2xl px-3 py-1.5 flex items-center gap-1.5 shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.2s]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.4s]" />
-                  <span className="text-[10px] text-slate-400 ml-1">{typingUser} está digitando...</span>
-                </div>
-              </div>
-            )}
-
             <div ref={messagesEndRef} />
           </div>
 
@@ -484,11 +393,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={
-                isTestAsOtherUser
-                  ? `Responder como ${activeSender?.nome || 'outro usuário'}...`
-                  : `Digite sua mensagem para ${otherUser?.nome || 'o morador'}...`
-              }
+              placeholder={`Digite sua mensagem para ${otherUser?.nome || 'o morador'}...`}
               className="flex-1 px-4 py-2.5 text-xs sm:text-sm bg-slate-100 border border-transparent rounded-2xl focus:bg-white focus:border-emerald-500 focus:outline-hidden text-slate-900 transition font-medium"
             />
             <button

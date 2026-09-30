@@ -1,6 +1,26 @@
 {
   "listings": [
     {
+      "title": "Procuro Bicicleta Caloi aro 29",
+      "type": "WANTED",
+      "description": "Procuro bicicleta caloi para trilha",
+      "category_id": "cat-veiculos",
+      "price": 900,
+      "condition": "USED",
+      "images": [],
+      "user": {
+        "id": "user_novousuario_google",
+        "nome": "Lucas Martins",
+        "email": "lucasmartins@gmail.com",
+        "cidade": "São Luis do Paraitinga - SP"
+      },
+      "id": "wanted-1790769631963",
+      "user_id": "user_novousuario_google",
+      "status": "ACTIVE",
+      "created_at": "2026-09-30T12:00:31.963Z",
+      "updated_at": "2026-09-30T12:00:31.963Z"
+    },
+    {
       "title": "Bicicleta Caloi Aro 29",
       "type": "SALE",
       "description": "Bicicleta seminova",
@@ -20,8 +40,46 @@
       "updated_at": "2026-09-29T14:18:22.353Z"
     }
   ],
-  "conversations": [],
-  "messages": [],
+  "conversations": [
+    {
+      "id": "conv-1790769644684-gjan",
+      "listing_id": "sale-1790691502353",
+      "buyer_id": "user_novousuario_google",
+      "seller_id": "user_joao_silva",
+      "created_at": "2026-09-30T12:00:44.684Z",
+      "updated_at": "2026-09-30T12:00:44.684Z",
+      "last_message": "Olá João! Vi sua Caloi Aro 29, ainda está disponível?",
+      "listing": {
+        "id": "sale-1790691502353",
+        "title": "Bicicleta Caloi Aro 29",
+        "price": 850,
+        "type": "SALE",
+        "images": []
+      },
+      "buyer": {
+        "id": "user_novousuario_google",
+        "nome": "Lucas Martins",
+        "email": "lucasmartins@gmail.com",
+        "cidade": "São Luis do Paraitinga - SP"
+      },
+      "seller": {
+        "id": "user_joao_silva",
+        "nome": "João Silva",
+        "email": "joaosilva@gmail.com",
+        "cidade": "São Luis do Paraitinga - SP"
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg-1790769644685-1",
+      "conversation_id": "conv-1790769644684-gjan",
+      "sender_id": "user_novousuario_google",
+      "text": "Olá João! Vi sua Caloi Aro 29, ainda está disponível?",
+      "created_at": "2026-09-30T12:00:44.684Z",
+      "read": true
+    }
+  ],
   "users": [
     {
       "id": "tvHl17gsbIXg8Q2zzcIiDu6PUNt1",
@@ -30,7 +88,16 @@
       "nome": "Dimas de Campos",
       "foto": "https://lh3.googleusercontent.com/a/ACg8ocIE5_4Y8rbj96ZFS3kJUIcfWC7wz4wn6iP3phdlkkoIXXLHbJAT=s96-c",
       "cidade": "São Luis do Paraitinga - SP",
-      "last_login_at": "2026-09-29T13:36:14.701Z"
+      "last_login_at": "2026-09-30T12:00:44.756Z"
+    },
+    {
+      "id": "user_novousuario_google",
+      "google_id": "user_novousuario_google",
+      "email": "lucasmartins@gmail.com",
+      "nome": "Lucas Martins",
+      "foto": "",
+      "cidade": "São Luis do Paraitinga - SP",
+      "last_login_at": "2026-09-30T12:00:31.963Z"
     }
   ],
   "siteConfig": {

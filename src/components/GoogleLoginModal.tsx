@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Mail,
@@ -6,16 +6,17 @@ import {
   Loader2,
   ArrowRight,
   Sparkles,
-  CheckCircle2,
+  ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
-import { getOfficialGooglePhoto } from '../services/authService';
+import { renderOfficialGoogleButton, parseOAuthError } from '../services/googleAuth';
 
 interface GoogleLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOfficialGoogleSignIn: (email?: string, name?: string) => Promise<void>;
+  onOfficialGoogleSignIn: (email: string, name?: string) => Promise<void>;
   onTryPopupGoogleSignIn?: () => Promise<void>;
-  onLoginManual: (data: {
+  onLoginManual?: (data: {
     nome: string;
     email: string;
     foto?: string;
@@ -23,7 +24,6 @@ interface GoogleLoginModalProps {
   }) => Promise<void>;
   defaultEmail?: string;
   defaultCity?: string;
-  onOpenGithubModal?: () => void;
 }
 
 export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
@@ -37,7 +37,16 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
   const [email, setEmail] = useState(defaultEmail || '');
   const [isPopupLoading, setIsPopupLoading] = useState(false);
   const [isDirectLoading, setIsDirectLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  const gsiButtonRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && gsiButtonRef.current) {
+      renderOfficialGoogleButton(gsiButtonRef.current, { width: 340, theme: 'outline' });
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -48,13 +57,18 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
     }
 
     setIsPopupLoading(true);
+    setErrorMessage(null);
     setInfoMessage(null);
     try {
       await onTryPopupGoogleSignIn();
       onClose();
-    } catch {
-      // Se o popup for bloqueado no celular ou não puder abrir, orienta de forma amigável
-      setInfoMessage('No celular, informe seu e-mail do Google abaixo para entrar instantaneamente:');
+    } catch (err: unknown) {
+      const parsed = parseOAuthError(err);
+      if (parsed.isUnauthorizedDomain || parsed.isOriginMismatch) {
+        setInfoMessage('Seu navegador ou domínio bloqueou o popup. Digite seu e-mail do Google abaixo para conectar instantaneamente:');
+      } else {
+        setErrorMessage(parsed.message);
+      }
     } finally {
       setIsPopupLoading(false);
     }
@@ -63,25 +77,24 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
   // 2. Login direto com o e-mail do Google digitado
   const handleDirectSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const targetEmail = (email || 'usuario@gmail.com').trim().toLowerCase();
-    const targetNome = nome.trim() || targetEmail.split('@')[0] || 'Usuário Google';
+    const targetEmail = email.trim().toLowerCase();
+    if (!targetEmail || !targetEmail.includes('@')) {
+      setErrorMessage('Por favor, informe um endereço de e-mail válido.');
+      return;
+    }
+
+    const targetNome = nome.trim() || targetEmail.split('@')[0];
 
     setIsDirectLoading(true);
+    setErrorMessage(null);
     try {
       await onOfficialGoogleSignIn(targetEmail, targetNome);
       onClose();
     } catch (err) {
-      console.warn('Erro ao autenticar:', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Erro ao autenticar');
     } finally {
       setIsDirectLoading(false);
     }
-  };
-
-  // Atalho rápido para o e-mail do administrador
-  const handleQuickDimas = () => {
-    setEmail('dimasrafting@gmail.com');
-    setNome('Dimas');
-    onOfficialGoogleSignIn('dimasrafting@gmail.com', 'Dimas').then(() => onClose());
   };
 
   return (
@@ -115,7 +128,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
                 Entrar com o Google
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Acesse para anunciar, comprar ou conversar
+                Acesse sua conta para anunciar, procurar ou conversar
               </p>
             </div>
           </div>
@@ -130,16 +143,26 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
 
         {/* Scrollable Body */}
         <div className="p-5 sm:p-6 space-y-4 overflow-y-auto">
-          {/* Mensagem suave caso popup não abra */}
+          {/* Mensagem de Erro ou Alerta */}
+          {errorMessage && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {/* Mensagem Informativa */}
           {infoMessage && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-800 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-800 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <span>{infoMessage}</span>
             </div>
           )}
 
-          {/* BOTÃO PRINCIPAL 1-CLIQUE */}
+          {/* Botão Oficial GSI (se disponível) ou Botão Principal 1-Clique */}
           <div className="space-y-2">
+            <div ref={gsiButtonRef} className="flex justify-center" />
+
             <button
               type="button"
               onClick={handlePopupClick}
@@ -186,15 +209,15 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
           </div>
 
           {/* DIVISOR OU */}
-          <div className="relative flex items-center justify-center">
+          <div className="relative flex items-center justify-center py-1">
             <div className="border-t border-slate-200 w-full" />
             <span className="bg-white px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
-              Ou digite seu e-mail
+              Ou entre com seu e-mail
             </span>
             <div className="border-t border-slate-200 w-full" />
           </div>
 
-          {/* FORMULÁRIO DIRETO COM E-MAIL (100% GARANTIDO EM CELULARES E PCS) */}
+          {/* FORMULÁRIO DIRETO COM E-MAIL (100% GARANTIDO EM QUALQUER DISPOSITIVO) */}
           <form onSubmit={handleDirectSubmit} className="space-y-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -206,7 +229,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
                   type="text"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  placeholder="Ex: João Santos, Maria Silva..."
+                  placeholder="Ex: Maria Santos, João Silva..."
                   className="w-full pl-10 pr-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
                 />
               </div>
@@ -248,52 +271,9 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
             </button>
           </form>
 
-          {/* Perfis Rápidos de Moradores para Testar Compra, Venda e Chat */}
-          <div className="pt-2 border-t border-slate-100 space-y-2">
-            <p className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
-              <span>Alternar perfil rápido para teste:</span>
-              <span className="text-[10px] text-emerald-600 font-semibold">1-clique</span>
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-left">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('dimasrafting@gmail.com');
-                  setNome('Dimas');
-                  onOfficialGoogleSignIn('dimasrafting@gmail.com', 'Dimas').then(() => onClose());
-                }}
-                className="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-xs transition cursor-pointer text-left group"
-              >
-                <div className="font-bold text-slate-800 group-hover:text-emerald-700">Dimas</div>
-                <div className="text-[10px] text-slate-500 truncate">Admin / Criador</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('maria.santos@gmail.com');
-                  setNome('Maria Santos');
-                  onOfficialGoogleSignIn('maria.santos@gmail.com', 'Maria Santos').then(() => onClose());
-                }}
-                className="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-xs transition cursor-pointer text-left group"
-              >
-                <div className="font-bold text-slate-800 group-hover:text-emerald-700">Maria Santos</div>
-                <div className="text-[10px] text-slate-500 truncate">Moradora (Compradora)</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('carlos.silva@gmail.com');
-                  setNome('Carlos Silva');
-                  onOfficialGoogleSignIn('carlos.silva@gmail.com', 'Carlos Silva').then(() => onClose());
-                }}
-                className="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-xs transition cursor-pointer text-left group"
-              >
-                <div className="font-bold text-slate-800 group-hover:text-emerald-700">Carlos Silva</div>
-                <div className="text-[10px] text-slate-500 truncate">Morador (Vendedor)</div>
-              </button>
-            </div>
+          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-2.5 text-[11px] text-slate-500">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>Seus dados ficam vinculados ao seu perfil e persistidos no banco de dados com segurança.</span>
           </div>
         </div>
       </div>

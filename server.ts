@@ -23,21 +23,12 @@ interface DatabaseState {
   siteConfig: any;
 }
 
-// Seed inicial limpo (apenas dados publicados por usuários são mantidos)
+// Seed inicial limpo (apenas dados publicados por usuários no banco real são mantidos)
 const DEFAULT_INITIAL_STATE: DatabaseState = {
   listings: [],
   conversations: [],
   messages: [],
-  users: [
-    {
-      id: 'google_dimas_official',
-      google_id: 'google_dimas_official',
-      email: 'dimasrafting@gmail.com',
-      nome: 'Dimas',
-      foto: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      cidade: 'São Luis do Paraitinga - SP',
-    },
-  ],
+  users: [],
   siteConfig: {
     siteName: 'TemAqui',
     cityName: 'São Luis do Paraitinga - SP',
@@ -443,6 +434,11 @@ async function startServer() {
   // ==========================================
   // ROTAS DE USUÁRIOS E SINCRONIZAÇÃO
   // ==========================================
+
+  app.get('/api/users', (_req: Request, res: Response) => {
+    const db = readDb();
+    res.json({ users: db.users || [] });
+  });
 
   app.post('/api/users/sync', (req: Request, res: Response) => {
     const db = readDb();
