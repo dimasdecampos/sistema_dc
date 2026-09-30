@@ -40,7 +40,11 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   if (!isOpen || !listing) return null;
 
   const isWanted = listing.type === 'WANTED';
-  const isOwner = currentUser.id === listing.user_id;
+  const userEmail = (currentUser.email || '').toLowerCase().trim();
+  const listingEmail = (listing.user?.email || '').toLowerCase().trim();
+  const isOwner =
+    (Boolean(currentUser.id) && currentUser.id === listing.user_id) ||
+    (Boolean(userEmail) && Boolean(listingEmail) && userEmail === listingEmail);
 
   const formattedPrice =
     listing.price != null && listing.price > 0

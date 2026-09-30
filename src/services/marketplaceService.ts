@@ -552,12 +552,15 @@ export async function updateListing(
 }
 
 /**
- * Busca conversas do usuário ativo
+ * Busca conversas do usuário ativo (por id e opcionalmente por e-mail)
  */
-export async function fetchConversations(userId?: string): Promise<Conversation[]> {
+export async function fetchConversations(userId?: string, userEmail?: string): Promise<Conversation[]> {
   try {
-    const url = userId ? `/api/conversations?userId=${encodeURIComponent(userId)}` : '/api/conversations';
-    const res = await fetch(url);
+    const params = new URLSearchParams();
+    if (userId) params.append('userId', userId);
+    if (userEmail) params.append('email', userEmail);
+    const queryStr = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`/api/conversations${queryStr}`);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.conversations)) {
@@ -570,8 +573,16 @@ export async function fetchConversations(userId?: string): Promise<Conversation[
   }
 
   const localConvs = getLocalConversations();
-  if (userId) {
-    return localConvs.filter((c) => c.buyer_id === userId || c.seller_id === userId);
+  if (userId || userEmail) {
+    const emailLower = (userEmail || '').toLowerCase().trim();
+    return localConvs.filter((c) => {
+      if (userId && (c.buyer_id === userId || c.seller_id === userId)) return true;
+      if (emailLower && (
+        (c.buyer?.email && c.buyer.email.toLowerCase().trim() === emailLower) ||
+        (c.seller?.email && c.seller.email.toLowerCase().trim() === emailLower)
+      )) return true;
+      return false;
+    });
   }
   return localConvs;
 }
@@ -720,8 +731,8 @@ export async function getConversationMessages(conversationId: string): Promise<M
 
 export const fetchConversationMessages = getConversationMessages;
 
-export async function getUserMatches(userId: string): Promise<Match[]> {
+export async function getUserMatches(userOrId: { id?: string; email?: string } | string): Promise<Match[]> {
   const { listings } = await fetchListings();
-  return getMatchesForUser(userId, listings);
+  return getMatchesForUser(userOrId, listings);
 }
 

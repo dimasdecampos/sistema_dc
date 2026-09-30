@@ -17,6 +17,7 @@ interface ListingsFeedProps {
   onOpenWantedModal: () => void;
   onOpenSaleModal: () => void;
   currentUserId?: string;
+  currentUserEmail?: string;
 }
 
 export const ListingsFeed: React.FC<ListingsFeedProps> = ({
@@ -32,6 +33,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
   onOpenWantedModal,
   onOpenSaleModal,
   currentUserId,
+  currentUserEmail,
 }) => {
   // Filter listings
   const filtered = listings.filter((l) => {
@@ -170,6 +172,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
               listing={item}
               onClick={onListingClick}
               currentUserId={currentUserId}
+              currentUserEmail={currentUserEmail}
             />
           ))}
         </div>

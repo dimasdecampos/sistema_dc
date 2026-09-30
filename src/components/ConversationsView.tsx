@@ -55,12 +55,17 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
     conversations.find((c) => c.id === activeConversationId) ||
     conversations[0];
 
-  // Identifica quem é o outro participante da conversa
-  const isBuyer = selectedConv?.buyer_id === currentUser.id;
+  // Identifica quem é o outro participante da conversa (verifica id e e-mail)
+  const userEmail = (currentUser.email || '').toLowerCase().trim();
+  const buyerEmail = (selectedConv?.buyer?.email || '').toLowerCase().trim();
+  const isBuyer =
+    (Boolean(currentUser.id) && selectedConv?.buyer_id === currentUser.id) ||
+    (Boolean(userEmail) && Boolean(buyerEmail) && userEmail === buyerEmail);
+
   const otherUser = isBuyer ? selectedConv?.seller : selectedConv?.buyer;
   const activeSender = isTestAsOtherUser ? otherUser : currentUser;
 
-  // Carrega mensagens sempre que mudar de conversa
+  // Carrega mensagens e sincroniza a cada 2.5s para chat em tempo real entre dois usuários
   useEffect(() => {
     if (selectedConv) {
       fetchConversationMessages(selectedConv.id).then((msgs) => {
@@ -71,6 +76,20 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
       });
       // Em mobile, ao selecionar conversa, abre a tela de chat
       setShowMobileList(false);
+
+      const msgInterval = setInterval(() => {
+        fetchConversationMessages(selectedConv.id).then((freshMsgs) => {
+          setMessages((prev) => {
+            if (freshMsgs.length !== prev.length || (freshMsgs.length > 0 && freshMsgs[freshMsgs.length - 1].id !== prev[prev.length - 1]?.id)) {
+              setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+              return freshMsgs;
+            }
+            return prev;
+          });
+        });
+      }, 2500);
+
+      return () => clearInterval(msgInterval);
     }
   }, [selectedConv?.id]);
 
@@ -376,7 +395,11 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
               </div>
             ) : (
               messages.map((m) => {
-                const isMine = m.sender_id === currentUser.id;
+                const isMine =
+                  m.sender_id === currentUser.id ||
+                  (isBuyer
+                    ? m.sender_id === selectedConv?.buyer_id
+                    : m.sender_id === selectedConv?.seller_id);
 
                 return (
                   <div

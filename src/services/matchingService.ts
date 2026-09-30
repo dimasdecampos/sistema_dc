@@ -60,7 +60,16 @@ function keywordsMatch(k1: string, k2: string): boolean {
 export function calculateMatchScore(wanted: Listing, sale: Listing): number {
   if (wanted.type !== 'WANTED' || sale.type !== 'SALE') return 0;
   if (wanted.status !== 'ACTIVE' || sale.status !== 'ACTIVE') return 0;
-  if (wanted.user_id === sale.user_id) return 0; // O próprio usuário não recebe match de si mesmo
+  
+  // O próprio usuário não recebe match de si mesmo (verifica id e e-mail)
+  if (wanted.user_id && sale.user_id && wanted.user_id === sale.user_id) return 0;
+  if (
+    wanted.user?.email &&
+    sale.user?.email &&
+    wanted.user.email.toLowerCase().trim() === sale.user.email.toLowerCase().trim()
+  ) {
+    return 0;
+  }
 
   let score = 0;
 
@@ -177,18 +186,27 @@ export function findMatchesForListings(
 }
 
 /**
- * Encontra matches específicos para as procuras ativas de um usuário
+ * Encontra matches específicos para as procuras ativas de um usuário (suporta id ou objeto de usuário com e-mail)
  */
 export function getMatchesForUser(
-  userId: string,
+  userOrId: { id?: string; email?: string } | string,
   allListings: Listing[],
   minScore = 35
 ): Match[] {
+  const userId = typeof userOrId === 'string' ? userOrId : userOrId?.id || '';
+  const userEmail = typeof userOrId === 'object' && userOrId?.email ? userOrId.email.toLowerCase().trim() : '';
+
+  const isUserListing = (l: Listing) => {
+    if (userId && l.user_id === userId) return true;
+    if (userEmail && l.user?.email && l.user.email.toLowerCase().trim() === userEmail) return true;
+    return false;
+  };
+
   const userWanted = allListings.filter(
-    (l) => l.user_id === userId && l.type === 'WANTED' && l.status === 'ACTIVE'
+    (l) => isUserListing(l) && l.type === 'WANTED' && l.status === 'ACTIVE'
   );
   const otherSales = allListings.filter(
-    (l) => l.user_id !== userId && l.type === 'SALE' && l.status === 'ACTIVE'
+    (l) => !isUserListing(l) && l.type === 'SALE' && l.status === 'ACTIVE'
   );
 
   const userMatches: Match[] = [];
@@ -223,8 +241,17 @@ export function getBuyersInterestedInSale(
   allListings: Listing[],
   minScore = 35
 ): Match[] {
+  const sellerId = saleListing.user_id;
+  const sellerEmail = saleListing.user?.email?.toLowerCase().trim() || '';
+
+  const isSellerListing = (l: Listing) => {
+    if (sellerId && l.user_id === sellerId) return true;
+    if (sellerEmail && l.user?.email && l.user.email.toLowerCase().trim() === sellerEmail) return true;
+    return false;
+  };
+
   const allWanted = allListings.filter(
-    (l) => l.type === 'WANTED' && l.status === 'ACTIVE' && l.user_id !== saleListing.user_id
+    (l) => l.type === 'WANTED' && l.status === 'ACTIVE' && !isSellerListing(l)
   );
 
   const interested: Match[] = [];

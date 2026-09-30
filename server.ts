@@ -141,6 +141,9 @@ async function startServer() {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.json({ listings: result });
   });
 
@@ -155,23 +158,66 @@ async function startServer() {
 
     const now = new Date().toISOString();
     const listingId = newListing.id || `${newListing.type.toLowerCase()}-${Date.now()}`;
+    const authorUser = newListing.user || {
+      id: newListing.user_id || `user_${Date.now()}`,
+      nome: 'Morador',
+      cidade: 'São Luis do Paraitinga - SP',
+    };
+
+    const resolvedCity = (authorUser.cidade && authorUser.cidade !== 'Socorro - SP')
+      ? authorUser.cidade
+      : 'São Luis do Paraitinga - SP';
+
+    const authorId = authorUser.id || newListing.user_id || (authorUser.email ? `user_${authorUser.email.replace(/[^a-z0-9]/g, '_')}` : `user_${Date.now()}`);
 
     const completeListing = {
       ...newListing,
       id: listingId,
+      user_id: authorId,
       status: newListing.status || 'ACTIVE',
       created_at: newListing.created_at || now,
       updated_at: now,
       images: Array.isArray(newListing.images) ? newListing.images : [],
+      user: {
+        ...authorUser,
+        id: authorId,
+        cidade: resolvedCity,
+      },
     };
 
     // Insere no topo
-    db.listings = [completeListing, ...(db.listings || [])];
+    db.listings = [completeListing, ...(db.listings || []).filter((l) => l.id !== completeListing.id)];
 
-    // Calcula matches simples com o tipo oposto
+    // Registra o autor na lista de usuários se tiver e-mail
+    const authorEmail = (authorUser.email || '').toLowerCase().trim();
+    if (authorEmail) {
+      const existingUserIdx = (db.users || []).findIndex(
+        (u) => (u.email && u.email.toLowerCase().trim() === authorEmail) || u.id === authorId
+      );
+      const userRecord = {
+        id: authorId,
+        google_id: authorId,
+        email: authorEmail,
+        nome: authorUser.nome || authorEmail.split('@')[0],
+        foto: authorUser.avatar_url || authorUser.foto || '',
+        cidade: resolvedCity,
+        last_login_at: now,
+      };
+      if (existingUserIdx === -1) {
+        db.users = [...(db.users || []), userRecord];
+      } else {
+        db.users[existingUserIdx] = { ...db.users[existingUserIdx], ...userRecord };
+      }
+    }
+
+    // Calcula matches simples com o tipo oposto (apenas entre usuários diferentes por ID e e-mail)
     const oppositeType = completeListing.type === 'WANTED' ? 'SALE' : 'WANTED';
     const candidates = db.listings.filter(
-      (l) => l.type === oppositeType && l.status === 'ACTIVE'
+      (l) =>
+        l.type === oppositeType &&
+        l.status === 'ACTIVE' &&
+        l.user_id !== completeListing.user_id &&
+        (!authorEmail || !l.user?.email || l.user.email.toLowerCase().trim() !== authorEmail)
     );
     const newMatches: any[] = [];
 
@@ -257,12 +303,19 @@ async function startServer() {
   // 1. Obter conversas
   app.get('/api/conversations', (req: Request, res: Response) => {
     const db = readDb();
-    const { userId } = req.query;
+    const { userId, email } = req.query;
 
     let convs = db.conversations || [];
     if (userId && typeof userId === 'string') {
+      const userEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
       convs = convs.filter(
-        (c) => c.buyer_id === userId || c.seller_id === userId
+        (c) =>
+          c.buyer_id === userId ||
+          c.seller_id === userId ||
+          (userEmail && (
+            (c.buyer?.email && c.buyer.email.toLowerCase().trim() === userEmail) ||
+            (c.seller?.email && c.seller.email.toLowerCase().trim() === userEmail)
+          ))
       );
     }
 
@@ -289,15 +342,20 @@ async function startServer() {
       return res.status(400).json({ error: 'Dados insuficientes' });
     }
 
-    const sellerId = listing.user_id;
-    const buyerId = buyer.id;
+    // Busca anúncio real no banco para obter dados precisos do vendedor
+    const realListing = (db.listings || []).find((l) => l.id === listing.id) || listing;
 
-    // Procura existente
+    const sellerId = realListing.user_id || listing.user_id;
+    const buyerId = buyer.id;
+    const buyerEmail = (buyer.email || '').toLowerCase().trim();
+    const sellerEmail = (realListing.user?.email || listing.user?.email || '').toLowerCase().trim();
+
+    // Procura existente por ID ou E-mail
     let conv = (db.conversations || []).find(
       (c) =>
-        c.listing_id === listing.id &&
-        c.buyer_id === buyerId &&
-        c.seller_id === sellerId
+        c.listing_id === realListing.id &&
+        (c.buyer_id === buyerId || (buyerEmail && c.buyer?.email && c.buyer.email.toLowerCase().trim() === buyerEmail)) &&
+        (c.seller_id === sellerId || (sellerEmail && c.seller?.email && c.seller.email.toLowerCase().trim() === sellerEmail))
     );
 
     const now = new Date().toISOString();
@@ -305,21 +363,21 @@ async function startServer() {
     if (!conv) {
       conv = {
         id: `conv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        listing_id: listing.id,
+        listing_id: realListing.id,
         buyer_id: buyerId,
         seller_id: sellerId,
         created_at: now,
         updated_at: now,
         last_message: initialText || 'Conversa iniciada',
         listing: {
-          id: listing.id,
-          title: listing.title,
-          price: listing.price,
-          type: listing.type,
-          images: listing.images || [],
+          id: realListing.id,
+          title: realListing.title,
+          price: realListing.price,
+          type: realListing.type,
+          images: realListing.images || [],
         },
         buyer: buyer,
-        seller: listing.user || {
+        seller: realListing.user || listing.user || {
           id: sellerId,
           nome: 'Vendedor',
           cidade: 'São Luis do Paraitinga - SP',

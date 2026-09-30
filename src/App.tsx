@@ -337,6 +337,7 @@ export default function App() {
   };
 
   // Logout Google
+  // Logout Google
   const handleLogoutGoogle = async () => {
     await logoutGoogle();
     await logoutUser();
@@ -348,6 +349,24 @@ export default function App() {
     });
     setSiteConfig(dimasConfig);
     showToast('Sessão encerrada', 'Você saiu da sua conta do Google.', 'info');
+  };
+
+  // Troca rápida de morador para testes
+  const handleSwitchUser = async (email: string, nome?: string) => {
+    setIsLoggingIn(true);
+    try {
+      const u = await signInWithGoogleDirect(email, nome);
+      handleUserAuthenticated(u);
+      showToast(
+        `Conectado como ${u.nome}!`,
+        `Você agora está navegando e publicando como ${u.nome}.`,
+        'success'
+      );
+    } catch (err: unknown) {
+      showToast('Erro ao alternar morador', String(err), 'error');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   // Atualização de cidade
@@ -383,17 +402,17 @@ export default function App() {
       const res = await fetchListings();
       setListings(res.listings);
 
-      const matches = await getUserMatches(currentUser.id);
+      const matches = await getUserMatches(currentUser);
       setUserMatches(matches);
 
-      const convs = await fetchConversations(currentUser.id);
+      const convs = await fetchConversations(currentUser.id, currentUser.email);
       setConversations(convs);
     } catch (e) {
       console.warn('Erro ao carregar anúncios e conversas:', e);
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser.id]);
+  }, [currentUser]);
 
   useEffect(() => {
     // Limpeza única e imediata de quaisquer anúncios de exemplo no localStorage do navegador
@@ -433,14 +452,24 @@ export default function App() {
       }
     });
 
-    // Sincronização periódica a cada 4 segundos para que novos anúncios publicados no celular apareçam no PC automaticamente
+    // Sincronização periódica a cada 3 segundos para que anúncios, matches e conversas apareçam em tempo real entre usuários
     const pollInterval = setInterval(() => {
-      fetchListings().then((res) => {
+      fetchListings().then(async (res) => {
         if (Array.isArray(res.listings)) {
           setListings(res.listings);
+          const matches = await getUserMatches(currentUser);
+          setUserMatches(matches);
         }
       }).catch(() => {});
-    }, 4000);
+
+      if (currentUser?.id || currentUser?.email) {
+        fetchConversations(currentUser.id, currentUser.email).then((convs) => {
+          if (Array.isArray(convs)) {
+            setConversations(convs);
+          }
+        }).catch(() => {});
+      }
+    }, 3000);
 
     const handleWindowFocus = () => {
       loadData();
@@ -453,7 +482,7 @@ export default function App() {
       cleanupGsi();
       unsubGoogle();
     };
-  }, [loadData, handleUserAuthenticated, showToast]);
+  }, [loadData, handleUserAuthenticated, showToast, currentUser]);
 
   // Abertura com pesquisa vinda do Hero da Home
   const handleSearchOrStartWanted = (queryText: string) => {
@@ -666,12 +695,24 @@ export default function App() {
     loadData();
   };
 
-  // Filtrar procuras e vendas do usuário logado
+  // Filtrar procuras e vendas do usuário logado (por id e por e-mail para cobrir multiusuário e diferentes aparelhos)
+  const isUserOwner = (l: Listing) => {
+    if (currentUser?.id && l.user_id === currentUser.id) return true;
+    if (
+      currentUser?.email &&
+      l.user?.email &&
+      currentUser.email.toLowerCase().trim() === l.user.email.toLowerCase().trim()
+    ) {
+      return true;
+    }
+    return false;
+  };
+
   const userWantedListings = listings.filter(
-    (l) => l.user_id === currentUser.id && l.type === 'WANTED'
+    (l) => isUserOwner(l) && l.type === 'WANTED'
   );
   const userSaleListings = listings.filter(
-    (l) => l.user_id === currentUser.id && l.type === 'SALE'
+    (l) => isUserOwner(l) && l.type === 'SALE'
   );
 
   // Anúncios recentes de procura para a Home
@@ -727,6 +768,7 @@ export default function App() {
         onLogoutGoogle={handleLogoutGoogle}
         onUpdateCity={handleUpdateCity}
         onUpdatePhoto={handleUpdatePhoto}
+        onSwitchUser={handleSwitchUser}
         isLoggingIn={isLoggingIn}
         matchesCount={userMatches.length}
         unreadCount={conversations.length}
@@ -901,6 +943,7 @@ export default function App() {
                       listing={item}
                       onClick={handleViewListing}
                       currentUserId={currentUser.id}
+                      currentUserEmail={currentUser.email}
                     />
                   ))}
                 </div>
@@ -936,10 +979,7 @@ export default function App() {
               </div>
 
               <button
-                onClick={() => {
-                  setInitialWantedQuery('');
-                  setIsWantedModalOpen(true);
-                }}
+                onClick={() => handleRequestOpenWanted('')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md hover:bg-emerald-700 transition cursor-pointer self-start sm:self-auto"
               >
                 <PlusCircle className="w-4 h-4" />
@@ -957,9 +997,10 @@ export default function App() {
               onSelectCategory={setSelectedCategory}
               onSearchChange={setSearchQuery}
               onListingClick={handleViewListing}
-              onOpenWantedModal={() => setIsWantedModalOpen(true)}
-              onOpenSaleModal={() => setIsSaleModalOpen(true)}
+              onOpenWantedModal={() => handleRequestOpenWanted('')}
+              onOpenSaleModal={handleRequestOpenSale}
               currentUserId={currentUser.id}
+              currentUserEmail={currentUser.email}
             />
           </div>
         )}
@@ -979,7 +1020,7 @@ export default function App() {
               </div>
 
               <button
-                onClick={() => setIsSaleModalOpen(true)}
+                onClick={handleRequestOpenSale}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-slate-950 rounded-2xl text-xs sm:text-sm font-extrabold shadow-md hover:bg-amber-600 transition cursor-pointer self-start sm:self-auto"
               >
                 <PlusCircle className="w-4 h-4" />
@@ -997,9 +1038,10 @@ export default function App() {
               onSelectCategory={setSelectedCategory}
               onSearchChange={setSearchQuery}
               onListingClick={handleViewListing}
-              onOpenWantedModal={() => setIsWantedModalOpen(true)}
-              onOpenSaleModal={() => setIsSaleModalOpen(true)}
+              onOpenWantedModal={() => handleRequestOpenWanted('')}
+              onOpenSaleModal={handleRequestOpenSale}
               currentUserId={currentUser.id}
+              currentUserEmail={currentUser.email}
             />
           </div>
         )}
@@ -1029,11 +1071,8 @@ export default function App() {
               userWanted={userWantedListings}
               userSales={userSaleListings}
               matches={userMatches}
-              onOpenWantedModal={() => {
-                setInitialWantedQuery('');
-                setIsWantedModalOpen(true);
-              }}
-              onOpenSaleModal={() => setIsSaleModalOpen(true)}
+              onOpenWantedModal={() => handleRequestOpenWanted('')}
+              onOpenSaleModal={handleRequestOpenSale}
               onViewListing={handleViewListing}
               onStartChatWithSeller={handleStartChat}
               onMarkAsCompleted={handleMarkAsCompleted}

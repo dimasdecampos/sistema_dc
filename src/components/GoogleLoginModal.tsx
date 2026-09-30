@@ -248,17 +248,52 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
             </button>
           </form>
 
-          {/* Atalho rápido para o criador Dimas */}
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span>É o Dimas?</span>
-            <button
-              type="button"
-              onClick={handleQuickDimas}
-              className="text-emerald-600 hover:text-emerald-700 font-bold hover:underline cursor-pointer flex items-center gap-1"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Entrar como Dimas</span>
-            </button>
+          {/* Perfis Rápidos de Moradores para Testar Compra, Venda e Chat */}
+          <div className="pt-2 border-t border-slate-100 space-y-2">
+            <p className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+              <span>Alternar perfil rápido para teste:</span>
+              <span className="text-[10px] text-emerald-600 font-semibold">1-clique</span>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-left">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('dimasrafting@gmail.com');
+                  setNome('Dimas');
+                  onOfficialGoogleSignIn('dimasrafting@gmail.com', 'Dimas').then(() => onClose());
+                }}
+                className="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-xs transition cursor-pointer text-left group"
+              >
+                <div className="font-bold text-slate-800 group-hover:text-emerald-700">Dimas</div>
+                <div className="text-[10px] text-slate-500 truncate">Admin / Criador</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('maria.santos@gmail.com');
+                  setNome('Maria Santos');
+                  onOfficialGoogleSignIn('maria.santos@gmail.com', 'Maria Santos').then(() => onClose());
+                }}
+                className="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-xs transition cursor-pointer text-left group"
+              >
+                <div className="font-bold text-slate-800 group-hover:text-emerald-700">Maria Santos</div>
+                <div className="text-[10px] text-slate-500 truncate">Moradora (Compradora)</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('carlos.silva@gmail.com');
+                  setNome('Carlos Silva');
+                  onOfficialGoogleSignIn('carlos.silva@gmail.com', 'Carlos Silva').then(() => onClose());
+                }}
+                className="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-xs transition cursor-pointer text-left group"
+              >
+                <div className="font-bold text-slate-800 group-hover:text-emerald-700">Carlos Silva</div>
+                <div className="text-[10px] text-slate-500 truncate">Morador (Vendedor)</div>
+              </button>
+            </div>
           </div>
         </div>
       </div>

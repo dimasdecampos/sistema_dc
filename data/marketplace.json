@@ -1,5 +1,25 @@
 {
-  "listings": [],
+  "listings": [
+    {
+      "title": "Bicicleta Caloi Aro 29",
+      "type": "SALE",
+      "description": "Bicicleta seminova",
+      "category_id": "cat-veiculos",
+      "price": 850,
+      "condition": "USED",
+      "images": [],
+      "user": {
+        "id": "user_joao_silva",
+        "nome": "João Silva",
+        "email": "joaosilva@gmail.com",
+        "cidade": "São Luis do Paraitinga - SP"
+      },
+      "id": "sale-1790691502353",
+      "status": "ACTIVE",
+      "created_at": "2026-09-29T14:18:22.353Z",
+      "updated_at": "2026-09-29T14:18:22.353Z"
+    }
+  ],
   "conversations": [],
   "messages": [],
   "users": [
@@ -10,7 +30,7 @@
       "nome": "Dimas de Campos",
       "foto": "https://lh3.googleusercontent.com/a/ACg8ocIE5_4Y8rbj96ZFS3kJUIcfWC7wz4wn6iP3phdlkkoIXXLHbJAT=s96-c",
       "cidade": "São Luis do Paraitinga - SP",
-      "last_login_at": "2026-09-29T13:21:01.826Z"
+      "last_login_at": "2026-09-29T13:36:14.701Z"
     }
   ],
   "siteConfig": {

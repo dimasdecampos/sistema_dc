@@ -183,6 +183,11 @@ export const initGoogleAuth = (
   return onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
       const existing = getStoredUser();
+      // Não sobrescreve se o usuário atual escolheu outro perfil/e-mail no app
+      if (existing && existing.email && firebaseUser.email && existing.email.toLowerCase() !== firebaseUser.email.toLowerCase()) {
+        return;
+      }
+
       const email = (firebaseUser.email || '').toLowerCase().trim();
       const nome = firebaseUser.displayName || email.split('@')[0] || 'Usuário Google';
       const resolvedCity = (existing?.cidade && existing.cidade !== 'Socorro - SP')
@@ -230,7 +235,15 @@ export const initGoogleAuth = (
  * Não depende de popup nem de liberação prévia do Google.
  */
 export const signInWithGoogleDirect = async (preferredEmail?: string, preferredName?: string): Promise<Usuario> => {
-  await new Promise((resolve) => setTimeout(resolve, 250));
+  if (auth && auth.currentUser && preferredEmail && auth.currentUser.email?.toLowerCase() !== preferredEmail.toLowerCase()) {
+    try {
+      await signOut(auth);
+    } catch {
+      // ignore
+    }
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 150));
 
   const existing = getStoredUser();
   const email = (preferredEmail || existing?.email || 'dimasrafting@gmail.com').toLowerCase().trim();
@@ -333,8 +346,38 @@ export const signInWithGooglePopup = async (): Promise<Usuario> => {
   }
 };
 
+export const QUICK_TEST_USERS: Array<{
+  email: string;
+  nome: string;
+  role: string;
+  cidade: string;
+  foto: string;
+}> = [
+  {
+    email: 'dimasrafting@gmail.com',
+    nome: 'Dimas',
+    role: 'Administrador & Criador',
+    cidade: 'São Luis do Paraitinga - SP',
+    foto: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+  },
+  {
+    email: 'maria.santos@gmail.com',
+    nome: 'Maria Santos',
+    role: 'Moradora (Compradora)',
+    cidade: 'São Luis do Paraitinga - SP',
+    foto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+  },
+  {
+    email: 'carlos.silva@gmail.com',
+    nome: 'Carlos Silva',
+    role: 'Morador (Vendedor)',
+    cidade: 'São Luis do Paraitinga - SP',
+    foto: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
+  },
+];
+
 export const loginAsDimasDirect = async (): Promise<Usuario> => {
-  return signInWithGoogleDirect('dimasrafting@gmail.com');
+  return signInWithGoogleDirect('dimasrafting@gmail.com', 'Dimas');
 };
 
 /**

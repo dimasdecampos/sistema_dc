@@ -16,6 +16,7 @@ interface ListingCardProps {
   onClick: (listing: Listing) => void;
   onStartChat?: (listing: Listing) => void;
   currentUserId?: string;
+  currentUserEmail?: string;
   matchScore?: number;
 }
 
@@ -24,10 +25,15 @@ export const ListingCard: React.FC<ListingCardProps> = ({
   onClick,
   onStartChat,
   currentUserId,
+  currentUserEmail,
   matchScore,
 }) => {
   const isWanted = listing.type === 'WANTED';
-  const isOwner = currentUserId === listing.user_id;
+  const userEmail = (currentUserEmail || '').toLowerCase().trim();
+  const listingEmail = (listing.user?.email || '').toLowerCase().trim();
+  const isOwner =
+    (Boolean(currentUserId) && currentUserId === listing.user_id) ||
+    (Boolean(userEmail) && Boolean(listingEmail) && userEmail === listingEmail);
 
   const formattedPrice = listing.price != null && listing.price > 0
     ? `R$ ${listing.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
