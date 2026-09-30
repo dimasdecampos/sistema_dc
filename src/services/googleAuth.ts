@@ -18,7 +18,6 @@ import {
   decodeGoogleJwt,
 } from './authService';
 
-// Permite ler configuração do Firebase de variáveis de ambiente na Vercel ou localStorage
 export function getActiveFirebaseConfig() {
   const customConfigStr = typeof localStorage !== 'undefined' ? localStorage.getItem('custom_firebase_config') : null;
   if (customConfigStr) {
@@ -76,19 +75,30 @@ declare global {
           disableAutoSelect: () => void;
           revoke: (hint: string, done: () => void) => void;
         };
+        oauth2: {
+          initTokenClient: (config: {
+            client_id: string;
+            scope: string;
+            callback: (response: any) => void;
+            error_callback?: (err: any) => void;
+          }) => {
+            requestAccessToken: (options?: { prompt?: string }) => void;
+          };
+        };
       };
     };
   }
 }
 
 /**
- * Converte erros do Google OAuth / Firebase em mensagens claras com diagnóstico amigável
+ * Converte erros do Google OAuth / Firebase em mensagens claras
  */
 export function parseOAuthError(err: unknown): {
   title: string;
   message: string;
   isOriginMismatch: boolean;
   isUnauthorizedDomain: boolean;
+  isClosedByUser: boolean;
   currentOrigin: string;
   hostname: string;
 } {
@@ -97,47 +107,48 @@ export function parseOAuthError(err: unknown): {
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
-  if (
-    code === 'auth/unauthorized-domain' ||
-    msg.includes('unauthorized-domain')
-  ) {
-    return {
-      title: 'Domínio ainda não cadastrado no Firebase',
-      message: `O domínio atual "${hostname}" precisa ser adicionado no Firebase Console > Authentication > Settings > Authorized domains. Enquanto isso, use o login direto com seu e-mail do Google abaixo para entrar instantaneamente!`,
-      isOriginMismatch: true,
-      isUnauthorizedDomain: true,
-      currentOrigin,
-      hostname,
-    };
-  }
-
-  if (code === 'auth/popup-blocked') {
-    return {
-      title: 'Janela Popup bloqueada pelo navegador',
-      message: 'O navegador impediu a abertura do popup do Google. Permita popups ou entre diretamente digitando seu e-mail do Google abaixo.',
-      isOriginMismatch: false,
-      isUnauthorizedDomain: false,
-      currentOrigin,
-      hostname,
-    };
-  }
-
-  if (code === 'auth/popup-closed-by-user') {
+  if (code === 'auth/popup-closed-by-user' || msg.includes('popup-closed-by-user') || msg.includes('user_cancel')) {
     return {
       title: 'Janela do Google fechada',
-      message: 'A janela de seleção de conta do Google foi fechada antes da confirmação.',
+      message: 'A janela de login com o Google foi fechada antes de selecionar a conta.',
       isOriginMismatch: false,
       isUnauthorizedDomain: false,
+      isClosedByUser: true,
+      currentOrigin,
+      hostname,
+    };
+  }
+
+  if (code === 'auth/popup-blocked' || msg.includes('popup-blocked')) {
+    return {
+      title: 'Janela Popup bloqueada',
+      message: 'O navegador bloqueou a abertura do popup do Google. Clique novamente ou permita popups para este site.',
+      isOriginMismatch: false,
+      isUnauthorizedDomain: false,
+      isClosedByUser: false,
+      currentOrigin,
+      hostname,
+    };
+  }
+
+  if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+    return {
+      title: 'Conexão com Google em andamento',
+      message: 'Tentando conexão direta com os serviços de identidade do Google...',
+      isOriginMismatch: true,
+      isUnauthorizedDomain: true,
+      isClosedByUser: false,
       currentOrigin,
       hostname,
     };
   }
 
   return {
-    title: 'Não foi possível abrir o popup do Google',
+    title: 'Falha na autenticação do Google',
     message: msg || 'Ocorreu um erro ao conectar com o Google.',
     isOriginMismatch: false,
     isUnauthorizedDomain: false,
+    isClosedByUser: false,
     currentOrigin,
     hostname,
   };
@@ -163,40 +174,46 @@ export const initGoogleIdentityServices = (
                 const email = decoded.email.toLowerCase().trim();
                 const nome = decoded.name || email.split('@')[0];
                 const photo = decoded.picture || getOfficialGooglePhoto(email);
+                const existing = getStoredUser();
+                const resolvedCity = (existing?.email?.toLowerCase() === email && existing?.cidade && existing.cidade !== 'Socorro - SP')
+                  ? existing.cidade
+                  : 'São Luis do Paraitinga - SP';
+
                 const userObj: Usuario = {
-                  id: decoded.sub || `google_${email.replace(/[^a-z0-9]/g, '_')}`,
+                  id: decoded.sub ? `google_${decoded.sub}` : `user_${email.replace(/[^a-z0-9]/g, '_')}`,
                   google_id: decoded.sub,
                   email: email,
                   nome: nome,
                   foto: photo,
-                  cidade: 'São Luis do Paraitinga - SP',
+                  cidade: resolvedCity,
                   last_login_at: new Date().toISOString(),
                 };
 
                 saveStoredUser(userObj);
 
                 try {
-                  await fetch('/api/users/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user: userObj }),
-                  });
+                  await syncUserWithSupabase(userObj);
                 } catch {
                   // ignore
                 }
 
-                try {
-                  const syncRes = await syncUserWithSupabase(userObj);
-                  onUserAuthenticated(syncRes.user);
-                } catch {
-                  onUserAuthenticated(userObj);
-                }
+                onUserAuthenticated(userObj);
               }
             }
           },
           auto_select: false,
           cancel_on_tap_outside: true,
         });
+
+        // Exibe o One Tap se o usuário não estiver logado
+        const stored = getStoredUser();
+        if (!stored) {
+          try {
+            window.google.accounts.id.prompt();
+          } catch {
+            // ignore
+          }
+        }
       } catch (e) {
         console.warn('Aviso ao inicializar GSI:', e);
       }
@@ -227,10 +244,10 @@ export const renderOfficialGoogleButton = (
         type: 'standard',
         shape: 'rectangular',
         theme: options?.theme || 'outline',
-        text: 'continue_with',
+        text: 'signin_with',
         size: 'large',
         logo_alignment: 'left',
-        width: options?.width || 280,
+        width: options?.width || 320,
       });
     } catch (e) {
       console.warn('Erro ao renderizar botão oficial GSI:', e);
@@ -240,7 +257,6 @@ export const renderOfficialGoogleButton = (
 
 /**
  * Escuta mudanças no estado de autenticação oficial do Firebase/Google.
- * Qualquer usuário novo que se autentique com o Google é imediatamente registrado e sincronizado.
  */
 export const initGoogleAuth = (
   onUserChanged: (user: Usuario | null, rawFirebaseUser: FirebaseUser | null) => void
@@ -274,21 +290,12 @@ export const initGoogleAuth = (
       saveStoredUser(userObj);
 
       try {
-        await fetch('/api/users/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user: userObj }),
-        });
+        await syncUserWithSupabase(userObj);
       } catch {
         // ignore
       }
 
-      try {
-        const res = await syncUserWithSupabase(userObj);
-        onUserChanged(res.user, firebaseUser);
-      } catch {
-        onUserChanged(userObj, firebaseUser);
-      }
+      onUserChanged(userObj, firebaseUser);
     } else {
       const stored = getStoredUser();
       onUserChanged(stored, null);
@@ -297,56 +304,67 @@ export const initGoogleAuth = (
 };
 
 /**
- * Login direto com e-mail do Google (100% GARANTIDO em celulares, computadores, Vercel e AI Studio).
- * Permite que qualquer morador entre informando seu e-mail do Google (@gmail.com).
+ * Autenticação via Google Identity Services Token Client (OAuth 2.0 padrão de mercado)
  */
-export const signInWithGoogleDirect = async (
-  emailInput: string,
-  preferredName?: string
-): Promise<Usuario> => {
-  const email = (emailInput || '').toLowerCase().trim();
-  if (!email || !email.includes('@')) {
-    throw new Error('Informe um e-mail válido para conectar.');
-  }
+export const signInWithGoogleOAuth2 = (): Promise<Usuario> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.google?.accounts?.oauth2) {
+      return reject(new Error('Google Identity Services ainda não está pronto no navegador.'));
+    }
 
-  const resolvedName = preferredName?.trim() || email.split('@')[0];
-  const userId = `user_${email.replace(/[^a-z0-9]/g, '_')}`;
-  const photo = getOfficialGooglePhoto(email);
+    try {
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: firebaseConfig.oAuthClientId,
+        scope: 'openid email profile',
+        callback: async (tokenResponse: any) => {
+          if (tokenResponse?.error) {
+            return reject(new Error(tokenResponse.error_description || tokenResponse.error));
+          }
+          if (tokenResponse?.access_token) {
+            try {
+              const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+              });
+              const info = await res.json();
+              if (!info || !info.email) {
+                return reject(new Error('Não foi possível obter o e-mail da conta Google.'));
+              }
+              const email = info.email.toLowerCase().trim();
+              const nome = info.name || email.split('@')[0];
+              const photo = info.picture || getOfficialGooglePhoto(email);
+              const existing = getStoredUser();
+              const resolvedCity = (existing?.email?.toLowerCase() === email && existing?.cidade && existing.cidade !== 'Socorro - SP')
+                ? existing.cidade
+                : 'São Luis do Paraitinga - SP';
 
-  const existing = getStoredUser();
-  const resolvedCity = (existing?.email?.toLowerCase() === email && existing?.cidade && existing.cidade !== 'Socorro - SP')
-    ? existing.cidade
-    : 'São Luis do Paraitinga - SP';
+              const userObj: Usuario = {
+                id: info.sub ? `google_${info.sub}` : `user_${email.replace(/[^a-z0-9]/g, '_')}`,
+                google_id: info.sub,
+                email,
+                nome,
+                foto: photo,
+                cidade: resolvedCity,
+                last_login_at: new Date().toISOString(),
+              };
 
-  const userObj: Usuario = {
-    id: userId,
-    google_id: userId,
-    email: email,
-    nome: resolvedName,
-    foto: photo,
-    cidade: resolvedCity,
-    last_login_at: new Date().toISOString(),
-  };
+              saveStoredUser(userObj);
+              await syncUserWithSupabase(userObj);
+              resolve(userObj);
+            } catch (fetchErr) {
+              reject(fetchErr);
+            }
+          }
+        },
+        error_callback: (err) => {
+          reject(err);
+        },
+      });
 
-  saveStoredUser(userObj);
-
-  // Sincroniza usuário com o servidor compartilhado /api/users/sync
-  try {
-    await fetch('/api/users/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: userObj }),
-    });
-  } catch {
-    // continua normalmente
-  }
-
-  try {
-    const syncRes = await syncUserWithSupabase(userObj);
-    return syncRes.user;
-  } catch {
-    return userObj;
-  }
+      client.requestAccessToken({ prompt: 'select_account' });
+    } catch (err) {
+      reject(err);
+    }
+  });
 };
 
 /**
@@ -380,26 +398,46 @@ export const signInWithGooglePopup = async (): Promise<Usuario> => {
 
   saveStoredUser(userObj);
 
-  // Sincroniza usuário com o servidor compartilhado
   try {
-    await fetch('/api/users/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: userObj }),
-    });
+    await syncUserWithSupabase(userObj);
   } catch {
     // continua normalmente
   }
 
-  try {
-    const syncRes = await syncUserWithSupabase(userObj);
-    return syncRes.user;
-  } catch {
-    return userObj;
-  }
+  return userObj;
 };
 
-export const signInWithGoogle = signInWithGooglePopup;
+/**
+ * Login Padrão de Mercado com o Google:
+ * Executa a autenticação oficial do Google selecionando qualquer conta existente ou nova.
+ */
+export const signInWithGoogle = async (): Promise<Usuario> => {
+  // 1. Tenta Firebase signInWithPopup
+  if (auth) {
+    try {
+      return await signInWithGooglePopup();
+    } catch (popupErr: any) {
+      console.warn('Tentativa com Firebase signInWithPopup falhou, tentando Google OAuth 2.0 padrão:', popupErr);
+      // Se for cancelado pelo usuário, repassa
+      const parsed = parseOAuthError(popupErr);
+      if (parsed.isClosedByUser) {
+        throw popupErr;
+      }
+      // Se falhou por domínio ou bloqueio de popup do iframe, tenta via Google OAuth Token Client oficial
+      if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
+        return await signInWithGoogleOAuth2();
+      }
+      throw popupErr;
+    }
+  }
+
+  // 2. Se Firebase não inicializado, usa Google OAuth Token Client oficial
+  if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
+    return await signInWithGoogleOAuth2();
+  }
+
+  throw new Error('Autenticação do Google não disponível no momento. Verifique sua conexão.');
+};
 
 /**
  * Desconecta a conta do Google e limpa dados da sessão

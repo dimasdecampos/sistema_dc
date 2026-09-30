@@ -27,8 +27,6 @@ interface UserProfileMenuProps {
   onUpdatePhoto?: (newPhoto: string) => Promise<void>;
   onNavigateDashboard?: () => void;
   onNavigateConversations?: () => void;
-  onSwitchUser?: (email: string, nome?: string) => Promise<void>;
-  onOpenGoogleLogin?: () => void;
   isSupabaseSynced?: boolean;
 }
 
@@ -39,8 +37,6 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
   onUpdatePhoto,
   onNavigateDashboard,
   onNavigateConversations,
-  onSwitchUser,
-  onOpenGoogleLogin,
   isSupabaseSynced = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);

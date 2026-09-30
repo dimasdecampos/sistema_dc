@@ -32,7 +32,6 @@ import {
 import {
   getStoredUser,
   syncUserWithSupabase,
-  loginWithGoogleData,
   updateCurrentUserProfile,
   logoutUser,
   getOfficialGooglePhoto,
@@ -40,11 +39,10 @@ import {
 } from './services/authService';
 import {
   signInWithGoogle,
-  signInWithGooglePopup,
-  signInWithGoogleDirect,
   logoutGoogle,
   initGoogleAuth,
   initGoogleIdentityServices,
+  parseOAuthError,
 } from './services/googleAuth';
 import { Usuario } from './types/auth';
 import { GoogleLoginModal } from './components/GoogleLoginModal';
@@ -276,64 +274,37 @@ export default function App() {
     }
   }, []);
 
-  // Login com Google
-  const handleOfficialGoogleSignIn = async (email: string, name?: string) => {
+  // Login Padrão de Mercado com o Google (para qualquer usuário novo ou existente)
+  const handleGoogleSignIn = async () => {
     setIsLoggingIn(true);
     try {
-      const u = await signInWithGoogleDirect(email, name);
+      const u = await signInWithGoogle();
       handleUserAuthenticated(u);
       showToast(
         `Olá, ${u.nome}!`,
-        'Login com Google realizado com sucesso. Conta e perfil sincronizados!',
+        'Login com o Google realizado com sucesso!',
         'success'
       );
     } catch (err: unknown) {
       console.warn('Erro ao conectar com Google:', err);
+      const parsed = parseOAuthError(err);
+      if (!parsed.isClosedByUser) {
+        showToast(parsed.title, parsed.message, 'error');
+      }
       throw err;
     } finally {
       setIsLoggingIn(false);
     }
   };
 
-  // Tentativa de Login com Popup Nativo Google OAuth
-  const handlePopupGoogleSignIn = async () => {
-    setIsLoggingIn(true);
+  const handleOpenGoogleLogin = async () => {
     try {
-      const u = await signInWithGooglePopup();
-      handleUserAuthenticated(u);
-      showToast(
-        `Olá, ${u.nome}!`,
-        'Login com Popup oficial do Google realizado com sucesso!',
-        'success'
-      );
+      await handleGoogleSignIn();
     } catch (err: unknown) {
-      console.warn('Erro no popup do Google:', err);
-      throw err;
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  // Login Manual / Direto com perfil Google
-  const handleLoginManual = async (data: {
-    nome: string;
-    email: string;
-    foto?: string;
-    cidade?: string;
-  }) => {
-    setIsLoggingIn(true);
-    try {
-      const res = await loginWithGoogleData(data);
-      handleUserAuthenticated(res.user);
-      showToast(
-        `Olá, ${res.user.nome}!`,
-        'Conta Google conectada com sucesso. Foto oficial vinculada.',
-        'success'
-      );
-    } catch (err: unknown) {
-      showToast('Erro ao conectar conta', String(err), 'error');
-    } finally {
-      setIsLoggingIn(false);
+      const parsed = parseOAuthError(err);
+      if (!parsed.isClosedByUser) {
+        setIsGoogleModalOpen(true);
+      }
     }
   };
 
@@ -353,24 +324,6 @@ export default function App() {
     });
     setSiteConfig(guestConfig);
     showToast('Sessão encerrada', 'Você saiu da sua conta do Google.', 'info');
-  };
-
-  // Troca rápida de morador para testes
-  const handleSwitchUser = async (email: string, nome?: string) => {
-    setIsLoggingIn(true);
-    try {
-      const u = await signInWithGoogleDirect(email, nome);
-      handleUserAuthenticated(u);
-      showToast(
-        `Conectado como ${u.nome}!`,
-        `Você agora está navegando e publicando como ${u.nome}.`,
-        'success'
-      );
-    } catch (err: unknown) {
-      showToast('Erro ao alternar morador', String(err), 'error');
-    } finally {
-      setIsLoggingIn(false);
-    }
   };
 
   // Atualização de cidade
@@ -778,11 +731,10 @@ export default function App() {
         googleUser={googleUser}
         config={siteConfig}
         isAdmin={isAdmin}
-        onOpenGoogleLogin={() => setIsGoogleModalOpen(true)}
+        onOpenGoogleLogin={handleOpenGoogleLogin}
         onLogoutGoogle={handleLogoutGoogle}
         onUpdateCity={handleUpdateCity}
         onUpdatePhoto={handleUpdatePhoto}
-        onSwitchUser={handleSwitchUser}
         isLoggingIn={isLoggingIn}
         matchesCount={userMatches.length}
         unreadCount={conversations.length}
@@ -1178,11 +1130,7 @@ export default function App() {
       <GoogleLoginModal
         isOpen={isGoogleModalOpen}
         onClose={() => setIsGoogleModalOpen(false)}
-        onOfficialGoogleSignIn={handleOfficialGoogleSignIn}
-        onTryPopupGoogleSignIn={handlePopupGoogleSignIn}
-        onLoginManual={handleLoginManual}
-        defaultEmail={currentUser.email || ''}
-        defaultCity={currentUser.cidade || 'São Luis do Paraitinga - SP'}
+        onSignInWithGoogle={handleGoogleSignIn}
       />
 
       <CreateWantedModal

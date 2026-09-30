@@ -32,7 +32,6 @@ interface NavbarProps {
   unreadCount: number;
   onOpenWantedModal: () => void;
   onOpenSaleModal: () => void;
-  onSwitchUser?: (userKey: string) => void;
   isAdmin?: boolean;
 }
 
@@ -52,7 +51,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadCount,
   onOpenWantedModal,
   onOpenSaleModal,
-  onSwitchUser,
 }) => {
   return (
     <>
@@ -159,8 +157,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onUpdatePhoto={onUpdatePhoto}
                   onNavigateDashboard={() => onSelectTab('dashboard')}
                   onNavigateConversations={() => onSelectTab('conversations')}
-                  onSwitchUser={onSwitchUser as any}
-                  onOpenGoogleLogin={onOpenGoogleLogin}
                 />
               ) : (
                 <button
