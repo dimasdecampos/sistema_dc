@@ -148,6 +148,20 @@ export async function syncUserWithSupabase(user: Usuario): Promise<{
       payload.admin_config = savedConfig;
     }
 
+    // Upsert na tabela 'profiles' para garantir chave estrangeira
+    try {
+      await supabase.from('profiles').upsert({
+        id: user.id,
+        nome: user.nome.trim(),
+        email: user.email.toLowerCase().trim(),
+        avatar_url: photoToSave,
+        cidade: user.cidade || 'São Luis do Paraitinga - SP',
+        updated_at: now,
+      }, { onConflict: 'id' });
+    } catch (profErr) {
+      console.warn('Aviso ao sincronizar tabela profiles:', profErr);
+    }
+
     // Upsert na tabela 'usuarios'
     let data: any = null;
     const res = await supabase

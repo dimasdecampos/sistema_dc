@@ -2,17 +2,7 @@
   "listings": [],
   "conversations": [],
   "messages": [],
-  "users": [
-    {
-      "id": "test_1",
-      "google_id": "test_1",
-      "email": "teste@gmail.com",
-      "nome": "Usuario Teste",
-      "foto": "",
-      "cidade": "São Luis do Paraitinga - SP",
-      "last_login_at": "2026-10-01T11:49:48.755Z"
-    }
-  ],
+  "users": [],
   "siteConfig": {
     "siteName": "TemAqui",
     "cityName": "São Luis do Paraitinga - SP",

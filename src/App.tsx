@@ -38,12 +38,11 @@ import {
   getSavedUserAdminConfig,
 } from './services/authService';
 import {
-  signInWithGoogle,
-  logoutGoogle,
-  initGoogleAuth,
-  initGoogleIdentityServices,
-  parseOAuthError,
-} from './services/googleAuth';
+  initSupabaseAuth,
+  logoutSupabase,
+  signInWithSupabaseGoogle,
+  signInWithQuickAccess,
+} from './services/supabaseAuth';
 import { Usuario } from './types/auth';
 import { GoogleLoginModal } from './components/GoogleLoginModal';
 import { GithubModal } from './components/GithubModal';
@@ -300,43 +299,18 @@ export default function App() {
     }
   }, []);
 
-  // Login Padrão de Mercado com o Google (para qualquer usuário novo ou existente)
+  // Abertura do modal de login padrão
+  const handleOpenGoogleLogin = () => {
+    setIsGoogleModalOpen(true);
+  };
+
   const handleGoogleSignIn = async () => {
-    setIsLoggingIn(true);
-    try {
-      const u = await signInWithGoogle();
-      handleUserAuthenticated(u);
-      showToast(
-        `Olá, ${u.nome}!`,
-        'Login com o Google realizado com sucesso!',
-        'success'
-      );
-    } catch (err: unknown) {
-      console.warn('Erro ao conectar com Google:', err);
-      const parsed = parseOAuthError(err);
-      if (!parsed.isClosedByUser) {
-        showToast(parsed.title, parsed.message, 'error');
-      }
-      throw err;
-    } finally {
-      setIsLoggingIn(false);
-    }
+    setIsGoogleModalOpen(true);
   };
 
-  const handleOpenGoogleLogin = async () => {
-    try {
-      await handleGoogleSignIn();
-    } catch (err: unknown) {
-      const parsed = parseOAuthError(err);
-      if (!parsed.isClosedByUser) {
-        setIsGoogleModalOpen(true);
-      }
-    }
-  };
-
-  // Logout Google
+  // Logout Supabase
   const handleLogoutGoogle = async () => {
-    await logoutGoogle();
+    await logoutSupabase();
     await logoutUser();
     setGoogleUser(null);
     const guestConfig = getSiteConfig(null);
@@ -349,7 +323,7 @@ export default function App() {
       created_at: new Date().toISOString(),
     });
     setSiteConfig(guestConfig);
-    showToast('Sessão encerrada', 'Você saiu da sua conta do Google.', 'info');
+    showToast('Sessão encerrada', 'Você saiu da sua conta.', 'info');
   };
 
   // Atualização de cidade
@@ -429,20 +403,10 @@ export default function App() {
 
     loadData();
 
-    // Inicializa Google Identity Services (GSI - One Tap e Auto-Select no Chrome Mobile)
-    const cleanupGsi = initGoogleIdentityServices((gsiUser) => {
-      handleUserAuthenticated(gsiUser);
-      showToast(
-        `Olá, ${gsiUser.nome}!`,
-        'Login automático com sua conta Google realizado no Chrome.',
-        'success'
-      );
-    });
-
-    // Listener de login Google oficial
-    const unsubGoogle = initGoogleAuth((gUser) => {
-      if (gUser) {
-        handleUserAuthenticated(gUser);
+    // Inicializa autenticação com Supabase e restaura sessão
+    const unsubSupabase = initSupabaseAuth((sbUser) => {
+      if (sbUser) {
+        handleUserAuthenticated(sbUser);
       }
     });
 
@@ -474,10 +438,9 @@ export default function App() {
     return () => {
       clearInterval(pollInterval);
       window.removeEventListener('focus', handleWindowFocus);
-      cleanupGsi();
-      unsubGoogle();
+      unsubSupabase();
     };
-  }, [loadData, handleUserAuthenticated, showToast]);
+  }, [loadData, handleUserAuthenticated]);
 
   // Abertura com pesquisa vinda do Hero da Home
   const handleSearchOrStartWanted = (queryText: string) => {
@@ -1173,7 +1136,14 @@ export default function App() {
       <GoogleLoginModal
         isOpen={isGoogleModalOpen}
         onClose={() => setIsGoogleModalOpen(false)}
-        onSignInWithGoogle={handleGoogleSignIn}
+        onUserLoggedIn={(u) => {
+          handleUserAuthenticated(u);
+          showToast(
+            `Olá, ${u.nome}!`,
+            'Login realizado com sucesso!',
+            'success'
+          );
+        }}
       />
 
       <CreateWantedModal

@@ -210,7 +210,7 @@ export async function createWantedListing(
   input: CreateWantedInput,
   currentUser: UserProfile
 ): Promise<{ listing: Listing; newMatches: Match[] }> {
-  const newId = `wanted-${Date.now()}`;
+  const newId = crypto.randomUUID();
   const now = new Date().toISOString();
 
   const newListing: Listing = {
@@ -255,6 +255,9 @@ export async function createWantedListing(
     }
   }
 
+  let finalListing = newListing;
+  let finalMatches = newMatches;
+
   // 1. Envia para o servidor central compartilhado para aparecer em todos os aparelhos
   try {
     const apiRes = await fetch('/api/listings', {
@@ -265,11 +268,11 @@ export async function createWantedListing(
     if (apiRes.ok) {
       const data = await apiRes.json();
       if (data.listing) {
-        saveLocalListings([data.listing, ...current.filter((l) => l.id !== data.listing.id)]);
-        return {
-          listing: data.listing,
-          newMatches: data.newMatches && data.newMatches.length > 0 ? data.newMatches : newMatches,
-        };
+        finalListing = data.listing;
+        if (data.newMatches && data.newMatches.length > 0) {
+          finalMatches = data.newMatches;
+        }
+        saveLocalListings([finalListing, ...current.filter((l) => l.id !== finalListing.id)]);
       }
     }
   } catch (apiErr) {
@@ -280,7 +283,7 @@ export async function createWantedListing(
   const supabase = getSupabase();
   if (supabase) {
     try {
-      // Garante que o autor existe na tabela profiles para não violar foreign keys
+      // Garante que o autor existe na tabela profiles e usuarios para não violar foreign keys
       try {
         await supabase.from('profiles').upsert({
           id: currentUser.id,
@@ -295,24 +298,24 @@ export async function createWantedListing(
       }
 
       await supabase.from('listings').upsert({
-        id: newListing.id,
+        id: finalListing.id,
         user_id: currentUser.id,
         type: 'WANTED',
-        title: newListing.title,
-        description: newListing.description,
-        category_id: newListing.category_id,
-        price: newListing.price,
-        condition: newListing.condition,
-        status: newListing.status,
-        created_at: newListing.created_at,
-        updated_at: newListing.updated_at,
+        title: finalListing.title,
+        description: finalListing.description,
+        category_id: finalListing.category_id,
+        price: finalListing.price,
+        condition: finalListing.condition,
+        status: finalListing.status,
+        created_at: finalListing.created_at,
+        updated_at: finalListing.updated_at,
       }, { onConflict: 'id' });
 
-      if (newListing.images && newListing.images.length > 0) {
-        for (const imgUrl of newListing.images) {
+      if (finalListing.images && finalListing.images.length > 0) {
+        for (const imgUrl of finalListing.images) {
           try {
             await supabase.from('listing_images').insert({
-              listing_id: newListing.id,
+              listing_id: finalListing.id,
               image_url: imgUrl,
             });
           } catch (imgErr) {
@@ -321,7 +324,7 @@ export async function createWantedListing(
         }
       }
 
-      for (const m of newMatches) {
+      for (const m of finalMatches) {
         try {
           await supabase.from('matches').upsert({
             wanted_listing_id: m.wanted_listing_id,
@@ -337,7 +340,7 @@ export async function createWantedListing(
     }
   }
 
-  return { listing: newListing, newMatches };
+  return { listing: finalListing, newMatches: finalMatches };
 }
 
 /**
@@ -392,6 +395,9 @@ export async function createSaleListing(
     }
   }
 
+  let finalListing = newListing;
+  let finalMatches = newMatches;
+
   // 1. Envia para o servidor central compartilhado para aparecer em todos os aparelhos
   try {
     const apiRes = await fetch('/api/listings', {
@@ -402,11 +408,11 @@ export async function createSaleListing(
     if (apiRes.ok) {
       const data = await apiRes.json();
       if (data.listing) {
-        saveLocalListings([data.listing, ...current.filter((l) => l.id !== data.listing.id)]);
-        return {
-          listing: data.listing,
-          newMatches: data.newMatches && data.newMatches.length > 0 ? data.newMatches : newMatches,
-        };
+        finalListing = data.listing;
+        if (data.newMatches && data.newMatches.length > 0) {
+          finalMatches = data.newMatches;
+        }
+        saveLocalListings([finalListing, ...current.filter((l) => l.id !== finalListing.id)]);
       }
     }
   } catch (apiErr) {
@@ -432,24 +438,24 @@ export async function createSaleListing(
       }
 
       await supabase.from('listings').upsert({
-        id: newListing.id,
+        id: finalListing.id,
         user_id: currentUser.id,
         type: 'SALE',
-        title: newListing.title,
-        description: newListing.description,
-        category_id: newListing.category_id,
-        price: newListing.price,
-        condition: newListing.condition,
-        status: newListing.status,
-        created_at: newListing.created_at,
-        updated_at: newListing.updated_at,
+        title: finalListing.title,
+        description: finalListing.description,
+        category_id: finalListing.category_id,
+        price: finalListing.price,
+        condition: finalListing.condition,
+        status: finalListing.status,
+        created_at: finalListing.created_at,
+        updated_at: finalListing.updated_at,
       }, { onConflict: 'id' });
 
-      if (newListing.images && newListing.images.length > 0) {
-        for (const imgUrl of newListing.images) {
+      if (finalListing.images && finalListing.images.length > 0) {
+        for (const imgUrl of finalListing.images) {
           try {
             await supabase.from('listing_images').insert({
-              listing_id: newListing.id,
+              listing_id: finalListing.id,
               image_url: imgUrl,
             });
           } catch (imgErr) {
@@ -458,7 +464,7 @@ export async function createSaleListing(
         }
       }
 
-      for (const m of newMatches) {
+      for (const m of finalMatches) {
         try {
           await supabase.from('matches').upsert({
             wanted_listing_id: m.wanted_listing_id,
@@ -474,7 +480,7 @@ export async function createSaleListing(
     }
   }
 
-  return { listing: newListing, newMatches };
+  return { listing: finalListing, newMatches: finalMatches };
 }
 
 /**
