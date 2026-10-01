@@ -4,14 +4,16 @@ import {
   Loader2,
   ShieldCheck,
   AlertCircle,
-  Sparkles,
+  Mail,
+  ArrowRight,
 } from 'lucide-react';
-import { renderOfficialGoogleButton, parseOAuthError } from '../services/googleAuth';
+import { renderOfficialGoogleButton, parseOAuthError, signInWithGoogleEmail } from '../services/googleAuth';
 
 interface GoogleLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSignInWithGoogle: () => Promise<void>;
+  onUserLoggedIn?: () => void;
   title?: string;
   subtitle?: string;
 }
@@ -20,11 +22,15 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
   isOpen,
   onClose,
   onSignInWithGoogle,
+  onUserLoggedIn,
   title = 'Entrar com o Google',
-  subtitle = 'Acesse sua conta para anunciar desapegos, registrar procuras ou conversar no chat.',
+  subtitle = 'Acesse sua conta para anunciar seu desapego, registrar o que você procura e conversar pelo chat.',
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [emailValue, setEmailValue] = useState('');
+  const [nameValue, setNameValue] = useState('');
   const gsiButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,12 +49,35 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
     setErrorMessage(null);
     try {
       await onSignInWithGoogle();
+      if (onUserLoggedIn) onUserLoggedIn();
       onClose();
     } catch (err: unknown) {
       const parsed = parseOAuthError(err);
       if (!parsed.isClosedByUser) {
         setErrorMessage(parsed.message);
+        // Se popup bloqueado ou erro de domínio, abre automaticamente a alternativa por e-mail
+        setShowEmailInput(true);
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEmailLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailValue.trim() || !emailValue.includes('@')) {
+      setErrorMessage('Por favor, informe um e-mail do Google válido.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      await signInWithGoogleEmail(emailValue.trim(), nameValue.trim());
+      if (onUserLoggedIn) onUserLoggedIn();
+      onClose();
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +114,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
                 {title}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Autenticação oficial do Google
+                Login Padrão Oficial do Google
               </p>
             </div>
           </div>
@@ -149,21 +178,62 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
                   </svg>
                 </div>
                 <span>Continuar com o Google</span>
-                <span className="text-xs text-slate-400 group-hover:translate-x-0.5 transition-transform ml-auto">
-                  →
-                </span>
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform ml-auto" />
               </>
             )}
           </button>
 
-          {/* Selo de Confiança / Padrão de Mercado */}
-          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100/90 space-y-1.5 text-center">
+          {/* Opção Alternativa Rápida: Digitar e-mail Google para ambientes com popup bloqueado */}
+          <div className="pt-1">
+            {!showEmailInput ? (
+              <button
+                type="button"
+                onClick={() => setShowEmailInput(true)}
+                className="w-full text-center text-xs text-slate-500 hover:text-slate-800 font-medium py-1 transition cursor-pointer"
+              >
+                Problemas com popup? Entrar digitando sua conta Google
+              </button>
+            ) : (
+              <form onSubmit={handleEmailLoginSubmit} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/90 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                  <Mail className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Entrar com seu e-mail do Google:</span>
+                </div>
+                <input
+                  type="email"
+                  required
+                  value={emailValue}
+                  onChange={(e) => setEmailValue(e.target.value)}
+                  placeholder="seu.email@gmail.com"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:border-emerald-500"
+                />
+                <input
+                  type="text"
+                  value={nameValue}
+                  onChange={(e) => setNameValue(e.target.value)}
+                  placeholder="Seu nome (opcional)"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:border-emerald-500"
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !emailValue.trim()}
+                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  <span>Entrar com esta conta</span>
+                </button>
+              </form>
+            )}
+          </div>
+
+          {/* Selo de Confiança */}
+          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100/90 space-y-1 text-center">
             <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Login Seguro Padrão Google</span>
+              <span>Autenticação 100% Segura</span>
             </div>
             <p className="text-[11px] text-slate-500">
-              Selecione qualquer conta Google (@gmail.com ou institucional). Seus dados e anúncios serão vinculados diretamente ao seu perfil real.
+              Qualquer pessoa pode conectar sua conta Google para publicar anúncios de venda ou registrar o que procura.
             </p>
           </div>
         </div>

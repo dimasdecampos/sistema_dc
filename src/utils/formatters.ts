@@ -1,5 +1,3 @@
-import { Cliente } from '../types/cliente';
-
 export function maskPhone(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
   if (digits.length <= 2) return digits;
@@ -27,8 +25,13 @@ export function formatDate(isoString?: string): string {
   }
 }
 
+export function formatPrice(value?: number | null): string {
+  if (value == null || value <= 0) return 'A combinar';
+  return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+}
+
 export function getInitials(name: string): string {
-  if (!name) return 'CL';
+  if (!name) return 'US';
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -52,36 +55,4 @@ export function getAvatarColor(name: string): string {
   }
   const index = Math.abs(hash) % AVATAR_COLORS.length;
   return AVATAR_COLORS[index];
-}
-
-export function exportToCsv(clientes: Cliente[]) {
-  const headers = ['ID', 'Nome', 'Email', 'Telefone', 'Cidade', 'Data de Cadastro'];
-  const rows = clientes.map((c) => [
-    `"${c.id}"`,
-    `"${c.nome.replace(/"/g, '""')}"`,
-    `"${c.email.replace(/"/g, '""')}"`,
-    `"${c.telefone.replace(/"/g, '""')}"`,
-    `"${c.cidade.replace(/"/g, '""')}"`,
-    `"${c.created_at || ''}"`,
-  ]);
-
-  const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `clientes_supabase_${new Date().toISOString().split('T')[0]}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-export function exportToJson(clientes: Cliente[]) {
-  const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(clientes, null, 2));
-  const link = document.createElement('a');
-  link.setAttribute('href', dataStr);
-  link.setAttribute('download', `clientes_supabase_${new Date().toISOString().split('T')[0]}.json`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
 }

@@ -31,7 +31,7 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
   currentUser,
 }) => {
   const [title, setTitle] = useState('');
-  const [categoryId, setCategoryId] = useState('cat-ferramentas');
+  const [categoryId, setCategoryId] = useState('cat-veiculos');
   const [condition, setCondition] = useState<ListingCondition>('USED');
   const [price, setPrice] = useState<string>('');
   const [description, setDescription] = useState('');

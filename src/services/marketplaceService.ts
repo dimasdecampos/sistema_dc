@@ -24,7 +24,18 @@ const LOCAL_STORAGE_LISTINGS_KEY = 'tem_aqui_listings_v1';
 const LOCAL_STORAGE_CONVERSATIONS_KEY = 'tem_aqui_conversations_v1';
 const LOCAL_STORAGE_MESSAGES_KEY = 'tem_aqui_messages_v1';
 
-const MOCK_LISTING_IDS = ['wanted-1', 'wanted-2', 'wanted-3', 'sale-1', 'sale-2', 'sale-3'];
+const MOCK_LISTING_IDS = [
+  'wanted-1', 'wanted-2', 'wanted-3', 'sale-1', 'sale-2', 'sale-3',
+  'wanted-1790769631963', 'sale-1790691502353'
+];
+
+function isMockListing(l: any): boolean {
+  if (!l || !l.id) return true;
+  if (MOCK_LISTING_IDS.includes(l.id)) return true;
+  if (l.user_id === 'user_novousuario_google' || l.user_id === 'user_joao_silva') return true;
+  if (typeof l.title === 'string' && l.title.toLowerCase().includes('bicicleta caloi')) return true;
+  return false;
+}
 
 /**
  * Carrega a lista de anúncios do LocalStorage (apenas anúncios reais publicados, sem exemplos)
@@ -35,7 +46,7 @@ function getLocalListings(): Listing[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter((l: any) => l && l.id && !MOCK_LISTING_IDS.includes(l.id));
+        return parsed.filter((l: any) => !isMockListing(l));
       }
     }
   } catch (e) {
@@ -265,11 +276,25 @@ export async function createWantedListing(
     console.warn('Aviso: envio para servidor central falhou, mantido local:', apiErr);
   }
 
-  // 2. Se Supabase estiver conectado, persiste em background
+  // 2. Se Supabase estiver conectado, persiste no banco PostgreSQL
   const supabase = getSupabase();
   if (supabase) {
     try {
-      await supabase.from('listings').insert({
+      // Garante que o autor existe na tabela profiles para não violar foreign keys
+      try {
+        await supabase.from('profiles').upsert({
+          id: currentUser.id,
+          nome: currentUser.nome || 'Morador',
+          email: currentUser.email || null,
+          avatar_url: currentUser.avatar_url || null,
+          cidade: currentUser.cidade || 'São Luis do Paraitinga - SP',
+          updated_at: now,
+        }, { onConflict: 'id' });
+      } catch (profErr) {
+        console.warn('Aviso ao sincronizar perfil do usuário no Supabase:', profErr);
+      }
+
+      await supabase.from('listings').upsert({
         id: newListing.id,
         user_id: currentUser.id,
         type: 'WANTED',
@@ -279,7 +304,9 @@ export async function createWantedListing(
         price: newListing.price,
         condition: newListing.condition,
         status: newListing.status,
-      });
+        created_at: newListing.created_at,
+        updated_at: newListing.updated_at,
+      }, { onConflict: 'id' });
 
       if (newListing.images && newListing.images.length > 0) {
         for (const imgUrl of newListing.images) {
@@ -295,11 +322,15 @@ export async function createWantedListing(
       }
 
       for (const m of newMatches) {
-        await supabase.from('matches').insert({
-          wanted_listing_id: m.wanted_listing_id,
-          sale_listing_id: m.sale_listing_id,
-          score: m.score,
-        });
+        try {
+          await supabase.from('matches').upsert({
+            wanted_listing_id: m.wanted_listing_id,
+            sale_listing_id: m.sale_listing_id,
+            score: m.score,
+          }, { onConflict: 'wanted_listing_id,sale_listing_id' });
+        } catch {
+          // ignore
+        }
       }
     } catch (e) {
       console.warn('Erro ao sincronizar com Supabase:', e);
@@ -386,7 +417,21 @@ export async function createSaleListing(
   const supabase = getSupabase();
   if (supabase) {
     try {
-      await supabase.from('listings').insert({
+      // Garante que o perfil do autor exista na tabela profiles
+      try {
+        await supabase.from('profiles').upsert({
+          id: currentUser.id,
+          nome: currentUser.nome || 'Morador',
+          email: currentUser.email || null,
+          avatar_url: currentUser.avatar_url || null,
+          cidade: currentUser.cidade || 'São Luis do Paraitinga - SP',
+          updated_at: now,
+        }, { onConflict: 'id' });
+      } catch (profErr) {
+        console.warn('Aviso ao sincronizar perfil do autor no Supabase:', profErr);
+      }
+
+      await supabase.from('listings').upsert({
         id: newListing.id,
         user_id: currentUser.id,
         type: 'SALE',
@@ -396,7 +441,9 @@ export async function createSaleListing(
         price: newListing.price,
         condition: newListing.condition,
         status: newListing.status,
-      });
+        created_at: newListing.created_at,
+        updated_at: newListing.updated_at,
+      }, { onConflict: 'id' });
 
       if (newListing.images && newListing.images.length > 0) {
         for (const imgUrl of newListing.images) {
@@ -412,11 +459,15 @@ export async function createSaleListing(
       }
 
       for (const m of newMatches) {
-        await supabase.from('matches').insert({
-          wanted_listing_id: m.wanted_listing_id,
-          sale_listing_id: m.sale_listing_id,
-          score: m.score,
-        });
+        try {
+          await supabase.from('matches').upsert({
+            wanted_listing_id: m.wanted_listing_id,
+            sale_listing_id: m.sale_listing_id,
+            score: m.score,
+          }, { onConflict: 'wanted_listing_id,sale_listing_id' });
+        } catch {
+          // ignore
+        }
       }
     } catch (e) {
       console.warn('Erro ao sincronizar venda com Supabase:', e);

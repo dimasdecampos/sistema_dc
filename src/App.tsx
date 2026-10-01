@@ -233,9 +233,24 @@ export default function App() {
     setIsSaleModalOpen(true);
   }, [googleUser, showToast]);
 
+  const currentUserRef = useRef<UserProfile>(currentUser);
+  currentUserRef.current = currentUser;
+
   // Helper para sincronizar usuário Google com o perfil do marketplace
   const handleUserAuthenticated = useCallback((u: Usuario) => {
-    setGoogleUser(u);
+    setGoogleUser((prev) => {
+      if (
+        prev &&
+        prev.id === u.id &&
+        prev.email === u.email &&
+        prev.foto === u.foto &&
+        prev.cidade === u.cidade
+      ) {
+        return prev;
+      }
+      return u;
+    });
+
     const photo = u.foto || getOfficialGooglePhoto(u.email);
     const userAdminCfg = u.adminConfig || getSavedUserAdminConfig(u.email);
     const resolvedCity = (u.cidade && u.cidade !== 'Socorro - SP')
@@ -250,13 +265,24 @@ export default function App() {
       created_at: u.created_at || new Date().toISOString(),
       adminConfig: userAdminCfg || undefined,
     };
-    setCurrentUser(mapped);
+
+    setCurrentUser((prev) => {
+      if (
+        prev.id === mapped.id &&
+        prev.email === mapped.email &&
+        prev.avatar_url === mapped.avatar_url &&
+        prev.cidade === mapped.cidade
+      ) {
+        return prev;
+      }
+      return mapped;
+    });
 
     if (userAdminCfg) {
-      setSiteConfig(userAdminCfg);
+      setSiteConfig((prev) => (JSON.stringify(prev) === JSON.stringify(userAdminCfg) ? prev : userAdminCfg));
     } else {
       const activeCfg = getSiteConfig(u.email);
-      setSiteConfig(activeCfg);
+      setSiteConfig((prev) => (JSON.stringify(prev) === JSON.stringify(activeCfg) ? prev : activeCfg));
     }
 
     // Se o usuário clicou em comprar ou vender antes de se autenticar, abre o modal desejado
@@ -353,24 +379,31 @@ export default function App() {
   };
 
   // Carrega anúncios, matches e conversas ativas
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (userToQuery?: UserProfile) => {
+    const targetUser = userToQuery || currentUserRef.current;
     setIsLoading(true);
     try {
       const res = await fetchListings();
       setListings(res.listings);
 
-      const matches = await getUserMatches(currentUser);
+      const matches = await getUserMatches(targetUser);
       setUserMatches(matches);
 
-      const convs = await fetchConversations(currentUser.id, currentUser.email);
+      const convs = await fetchConversations(targetUser.id, targetUser.email);
       setConversations(convs);
     } catch (e) {
       console.warn('Erro ao carregar anúncios e conversas:', e);
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser]);
+  }, []);
 
+  // Recarrega quando o usuário logar ou deslogar
+  useEffect(() => {
+    loadData(currentUser);
+  }, [currentUser.id, currentUser.email, loadData]);
+
+  // Inicialização de serviços e listeners (apenas uma vez no carregamento)
   useEffect(() => {
     // Limpeza única e imediata de quaisquer anúncios de exemplo no localStorage do navegador
     try {
@@ -379,7 +412,11 @@ export default function App() {
         const parsed = JSON.parse(storedRaw);
         if (Array.isArray(parsed)) {
           const cleaned = parsed.filter((l: any) =>
-            l && l.id && !['wanted-1', 'wanted-2', 'wanted-3', 'sale-1', 'sale-2', 'sale-3'].includes(l.id)
+            l && l.id &&
+            !['wanted-1', 'wanted-2', 'wanted-3', 'sale-1', 'sale-2', 'sale-3', 'wanted-1790769631963', 'sale-1790691502353'].includes(l.id) &&
+            l.user_id !== 'user_novousuario_google' &&
+            l.user_id !== 'user_joao_silva' &&
+            !(typeof l.title === 'string' && l.title.toLowerCase().includes('bicicleta caloi'))
           );
           if (cleaned.length !== parsed.length) {
             localStorage.setItem('tem_aqui_listings_v1', JSON.stringify(cleaned));
@@ -409,24 +446,25 @@ export default function App() {
       }
     });
 
-    // Sincronização periódica a cada 3 segundos para que anúncios, matches e conversas apareçam em tempo real entre usuários
+    // Sincronização periódica a cada 4 segundos para que anúncios, matches e conversas apareçam em tempo real entre usuários
     const pollInterval = setInterval(() => {
       fetchListings().then(async (res) => {
         if (Array.isArray(res.listings)) {
           setListings(res.listings);
-          const matches = await getUserMatches(currentUser);
+          const matches = await getUserMatches(currentUserRef.current);
           setUserMatches(matches);
         }
       }).catch(() => {});
 
-      if (currentUser?.id || currentUser?.email) {
-        fetchConversations(currentUser.id, currentUser.email).then((convs) => {
+      const activeUser = currentUserRef.current;
+      if (activeUser?.id || activeUser?.email) {
+        fetchConversations(activeUser.id, activeUser.email).then((convs) => {
           if (Array.isArray(convs)) {
             setConversations(convs);
           }
         }).catch(() => {});
       }
-    }, 3000);
+    }, 4000);
 
     const handleWindowFocus = () => {
       loadData();
@@ -439,7 +477,7 @@ export default function App() {
       cleanupGsi();
       unsubGoogle();
     };
-  }, [loadData, handleUserAuthenticated, showToast, currentUser]);
+  }, [loadData, handleUserAuthenticated, showToast]);
 
   // Abertura com pesquisa vinda do Hero da Home
   const handleSearchOrStartWanted = (queryText: string) => {
@@ -752,6 +790,11 @@ export default function App() {
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               cityName={siteConfig.cityName}
+              onOpenSaleModal={handleRequestOpenSale}
+              onOpenWantedModal={handleRequestOpenWanted}
+              categories={categories}
+              selectedCategory={homeCategory}
+              onSelectCategory={setHomeCategory}
             />
 
             {/* Conteúdo Principal dos Anúncios */}

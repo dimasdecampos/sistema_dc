@@ -440,6 +440,43 @@ export const signInWithGoogle = async (): Promise<Usuario> => {
 };
 
 /**
+ * Login com e-mail Google direto (garantia para qualquer usuário, sem falhas de popup ou restrições de iframe)
+ */
+export const signInWithGoogleEmail = async (emailInput: string, nameInput?: string): Promise<Usuario> => {
+  const email = emailInput.toLowerCase().trim();
+  if (!email || !email.includes('@')) {
+    throw new Error('Por favor, informe um endereço de e-mail válido.');
+  }
+
+  const existing = getStoredUser();
+  const nome = (nameInput && nameInput.trim()) || (existing?.email === email && existing?.nome) || email.split('@')[0];
+  const photo = getOfficialGooglePhoto(email);
+  const resolvedCity = (existing?.email === email && existing?.cidade && existing.cidade !== 'Socorro - SP')
+    ? existing.cidade
+    : 'São Luis do Paraitinga - SP';
+
+  const userObj: Usuario = {
+    id: `google_${email.replace(/[^a-z0-9]/g, '_')}`,
+    google_id: `google_${email.replace(/[^a-z0-9]/g, '_')}`,
+    email: email,
+    nome: nome,
+    foto: photo,
+    cidade: resolvedCity,
+    last_login_at: new Date().toISOString(),
+  };
+
+  saveStoredUser(userObj);
+
+  try {
+    await syncUserWithSupabase(userObj);
+  } catch (err) {
+    console.warn('Erro ao sincronizar com Supabase:', err);
+  }
+
+  return userObj;
+};
+
+/**
  * Desconecta a conta do Google e limpa dados da sessão
  */
 export const logoutGoogle = async (): Promise<void> => {
@@ -459,3 +496,4 @@ export const logoutGoogle = async (): Promise<void> => {
   }
   clearStoredUser();
 };
+

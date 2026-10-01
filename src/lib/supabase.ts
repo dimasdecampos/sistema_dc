@@ -4,7 +4,7 @@ export const SUPABASE_SQL_SCHEMA = `-- =========================================
 -- SCHEMA TEM-AQUI: MARKETPLACE DE PROCURA E OFERTA
 -- ========================================================
 
--- 1. Categorias
+-- 1. Categorias do Marketplace estilo OLX
 create table if not exists public.categories (
   id text primary key,
   name text not null,
@@ -13,19 +13,21 @@ create table if not exists public.categories (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Inserir categorias padrão
+-- Inserir categorias do marketplace
 insert into public.categories (id, name, slug, icon)
 values
-  ('cat-ferramentas', 'Ferramentas', 'ferramentas', '🔨'),
-  ('cat-veiculos', 'Veículos & Peças', 'veiculos', '🚲'),
-  ('cat-moveis', 'Casa & Móveis', 'moveis', '🪑'),
-  ('cat-eletronicos', 'Eletrônicos', 'eletronicos', '📱'),
+  ('cat-veiculos', 'Veículos & Peças', 'veiculos', '🚗'),
+  ('cat-imoveis', 'Imóveis', 'imoveis', '🏠'),
+  ('cat-eletronicos', 'Eletrônicos & Celulares', 'eletronicos', '📱'),
+  ('cat-moveis', 'Casa, Móveis & Eletro', 'moveis', '🛋️'),
+  ('cat-ferramentas', 'Ferramentas & Construção', 'ferramentas', '🔨'),
   ('cat-agro', 'Agro & Campo', 'agro', '🌾'),
   ('cat-animais', 'Animais & Pet', 'animais', '🐕'),
-  ('cat-roupas', 'Roupas & Calçados', 'roupas', '👕'),
+  ('cat-roupas', 'Moda & Acessórios', 'roupas', '👕'),
   ('cat-esportes', 'Esportes & Lazer', 'esportes', '⚽'),
+  ('cat-servicos', 'Serviços & Empregos', 'servicos', '💼'),
   ('cat-outros', 'Outros', 'outros', '📦')
-on conflict (id) do nothing;
+on conflict (id) do update set name = excluded.name, slug = excluded.slug, icon = excluded.icon;
 
 -- 2. Perfis de Usuários
 create table if not exists public.profiles (
@@ -41,7 +43,7 @@ create table if not exists public.profiles (
 
 -- Tabela de Usuários Google (com configurações admin salvas no perfil)
 create table if not exists public.usuarios (
-  id uuid default gen_random_uuid() primary key,
+  id text default gen_random_uuid()::text primary key,
   google_id text,
   email text unique not null,
   nome text not null,
@@ -55,8 +57,8 @@ create table if not exists public.usuarios (
 
 -- 3. Anúncios (Listings): Quero Comprar (WANTED) ou Quero Vender (SALE)
 create table if not exists public.listings (
-  id uuid default gen_random_uuid() primary key,
-  user_id text not null references public.profiles(id) on delete cascade,
+  id text primary key,
+  user_id text not null,
   type text not null check (type in ('WANTED', 'SALE')),
   title text not null,
   description text,
@@ -70,17 +72,17 @@ create table if not exists public.listings (
 
 -- 4. Fotos dos Anúncios
 create table if not exists public.listing_images (
-  id uuid default gen_random_uuid() primary key,
-  listing_id uuid not null references public.listings(id) on delete cascade,
+  id text default gen_random_uuid()::text primary key,
+  listing_id text not null references public.listings(id) on delete cascade,
   image_url text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- 5. Matches (Correspondências calculadas entre Procura e Venda)
 create table if not exists public.matches (
-  id uuid default gen_random_uuid() primary key,
-  wanted_listing_id uuid not null references public.listings(id) on delete cascade,
-  sale_listing_id uuid not null references public.listings(id) on delete cascade,
+  id text default gen_random_uuid()::text primary key,
+  wanted_listing_id text not null references public.listings(id) on delete cascade,
+  sale_listing_id text not null references public.listings(id) on delete cascade,
   score numeric not null check (score >= 0 and score <= 100),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   viewed_at timestamp with time zone,
@@ -89,18 +91,18 @@ create table if not exists public.matches (
 
 -- 6. Conversas e Mensagens (Chat Interno entre Comprador e Vendedor)
 create table if not exists public.conversations (
-  id uuid default gen_random_uuid() primary key,
-  listing_id uuid references public.listings(id) on delete set null,
-  buyer_id text not null references public.profiles(id) on delete cascade,
-  seller_id text not null references public.profiles(id) on delete cascade,
+  id text default gen_random_uuid()::text primary key,
+  listing_id text references public.listings(id) on delete set null,
+  buyer_id text not null,
+  seller_id text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 create table if not exists public.messages (
-  id uuid default gen_random_uuid() primary key,
-  conversation_id uuid not null references public.conversations(id) on delete cascade,
-  sender_id text not null references public.profiles(id) on delete cascade,
+  id text default gen_random_uuid()::text primary key,
+  conversation_id text not null references public.conversations(id) on delete cascade,
+  sender_id text not null,
   text text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   read boolean default false
@@ -230,20 +232,6 @@ create policy "Permitir update publico de fotos"
 create policy "Permitir delete publico de fotos"
   on storage.objects for delete
   using (bucket_id in ('img', 'Img') or lower(bucket_id) = 'img');
-`;
-
-export const SUPABASE_INSERT_SAMPLE_SQL = `-- Inserir exemplo de anúncio de procura (WANTED)
-insert into public.listings (type, title, description, category_id, price, condition, status, user_id)
-values (
-  'WANTED',
-  'Quero comprar um martelo usado',
-  'Preciso de um martelo em bom estado para consertos rápidos',
-  'cat-ferramentas',
-  40.00,
-  'USED',
-  'ACTIVE',
-  'user-dimas'
-);
 `;
 
 const LOCAL_STORAGE_URL_KEY = 'sb_client_url';

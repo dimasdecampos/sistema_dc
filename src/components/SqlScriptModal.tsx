@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { X, Code2, Copy, Check, ExternalLink, ShieldCheck, Terminal, PlusCircle, Cloud } from 'lucide-react';
+import { X, Code2, Copy, Check, ExternalLink, ShieldCheck, Terminal, Cloud } from 'lucide-react';
 import {
   SUPABASE_SQL_SCHEMA,
-  SUPABASE_INSERT_SAMPLE_SQL,
   SUPABASE_STORAGE_FIX_SQL,
 } from '../lib/supabase';
 
@@ -17,7 +16,7 @@ export const SqlScriptModal: React.FC<SqlScriptModalProps> = ({
   onClose,
   onShowToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<'schema' | 'storage' | 'insert'>('storage');
+  const [activeTab, setActiveTab] = useState<'storage' | 'schema'>('storage');
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -25,16 +24,12 @@ export const SqlScriptModal: React.FC<SqlScriptModalProps> = ({
   const currentCode =
     activeTab === 'schema'
       ? SUPABASE_SQL_SCHEMA
-      : activeTab === 'storage'
-      ? SUPABASE_STORAGE_FIX_SQL
-      : SUPABASE_INSERT_SAMPLE_SQL;
+      : SUPABASE_STORAGE_FIX_SQL;
 
   const currentFileName =
     activeTab === 'schema'
       ? 'schema_marketplace_completo.sql'
-      : activeTab === 'storage'
-      ? 'fix_storage_bucket_img.sql'
-      : 'insert_exemplo.sql';
+      : 'fix_storage_bucket_img.sql';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(currentCode);
@@ -43,9 +38,7 @@ export const SqlScriptModal: React.FC<SqlScriptModalProps> = ({
       'Script copiado!',
       activeTab === 'storage'
         ? 'Cole no SQL Editor do Supabase e clique em Run para liberar o bucket de fotos.'
-        : activeTab === 'schema'
-        ? 'Cole no SQL Editor do Supabase e execute para criar as tabelas e RLS.'
-        : 'Cole no SQL Editor do Supabase para inserir dados de teste.',
+        : 'Cole no SQL Editor do Supabase e execute para criar as tabelas e RLS.',
       'success'
     );
     setTimeout(() => setCopied(false), 2500);
@@ -107,20 +100,6 @@ export const SqlScriptModal: React.FC<SqlScriptModalProps> = ({
             <Terminal className="w-3.5 h-3.5" />
             <span>2. Schema Completo & Tabelas</span>
           </button>
-          <button
-            onClick={() => {
-              setActiveTab('insert');
-              setCopied(false);
-            }}
-            className={`flex items-center gap-1.5 pb-2.5 px-3 text-xs font-semibold border-b-2 transition shrink-0 cursor-pointer ${
-              activeTab === 'insert'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>3. Exemplo INSERT</span>
-          </button>
         </div>
 
         {/* Content */}
@@ -134,8 +113,8 @@ export const SqlScriptModal: React.FC<SqlScriptModalProps> = ({
               </div>
               <p className="text-slate-500 text-[11px]">
                 {activeTab === 'schema'
-                  ? 'Copie a estrutura com tabela e regras RLS permissivas.'
-                  : 'Copie o comando INSERT com os dados do cliente.'}
+                  ? 'Copie a estrutura com tabelas do marketplace e regras RLS permissivas.'
+                  : 'Copie a instrução que libera o bucket de fotos para acesso público.'}
               </p>
             </div>
 
@@ -193,10 +172,10 @@ export const SqlScriptModal: React.FC<SqlScriptModalProps> = ({
           <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-900 space-y-1">
             <div className="font-semibold flex items-center gap-1.5 text-emerald-950">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Dica de Cadastro:</span>
+              <span>Sincronização Automática:</span>
             </div>
             <p className="text-[11px] text-emerald-800 leading-relaxed">
-              Você também pode cadastrar clientes diretamente pela interface clicando no botão verde <strong>"Novo Cliente"</strong> no topo da página. Ao salvar, os dados são enviados instantaneamente para o Supabase!
+              Ao publicar qualquer anúncio de venda ou procura pelo botão <strong>"+ Quero Vender"</strong> ou <strong>"+ Quero Comprar"</strong>, os dados vão instantaneamente para a Home e sincronizam diretamente com as tabelas do seu Supabase!
             </p>
           </div>
         </div>

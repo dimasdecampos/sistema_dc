@@ -147,7 +147,30 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </nav>
 
-            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              {/* Botão Anunciar Venda estilo OLX */}
+              <button
+                type="button"
+                onClick={onOpenSaleModal}
+                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-xs hover:shadow-md transition-all cursor-pointer"
+                title="Publicar anúncio de venda / desapego"
+              >
+                <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+                <span className="hidden xs:inline">Anunciar</span>
+                <span className="xs:hidden">+</span>
+              </button>
+
+              {/* Botão Procurar */}
+              <button
+                type="button"
+                onClick={onOpenWantedModal}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 sm:py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl border border-emerald-200/80 transition-all cursor-pointer"
+                title="Cadastrar o que você procura"
+              >
+                <PlusCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Quero Comprar</span>
+              </button>
+
               {/* Google Login or UserProfileMenu */}
               {googleUser ? (
                 <UserProfileMenu
