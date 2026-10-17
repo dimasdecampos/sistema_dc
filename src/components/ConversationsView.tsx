@@ -88,7 +88,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
         setTimeout(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 120);
-      });
+      }).catch((e) => console.warn('Erro ao carregar mensagens:', e));
       setShowMobileList(false);
 
       const msgInterval = setInterval(() => {
@@ -103,8 +103,8 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
             }
             return prev;
           });
-        });
-      }, 2500);
+        }).catch(() => {});
+      }, 5000);
 
       return () => clearInterval(msgInterval);
     }
@@ -126,6 +126,9 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
       setMessages((prev) => [...prev, newMsg]);
       onRefreshConversations();
       setTimeout(scrollToBottom, 60);
+    } catch (e) {
+      console.warn('Erro ao enviar mensagem:', e);
+      setInputText(text);
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();

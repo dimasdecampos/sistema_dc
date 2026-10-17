@@ -8,479 +8,204 @@ import {
   Message,
   UserProfile,
 } from '../types/marketplace';
-import {
-  INITIAL_SAMPLE_LISTINGS,
-  INITIAL_CONVERSATIONS,
-  INITIAL_MESSAGES,
-} from '../data/sampleMarketplaceData';
-import { getCategoryById } from '../data/defaultCategories';
-import {
-  calculateMatchScore,
-  getMatchesForUser,
-} from './matchingService';
+import { calculateMatchScore, getMatchesForUser } from './matchingService';
 import { deleteMultipleImagesFromSupabase } from './storageService';
 
-const LOCAL_STORAGE_LISTINGS_KEY = 'tem_aqui_listings_v1';
-const LOCAL_STORAGE_CONVERSATIONS_KEY = 'tem_aqui_conversations_v1';
-const LOCAL_STORAGE_MESSAGES_KEY = 'tem_aqui_messages_v1';
+const MATCH_MIN_SCORE = 35;
 
-const MOCK_LISTING_IDS = [
-  'wanted-1', 'wanted-2', 'wanted-3', 'sale-1', 'sale-2', 'sale-3',
-  'wanted-1790769631963', 'sale-1790691502353'
-];
+const LISTING_SELECT = '*, category:categories(*), user:profiles(*), listing_images(image_url)';
 
-function isMockListing(l: any): boolean {
-  if (!l || !l.id) return true;
-  if (MOCK_LISTING_IDS.includes(l.id)) return true;
-  if (l.user_id === 'user_novousuario_google' || l.user_id === 'user_joao_silva') return true;
-  if (typeof l.title === 'string' && l.title.toLowerCase().includes('bicicleta caloi')) return true;
-  return false;
+const CONVERSATION_SELECT = `
+  *,
+  listing:listings(*, category:categories(*), user:profiles(*), listing_images(image_url)),
+  buyer:profiles!conversations_buyer_id_fkey(*),
+  seller:profiles!conversations_seller_id_fkey(*),
+  messages(text, created_at)
+`;
+
+function requireSupabase() {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error('Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+  }
+  return supabase;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapListing(row: Record<string, any>): Listing {
+  const { listing_images, ...rest } = row;
+  const images = ((listing_images || []) as { image_url: string }[]).map((i) => i.image_url);
+  return { ...rest, images } as Listing;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapConversation(row: Record<string, any>): Conversation {
+  const { messages, listing, ...rest } = row;
+  const sorted = ((messages || []) as { text: string; created_at: string }[])
+    .slice()
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return {
+    ...rest,
+    listing: listing ? mapListing(listing) : undefined,
+    last_message: sorted.length > 0 ? sorted[sorted.length - 1].text : undefined,
+  } as Conversation;
 }
 
 /**
- * Carrega a lista de anúncios do LocalStorage (apenas anúncios reais publicados, sem exemplos)
- */
-function getLocalListings(): Listing[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_LISTINGS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed.filter((l: any) => !isMockListing(l));
-      }
-    }
-  } catch (e) {
-    console.warn('Erro ao carregar anúncios locais:', e);
-  }
-  return [];
-}
-
-function saveLocalListings(listings: Listing[]) {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_LISTINGS_KEY, JSON.stringify(listings));
-  } catch (e) {
-    console.warn('Erro ao salvar anúncios no localStorage:', e);
-  }
-}
-
-function getLocalConversations(): Conversation[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_CONVERSATIONS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {
-    console.warn(e);
-  }
-  return INITIAL_CONVERSATIONS;
-}
-
-function saveLocalConversations(convs: Conversation[]) {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_CONVERSATIONS_KEY, JSON.stringify(convs));
-  } catch (e) {
-    console.warn(e);
-  }
-}
-
-function getLocalMessages(): Message[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_MESSAGES_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {
-    console.warn(e);
-  }
-  return INITIAL_MESSAGES;
-}
-
-function saveLocalMessages(msgs: Message[]) {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_MESSAGES_KEY, JSON.stringify(msgs));
-  } catch (e) {
-    console.warn(e);
-  }
-}
-
-/**
- * Busca todos os anúncios ativos (com sincronização prioritária com a API do servidor compartilhado)
+ * Busca os anúncios no Supabase
  */
 export async function fetchListings(filters?: {
   type?: 'WANTED' | 'SALE';
   category_id?: string;
   search?: string;
   user_id?: string;
-}): Promise<{ listings: Listing[]; error?: string; isLocalFallback: boolean }> {
-  // 1. Tenta buscar da API REST central (persistência compartilhada entre celular e computador)
+}): Promise<{ listings: Listing[] }> {
+  const supabase = requireSupabase();
+
+  let query = supabase
+    .from('listings')
+    .select(LISTING_SELECT)
+    .order('created_at', { ascending: false });
+
+  if (filters?.type) query = query.eq('type', filters.type);
+  if (filters?.category_id && filters.category_id !== 'all') query = query.eq('category_id', filters.category_id);
+  if (filters?.user_id) query = query.eq('user_id', filters.user_id);
+  if (filters?.search) query = query.ilike('title', `%${filters.search}%`);
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+  return { listings: (data || []).map(mapListing) };
+}
+
+/**
+ * Cria o anúncio (WANTED ou SALE), grava as fotos e calcula os matches com os anúncios do lado oposto
+ */
+async function createListing(
+  type: 'WANTED' | 'SALE',
+  input: {
+    title: string;
+    description?: string;
+    category_id: string;
+    price?: number | null;
+    condition: Listing['condition'];
+    images?: string[];
+  },
+  currentUser: UserProfile
+): Promise<{ listing: Listing; newMatches: Match[] }> {
+  const supabase = requireSupabase();
+  if (!currentUser.id) {
+    throw new Error('Faça login com o Google para publicar.');
+  }
+
+  const { data: row, error } = await supabase
+    .from('listings')
+    .insert({
+      user_id: currentUser.id,
+      type,
+      title: input.title.trim(),
+      description: input.description?.trim() || '',
+      category_id: input.category_id,
+      price: input.price != null && Number(input.price) > 0 ? Number(input.price) : null,
+      condition: input.condition,
+      status: 'ACTIVE',
+    })
+    .select(LISTING_SELECT)
+    .single();
+
+  if (error || !row) {
+    throw new Error(error?.message || 'Não foi possível salvar o anúncio.');
+  }
+
+  const images = input.images || [];
+  if (images.length > 0) {
+    const { error: imgError } = await supabase
+      .from('listing_images')
+      .insert(images.map((url) => ({ listing_id: row.id, image_url: url })));
+    if (imgError) {
+      await supabase.from('listings').delete().eq('id', row.id);
+      throw new Error(`Erro ao salvar as fotos: ${imgError.message}`);
+    }
+  }
+
+  const listing: Listing = { ...mapListing(row), images };
+
+  // Matches com os anúncios ativos do lado oposto, de outras pessoas
+  const newMatches: Match[] = [];
   try {
-    const params = new URLSearchParams();
-    if (filters?.type) params.append('type', filters.type);
-    if (filters?.category_id && filters.category_id !== 'all') params.append('category_id', filters.category_id);
-    if (filters?.search) params.append('search', filters.search);
-    if (filters?.user_id) params.append('user_id', filters.user_id);
+    const { data: others, error: othersError } = await supabase
+      .from('listings')
+      .select(LISTING_SELECT)
+      .eq('type', type === 'WANTED' ? 'SALE' : 'WANTED')
+      .eq('status', 'ACTIVE')
+      .neq('user_id', currentUser.id);
 
-    const queryString = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetch(`/api/listings${queryString}`, {
-      headers: { Accept: 'application/json' },
-    });
+    if (othersError) throw new Error(othersError.message);
 
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.listings)) {
-        // Se for listagem geral sem filtros, atualiza o cache local
-        if (!filters?.type && (!filters?.category_id || filters.category_id === 'all') && !filters?.search && !filters?.user_id) {
-          saveLocalListings(data.listings);
+    const candidates = (others || []).map(mapListing);
+    const scored = candidates
+      .map((other) => {
+        const wanted = type === 'WANTED' ? listing : other;
+        const sale = type === 'WANTED' ? other : listing;
+        return { wanted, sale, score: calculateMatchScore(wanted, sale) };
+      })
+      .filter((m) => m.score >= MATCH_MIN_SCORE);
+
+    if (scored.length > 0) {
+      const { data: saved, error: matchError } = await supabase
+        .from('matches')
+        .upsert(
+          scored.map((m) => ({
+            wanted_listing_id: m.wanted.id,
+            sale_listing_id: m.sale.id,
+            score: m.score,
+          })),
+          { onConflict: 'wanted_listing_id,sale_listing_id' }
+        )
+        .select();
+
+      if (matchError) throw new Error(matchError.message);
+
+      for (const m of saved || []) {
+        const pair = scored.find(
+          (s) => s.wanted.id === m.wanted_listing_id && s.sale.id === m.sale_listing_id
+        );
+        if (pair) {
+          newMatches.push({ ...m, wanted_listing: pair.wanted, sale_listing: pair.sale } as Match);
         }
-        return { listings: data.listings, isLocalFallback: false };
       }
     }
-  } catch (apiErr) {
-    console.warn('API /api/listings indisponível, verificando alternativas:', apiErr);
+  } catch (e) {
+    // O anúncio já foi publicado; falha nos matches não deve desfazê-lo
+    console.warn('Aviso ao calcular matches:', e);
   }
 
-  // 2. Tenta Supabase caso esteja configurado
-  const supabase = getSupabase();
-  if (supabase) {
-    try {
-      let query = supabase
-        .from('listings')
-        .select(`
-          *,
-          category:categories(*),
-          user:profiles(*),
-          listing_images(image_url)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (filters?.type) {
-        query = query.eq('type', filters.type);
-      }
-      if (filters?.category_id && filters.category_id !== 'all') {
-        query = query.eq('category_id', filters.category_id);
-      }
-      if (filters?.user_id) {
-        query = query.eq('user_id', filters.user_id);
-      }
-      if (filters?.search) {
-        query = query.ilike('title', `%${filters.search}%`);
-      }
-
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        const enriched = (data as any[]).map((item) => {
-          const remoteImgs: string[] = item.listing_images?.map((img: any) => img.image_url) || [];
-          return {
-            ...item,
-            images: remoteImgs.length > 0 ? remoteImgs : item.images || [],
-          } as Listing;
-        });
-        saveLocalListings(enriched);
-        return { listings: enriched, isLocalFallback: false };
-      }
-    } catch (err) {
-      console.warn('Falha na consulta ao Supabase, alternando para local:', err);
-    }
-  }
-
-  // 3. Fallback local
-  let listings = getLocalListings();
-
-  if (filters?.type) {
-    listings = listings.filter((l) => l.type === filters.type);
-  }
-  if (filters?.category_id && filters.category_id !== 'all') {
-    listings = listings.filter((l) => l.category_id === filters.category_id);
-  }
-  if (filters?.user_id) {
-    listings = listings.filter((l) => l.user_id === filters.user_id);
-  }
-  if (filters?.search) {
-    const s = filters.search.toLowerCase();
-    listings = listings.filter(
-      (l) =>
-        l.title.toLowerCase().includes(s) ||
-        (l.description && l.description.toLowerCase().includes(s))
-    );
-  }
-
-  return { listings, isLocalFallback: true };
+  return { listing, newMatches };
 }
 
 /**
  * Cria uma nova PROCURA ("Quero comprar / Estou procurando")
  */
-export async function createWantedListing(
+export function createWantedListing(
   input: CreateWantedInput,
   currentUser: UserProfile
 ): Promise<{ listing: Listing; newMatches: Match[] }> {
-  const newId = crypto.randomUUID();
-  const now = new Date().toISOString();
-
-  const newListing: Listing = {
-    id: newId,
-    user_id: currentUser.id,
-    type: 'WANTED',
-    title: input.title.trim(),
-    description: input.description?.trim() || '',
-    category_id: input.category_id,
-    price: input.price != null && input.price > 0 ? Number(input.price) : null,
-    condition: input.condition || 'ANY',
-    status: 'ACTIVE',
-    created_at: now,
-    updated_at: now,
-    images: input.images || [],
-    user: currentUser,
-    category: getCategoryById(input.category_id),
-  };
-
-  // Salva no banco local
-  const current = getLocalListings();
-  const updated = [newListing, ...current.filter((l) => l.id !== newListing.id)];
-  saveLocalListings(updated);
-
-  // Calcula matches imediatos com as vendas ativas existentes
-  const sales = updated.filter((l) => l.type === 'SALE' && l.status === 'ACTIVE');
-  const newMatches: Match[] = [];
-
-  for (const sale of sales) {
-    const score = calculateMatchScore(newListing, sale);
-    if (score >= 35) {
-      newMatches.push({
-        id: `match-${newListing.id}-${sale.id}`,
-        wanted_listing_id: newListing.id,
-        sale_listing_id: sale.id,
-        score,
-        created_at: now,
-        viewed_at: null,
-        wanted_listing: newListing,
-        sale_listing: sale,
-      });
-    }
-  }
-
-  let finalListing = newListing;
-  let finalMatches = newMatches;
-
-  // 1. Envia para o servidor central compartilhado para aparecer em todos os aparelhos
-  try {
-    const apiRes = await fetch('/api/listings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newListing),
-    });
-    if (apiRes.ok) {
-      const data = await apiRes.json();
-      if (data.listing) {
-        finalListing = data.listing;
-        if (data.newMatches && data.newMatches.length > 0) {
-          finalMatches = data.newMatches;
-        }
-        saveLocalListings([finalListing, ...current.filter((l) => l.id !== finalListing.id)]);
-      }
-    }
-  } catch (apiErr) {
-    console.warn('Aviso: envio para servidor central falhou, mantido local:', apiErr);
-  }
-
-  // 2. Se Supabase estiver conectado, persiste no banco PostgreSQL
-  const supabase = getSupabase();
-  if (supabase) {
-    try {
-      // Garante que o autor existe na tabela profiles e usuarios para não violar foreign keys
-      try {
-        await supabase.from('profiles').upsert({
-          id: currentUser.id,
-          nome: currentUser.nome || 'Morador',
-          email: currentUser.email || null,
-          avatar_url: currentUser.avatar_url || null,
-          cidade: currentUser.cidade || 'São Luis do Paraitinga - SP',
-          updated_at: now,
-        }, { onConflict: 'id' });
-      } catch (profErr) {
-        console.warn('Aviso ao sincronizar perfil do usuário no Supabase:', profErr);
-      }
-
-      await supabase.from('listings').upsert({
-        id: finalListing.id,
-        user_id: currentUser.id,
-        type: 'WANTED',
-        title: finalListing.title,
-        description: finalListing.description,
-        category_id: finalListing.category_id,
-        price: finalListing.price,
-        condition: finalListing.condition,
-        status: finalListing.status,
-        created_at: finalListing.created_at,
-        updated_at: finalListing.updated_at,
-      }, { onConflict: 'id' });
-
-      if (finalListing.images && finalListing.images.length > 0) {
-        for (const imgUrl of finalListing.images) {
-          try {
-            await supabase.from('listing_images').insert({
-              listing_id: finalListing.id,
-              image_url: imgUrl,
-            });
-          } catch (imgErr) {
-            console.warn('Erro ao inserir foto em listing_images:', imgErr);
-          }
-        }
-      }
-
-      for (const m of finalMatches) {
-        try {
-          await supabase.from('matches').upsert({
-            wanted_listing_id: m.wanted_listing_id,
-            sale_listing_id: m.sale_listing_id,
-            score: m.score,
-          }, { onConflict: 'wanted_listing_id,sale_listing_id' });
-        } catch {
-          // ignore
-        }
-      }
-    } catch (e) {
-      console.warn('Erro ao sincronizar com Supabase:', e);
-    }
-  }
-
-  return { listing: finalListing, newMatches: finalMatches };
+  return createListing(
+    'WANTED',
+    { ...input, condition: input.condition || 'ANY' },
+    currentUser
+  );
 }
 
 /**
  * Cria uma nova VENDA ("Quero vender / Anúncio de produto")
  */
-export async function createSaleListing(
+export function createSaleListing(
   input: CreateSaleInput,
   currentUser: UserProfile
 ): Promise<{ listing: Listing; newMatches: Match[] }> {
-  const newId = `sale-${Date.now()}`;
-  const now = new Date().toISOString();
-
-  const newListing: Listing = {
-    id: newId,
-    user_id: currentUser.id,
-    type: 'SALE',
-    title: input.title.trim(),
-    description: input.description.trim(),
-    category_id: input.category_id,
-    price: Number(input.price),
-    condition: input.condition,
-    status: 'ACTIVE',
-    created_at: now,
-    updated_at: now,
-    images: input.images || [],
-    user: currentUser,
-    category: getCategoryById(input.category_id),
-  };
-
-  // Salva no banco local
-  const current = getLocalListings();
-  const updated = [newListing, ...current.filter((l) => l.id !== newListing.id)];
-  saveLocalListings(updated);
-
-  // Calcula matches imediatos com pessoas que estão procurando por isso
-  const wantings = updated.filter((l) => l.type === 'WANTED' && l.status === 'ACTIVE');
-  const newMatches: Match[] = [];
-
-  for (const wanted of wantings) {
-    const score = calculateMatchScore(wanted, newListing);
-    if (score >= 35) {
-      newMatches.push({
-        id: `match-${wanted.id}-${newListing.id}`,
-        wanted_listing_id: wanted.id,
-        sale_listing_id: newListing.id,
-        score,
-        created_at: now,
-        viewed_at: null,
-        wanted_listing: wanted,
-        sale_listing: newListing,
-      });
-    }
-  }
-
-  let finalListing = newListing;
-  let finalMatches = newMatches;
-
-  // 1. Envia para o servidor central compartilhado para aparecer em todos os aparelhos
-  try {
-    const apiRes = await fetch('/api/listings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newListing),
-    });
-    if (apiRes.ok) {
-      const data = await apiRes.json();
-      if (data.listing) {
-        finalListing = data.listing;
-        if (data.newMatches && data.newMatches.length > 0) {
-          finalMatches = data.newMatches;
-        }
-        saveLocalListings([finalListing, ...current.filter((l) => l.id !== finalListing.id)]);
-      }
-    }
-  } catch (apiErr) {
-    console.warn('Aviso: envio para servidor central falhou, mantido local:', apiErr);
-  }
-
-  // 2. Sincroniza com Supabase se disponível
-  const supabase = getSupabase();
-  if (supabase) {
-    try {
-      // Garante que o perfil do autor exista na tabela profiles
-      try {
-        await supabase.from('profiles').upsert({
-          id: currentUser.id,
-          nome: currentUser.nome || 'Morador',
-          email: currentUser.email || null,
-          avatar_url: currentUser.avatar_url || null,
-          cidade: currentUser.cidade || 'São Luis do Paraitinga - SP',
-          updated_at: now,
-        }, { onConflict: 'id' });
-      } catch (profErr) {
-        console.warn('Aviso ao sincronizar perfil do autor no Supabase:', profErr);
-      }
-
-      await supabase.from('listings').upsert({
-        id: finalListing.id,
-        user_id: currentUser.id,
-        type: 'SALE',
-        title: finalListing.title,
-        description: finalListing.description,
-        category_id: finalListing.category_id,
-        price: finalListing.price,
-        condition: finalListing.condition,
-        status: finalListing.status,
-        created_at: finalListing.created_at,
-        updated_at: finalListing.updated_at,
-      }, { onConflict: 'id' });
-
-      if (finalListing.images && finalListing.images.length > 0) {
-        for (const imgUrl of finalListing.images) {
-          try {
-            await supabase.from('listing_images').insert({
-              listing_id: finalListing.id,
-              image_url: imgUrl,
-            });
-          } catch (imgErr) {
-            console.warn('Erro ao inserir foto em listing_images:', imgErr);
-          }
-        }
-      }
-
-      for (const m of finalMatches) {
-        try {
-          await supabase.from('matches').upsert({
-            wanted_listing_id: m.wanted_listing_id,
-            sale_listing_id: m.sale_listing_id,
-            score: m.score,
-          }, { onConflict: 'wanted_listing_id,sale_listing_id' });
-        } catch {
-          // ignore
-        }
-      }
-    } catch (e) {
-      console.warn('Erro ao sincronizar venda com Supabase:', e);
-    }
-  }
-
-  return { listing: finalListing, newMatches: finalMatches };
+  return createListing('SALE', input, currentUser);
 }
 
 /**
@@ -490,306 +215,226 @@ export async function updateListingStatus(
   listingId: string,
   newStatus: 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
 ): Promise<void> {
-  const current = getLocalListings();
-  const updated = current.map((l) =>
-    l.id === listingId ? { ...l, status: newStatus, updated_at: new Date().toISOString() } : l
-  );
-  saveLocalListings(updated);
+  const supabase = requireSupabase();
+  const { error } = await supabase
+    .from('listings')
+    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .eq('id', listingId);
 
-  try {
-    await fetch(`/api/listings/${listingId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
-    });
-  } catch (e) {
-    console.warn(e);
-  }
-
-  const supabase = getSupabase();
-  if (supabase) {
-    try {
-      await supabase
-        .from('listings')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', listingId);
-    } catch (e) {
-      console.warn(e);
-    }
+  if (error) {
+    throw new Error(error.message);
   }
 }
 
 /**
- * Exclui um anúncio e remove suas fotos
+ * Exclui um anúncio (fotos e matches saem em cascata no banco) e remove os arquivos do Storage
  */
 export async function deleteListing(listingId: string): Promise<void> {
-  const current = getLocalListings();
-  const toDelete = current.find((l) => l.id === listingId);
-  const updated = current.filter((l) => l.id !== listingId);
-  saveLocalListings(updated);
+  const supabase = requireSupabase();
 
-  try {
-    await fetch(`/api/listings/${listingId}`, {
-      method: 'DELETE',
-    });
-  } catch (e) {
-    console.warn(e);
+  const { data: imgs } = await supabase
+    .from('listing_images')
+    .select('image_url')
+    .eq('listing_id', listingId);
+
+  const { error } = await supabase.from('listings').delete().eq('id', listingId);
+  if (error) {
+    throw new Error(error.message);
   }
 
-  if (toDelete?.images && toDelete.images.length > 0) {
+  const urls = (imgs || []).map((i) => i.image_url);
+  if (urls.length > 0) {
     try {
-      await deleteMultipleImagesFromSupabase(toDelete.images);
-    } catch (err) {
-      console.warn('Erro ao excluir fotos do anúncio:', err);
-    }
-  }
-
-  const supabase = getSupabase();
-  if (supabase) {
-    try {
-      await supabase.from('listings').delete().eq('id', listingId);
+      await deleteMultipleImagesFromSupabase(urls);
     } catch (e) {
-      console.warn(e);
+      console.warn('Erro ao excluir fotos do anúncio:', e);
     }
   }
 }
 
 /**
- * Atualiza um anúncio (edição de título, descrição, preço, categoria, status, fotos)
+ * Atualiza um anúncio (título, descrição, preço, categoria, condição, status e fotos)
  */
 export async function updateListing(
   listingId: string,
   updates: Partial<Listing>
 ): Promise<Listing> {
-  const current = getLocalListings();
-  const existing = current.find((l) => l.id === listingId);
-  if (!existing) {
-    throw new Error('Anúncio não encontrado.');
+  const supabase = requireSupabase();
+
+  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.title !== undefined) payload.title = updates.title;
+  if (updates.description !== undefined) payload.description = updates.description;
+  if (updates.price !== undefined) payload.price = updates.price;
+  if (updates.category_id !== undefined) payload.category_id = updates.category_id;
+  if (updates.condition !== undefined) payload.condition = updates.condition;
+  if (updates.status !== undefined) payload.status = updates.status;
+
+  const { data: row, error } = await supabase
+    .from('listings')
+    .update(payload)
+    .eq('id', listingId)
+    .select(LISTING_SELECT)
+    .single();
+
+  if (error || !row) {
+    throw new Error(error?.message || 'Anúncio não encontrado.');
   }
 
-  const updatedListing: Listing = {
-    ...existing,
-    ...updates,
-    updated_at: new Date().toISOString(),
-  };
+  let listing = mapListing(row);
 
-  const updated = current.map((l) => (l.id === listingId ? updatedListing : l));
-  saveLocalListings(updated);
+  if (updates.images) {
+    const { error: delError } = await supabase.from('listing_images').delete().eq('listing_id', listingId);
+    if (delError) throw new Error(delError.message);
 
-  try {
-    await fetch(`/api/listings/${listingId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-  } catch (e) {
-    console.warn(e);
-  }
-
-  const supabase = getSupabase();
-  if (supabase) {
-    try {
-      const payload: Record<string, any> = {
-        updated_at: updatedListing.updated_at,
-      };
-      if (updates.title !== undefined) payload.title = updates.title;
-      if (updates.description !== undefined) payload.description = updates.description;
-      if (updates.price !== undefined) payload.price = updates.price;
-      if (updates.category_id !== undefined) payload.category_id = updates.category_id;
-      if (updates.condition !== undefined) payload.condition = updates.condition;
-      if (updates.status !== undefined) payload.status = updates.status;
-
-      await supabase.from('listings').update(payload).eq('id', listingId);
-    } catch (e) {
-      console.warn('Erro ao atualizar anúncio no Supabase:', e);
+    if (updates.images.length > 0) {
+      const { error: insError } = await supabase
+        .from('listing_images')
+        .insert(updates.images.map((url) => ({ listing_id: listingId, image_url: url })));
+      if (insError) throw new Error(insError.message);
     }
+    listing = { ...listing, images: updates.images };
   }
 
-  return updatedListing;
+  return listing;
 }
 
 /**
- * Busca conversas do usuário ativo (por id e opcionalmente por e-mail)
+ * Conversas do usuário logado (a RLS só devolve as dele)
  */
-export async function fetchConversations(userId?: string, userEmail?: string): Promise<Conversation[]> {
-  try {
-    const params = new URLSearchParams();
-    if (userId) params.append('userId', userId);
-    if (userEmail) params.append('email', userEmail);
-    const queryStr = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetch(`/api/conversations${queryStr}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.conversations)) {
-        saveLocalConversations(data.conversations);
-        return data.conversations;
-      }
-    }
-  } catch (apiErr) {
-    console.warn('Erro ao buscar conversas da API:', apiErr);
-  }
+export async function fetchConversations(userId?: string): Promise<Conversation[]> {
+  if (!userId) return [];
+  const supabase = requireSupabase();
 
-  const localConvs = getLocalConversations();
-  if (userId || userEmail) {
-    const emailLower = (userEmail || '').toLowerCase().trim();
-    return localConvs.filter((c) => {
-      if (userId && (c.buyer_id === userId || c.seller_id === userId)) return true;
-      if (emailLower && (
-        (c.buyer?.email && c.buyer.email.toLowerCase().trim() === emailLower) ||
-        (c.seller?.email && c.seller.email.toLowerCase().trim() === emailLower)
-      )) return true;
-      return false;
-    });
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(CONVERSATION_SELECT)
+    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
   }
-  return localConvs;
+  return (data || []).map(mapConversation);
 }
 
 /**
- * Inicia ou resgata uma conversa existente para um anúncio
+ * Inicia ou retoma a conversa do comprador com o dono do anúncio
  */
 export async function startOrGetConversation(
   listing: Listing,
   buyer: UserProfile,
   initialText?: string
 ): Promise<{ conversation: Conversation; isNew: boolean }> {
-  try {
-    const res = await fetch('/api/conversations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ listing, buyer, initialText }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.conversation) {
-        const convs = getLocalConversations();
-        const exists = convs.some((c) => c.id === data.conversation.id);
-        if (!exists) {
-          saveLocalConversations([data.conversation, ...convs]);
-        }
-        return { conversation: data.conversation, isNew: !!data.isNew };
-      }
-    }
-  } catch (err) {
-    console.warn('Erro ao chamar /api/conversations:', err);
+  const supabase = requireSupabase();
+
+  if (!buyer.id) {
+    throw new Error('Faça login com o Google para conversar.');
+  }
+  if (listing.user_id === buyer.id) {
+    throw new Error('Este anúncio é seu.');
   }
 
-  const convs = getLocalConversations();
-  const existing = convs.find(
-    (c) =>
-      c.listing_id === listing.id &&
-      c.buyer_id === buyer.id &&
-      c.seller_id === listing.user_id
-  );
+  const { data: existing, error: findError } = await supabase
+    .from('conversations')
+    .select(CONVERSATION_SELECT)
+    .eq('listing_id', listing.id)
+    .eq('buyer_id', buyer.id)
+    .eq('seller_id', listing.user_id)
+    .maybeSingle();
 
+  if (findError) {
+    throw new Error(findError.message);
+  }
   if (existing) {
-    return { conversation: existing, isNew: false };
+    return { conversation: mapConversation(existing), isNew: false };
   }
 
-  const now = new Date().toISOString();
-  const newConv: Conversation = {
-    id: `conv-${Date.now()}`,
-    listing_id: listing.id,
-    buyer_id: buyer.id,
-    seller_id: listing.user_id,
-    created_at: now,
-    updated_at: now,
-    last_message: initialText || 'Conversa iniciada',
-    listing: listing,
-    buyer: buyer,
-    seller: listing.user || {
-      id: listing.user_id,
-      nome: 'Vendedor',
-      cidade: 'São Luis do Paraitinga - SP',
-      created_at: now,
-    },
-  };
+  const { data: created, error: createError } = await supabase
+    .from('conversations')
+    .insert({ listing_id: listing.id, buyer_id: buyer.id, seller_id: listing.user_id })
+    .select('id')
+    .single();
 
-  const updatedConvs = [newConv, ...convs];
-  saveLocalConversations(updatedConvs);
+  if (createError || !created) {
+    throw new Error(createError?.message || 'Não foi possível abrir a conversa.');
+  }
 
   if (initialText) {
-    const msgs = getLocalMessages();
-    const newMsg: Message = {
-      id: `msg-${Date.now()}-1`,
-      conversation_id: newConv.id,
-      sender_id: buyer.id,
-      text: initialText,
-      created_at: now,
-      read: true,
-    };
-    saveLocalMessages([...msgs, newMsg]);
+    const { error: msgError } = await supabase
+      .from('messages')
+      .insert({ conversation_id: created.id, sender_id: buyer.id, text: initialText });
+    if (msgError) {
+      throw new Error(msgError.message);
+    }
   }
 
-  return { conversation: newConv, isNew: true };
+  const { data: full, error: fullError } = await supabase
+    .from('conversations')
+    .select(CONVERSATION_SELECT)
+    .eq('id', created.id)
+    .single();
+
+  if (fullError || !full) {
+    throw new Error(fullError?.message || 'Conversa criada, mas não foi possível carregá-la.');
+  }
+  return { conversation: mapConversation(full), isNew: true };
 }
 
 /**
- * Envia uma mensagem em uma conversa ativa
+ * Envia uma mensagem em uma conversa
  */
 export async function sendMessage(
   conversationId: string,
   senderId: string,
   text: string
 ): Promise<Message> {
-  const now = new Date().toISOString();
-  const newMsg: Message = {
-    id: `msg-${Date.now()}`,
-    conversation_id: conversationId,
-    sender_id: senderId,
-    text: text.trim(),
-    created_at: now,
-    read: true,
-  };
+  const supabase = requireSupabase();
 
-  try {
-    await fetch(`/api/conversations/${conversationId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ senderId, text: text.trim() }),
-    });
-  } catch (err) {
-    console.warn('Erro ao enviar mensagem via API:', err);
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({ conversation_id: conversationId, sender_id: senderId, text: text.trim() })
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Não foi possível enviar a mensagem.');
   }
 
-  // Atualiza localmente
-  const msgs = getLocalMessages();
-  saveLocalMessages([...msgs, newMsg]);
+  await supabase
+    .from('conversations')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', conversationId);
 
-  const convs = getLocalConversations();
-  const updatedConvs = convs.map((c) =>
-    c.id === conversationId ? { ...c, last_message: text.trim(), updated_at: now } : c
-  );
-  saveLocalConversations(updatedConvs);
-
-  return newMsg;
+  return data as Message;
 }
 
 /**
- * Carrega mensagens de uma conversa
+ * Mensagens de uma conversa, da mais antiga para a mais nova
  */
 export async function getConversationMessages(conversationId: string): Promise<Message[]> {
-  try {
-    const res = await fetch('/api/conversations');
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.conversations)) {
-        const found = data.conversations.find((c: any) => c.id === conversationId);
-        if (found && Array.isArray(found.messages)) {
-          return found.messages;
-        }
-      }
-    }
-  } catch (e) {
-    // fallback local
+  const supabase = requireSupabase();
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
   }
-  const msgs = getLocalMessages();
-  return msgs.filter((m) => m.conversation_id === conversationId);
+  return (data || []) as Message[];
 }
 
 export const fetchConversationMessages = getConversationMessages;
 
-export async function getUserMatches(userOrId: { id?: string; email?: string } | string): Promise<Match[]> {
-  const { listings } = await fetchListings();
-  return getMatchesForUser(userOrId, listings);
+/**
+ * Matches das procuras do usuário. Se `listings` já foi carregado, evita nova consulta.
+ */
+export async function getUserMatches(
+  userOrId: { id?: string; email?: string } | string,
+  listings?: Listing[]
+): Promise<Match[]> {
+  const all = listings ?? (await fetchListings()).listings;
+  return getMatchesForUser(userOrId, all, MATCH_MIN_SCORE);
 }
-

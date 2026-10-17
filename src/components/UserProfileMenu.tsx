@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { Usuario } from '../types/auth';
 import { uploadImageToSupabase } from '../services/storageService';
-import { isUserAdmin } from '../services/siteConfigService';
 
 interface UserProfileMenuProps {
   user: Usuario;
@@ -28,6 +27,7 @@ interface UserProfileMenuProps {
   onNavigateDashboard?: () => void;
   onNavigateConversations?: () => void;
   isSupabaseSynced?: boolean;
+  isAdmin?: boolean;
 }
 
 export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
@@ -38,6 +38,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
   onNavigateDashboard,
   onNavigateConversations,
   isSupabaseSynced = true,
+  isAdmin = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditingCity, setIsEditingCity] = useState(false);
@@ -311,7 +312,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
 
           {/* Actions */}
           <div className="p-2 border-t border-slate-100 bg-slate-50/30 space-y-1">
-            {isUserAdmin(user.email, user.adminConfig) && (
+            {isAdmin && (
               <a
                 href="#admin"
                 onClick={() => setIsOpen(false)}

@@ -30,22 +30,13 @@ import {
   startOrGetConversation,
 } from './services/marketplaceService';
 import {
-  getStoredUser,
-  syncUserWithSupabase,
   updateCurrentUserProfile,
-  logoutUser,
   getOfficialGooglePhoto,
-  getSavedUserAdminConfig,
+  DEFAULT_CITY,
 } from './services/authService';
-import {
-  initSupabaseAuth,
-  logoutSupabase,
-  signInWithSupabaseGoogle,
-  signInWithQuickAccess,
-} from './services/supabaseAuth';
+import { initSupabaseAuth, logoutSupabase } from './services/supabaseAuth';
 import { Usuario } from './types/auth';
 import { GoogleLoginModal } from './components/GoogleLoginModal';
-import { GithubModal } from './components/GithubModal';
 import { Navbar } from './components/Navbar';
 import { HomeHero } from './components/HomeHero';
 import { ListingsFeed } from './components/ListingsFeed';
@@ -58,9 +49,15 @@ import { EditListingModal } from './components/EditListingModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { ListingCard } from './components/ListingCard';
 import { getBuyersInterestedInSale } from './services/matchingService';
-import { getSiteConfig, saveSiteConfig, resetSiteConfig, isUserAdmin } from './services/siteConfigService';
 import {
-  getStoredCategories,
+  DEFAULT_SITE_CONFIG,
+  fetchSiteConfig,
+  saveSiteConfig,
+  resetSiteConfig,
+  isUserAdmin,
+} from './services/siteConfigService';
+import {
+  loadCategories,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -70,46 +67,27 @@ import { computeWantedRanking } from './services/rankingService';
 import { MostWantedRanking } from './components/MostWantedRanking';
 import { AdminPanel } from './components/AdminPanel';
 
+const createGuestUser = (): UserProfile => ({
+  id: '',
+  nome: 'Visitante',
+  email: '',
+  avatar_url: '',
+  cidade: DEFAULT_CITY,
+  created_at: new Date().toISOString(),
+});
+
 export default function App() {
-  // Google Auth User
-  const [googleUser, setGoogleUser] = useState<Usuario | null>(() => getStoredUser());
+  // Usuário do Google (sessão do Supabase Auth)
+  const [googleUser, setGoogleUser] = useState<Usuario | null>(null);
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
-  const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoggingIn] = useState(false);
 
-  // Usuário ativo (carrega do armazenamento do Google ou visitante)
-  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
-    const stored = getStoredUser();
-    if (stored) {
-      const resolvedCity = (stored.cidade && stored.cidade !== 'Socorro - SP')
-        ? stored.cidade
-        : 'São Luis do Paraitinga - SP';
-      return {
-        id: stored.id || stored.google_id || 'user-google',
-        nome: stored.nome,
-        email: stored.email,
-        avatar_url: stored.foto || getOfficialGooglePhoto(stored.email),
-        cidade: resolvedCity,
-        created_at: stored.created_at || new Date().toISOString(),
-        adminConfig: stored.adminConfig || getSavedUserAdminConfig(stored.email) || undefined,
-      };
-    }
-    return {
-      id: '',
-      nome: 'Visitante',
-      email: '',
-      avatar_url: '',
-      cidade: 'São Luis do Paraitinga - SP',
-      created_at: new Date().toISOString(),
-    };
-  });
+  // Usuário ativo no marketplace (visitante até o Supabase confirmar a sessão)
+  const [currentUser, setCurrentUser] = useState<UserProfile>(createGuestUser);
 
-  // Site Configuration & Categories
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
-    const stored = getStoredUser();
-    return getSiteConfig(stored?.email || null);
-  });
-  const [categories, setCategories] = useState<Category[]>(() => getStoredCategories());
+  // Site Configuration & Categories (carregados do Supabase)
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_SITE_CONFIG);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // Home Page Product Category & Sort State
   const [homeCategory, setHomeCategory] = useState<string>('all');
@@ -235,54 +213,35 @@ export default function App() {
   const currentUserRef = useRef<UserProfile>(currentUser);
   currentUserRef.current = currentUser;
 
-  // Helper para sincronizar usuário Google com o perfil do marketplace
+  // Aplica o usuário vindo da sessão do Supabase Auth (já com o perfil do banco)
   const handleUserAuthenticated = useCallback((u: Usuario) => {
-    setGoogleUser((prev) => {
-      if (
-        prev &&
-        prev.id === u.id &&
-        prev.email === u.email &&
-        prev.foto === u.foto &&
-        prev.cidade === u.cidade
-      ) {
-        return prev;
-      }
-      return u;
-    });
+    setGoogleUser((prev) =>
+      prev &&
+      prev.id === u.id &&
+      prev.nome === u.nome &&
+      prev.foto === u.foto &&
+      prev.cidade === u.cidade
+        ? prev
+        : u
+    );
 
-    const photo = u.foto || getOfficialGooglePhoto(u.email);
-    const userAdminCfg = u.adminConfig || getSavedUserAdminConfig(u.email);
-    const resolvedCity = (u.cidade && u.cidade !== 'Socorro - SP')
-      ? u.cidade
-      : 'São Luis do Paraitinga - SP';
     const mapped: UserProfile = {
-      id: u.id || u.google_id || 'user-google',
+      id: u.id,
       nome: u.nome,
       email: u.email,
-      avatar_url: photo,
-      cidade: resolvedCity,
+      avatar_url: u.foto || getOfficialGooglePhoto(u.email),
+      cidade: u.cidade || DEFAULT_CITY,
       created_at: u.created_at || new Date().toISOString(),
-      adminConfig: userAdminCfg || undefined,
     };
 
-    setCurrentUser((prev) => {
-      if (
-        prev.id === mapped.id &&
-        prev.email === mapped.email &&
-        prev.avatar_url === mapped.avatar_url &&
-        prev.cidade === mapped.cidade
-      ) {
-        return prev;
-      }
-      return mapped;
-    });
-
-    if (userAdminCfg) {
-      setSiteConfig((prev) => (JSON.stringify(prev) === JSON.stringify(userAdminCfg) ? prev : userAdminCfg));
-    } else {
-      const activeCfg = getSiteConfig(u.email);
-      setSiteConfig((prev) => (JSON.stringify(prev) === JSON.stringify(activeCfg) ? prev : activeCfg));
-    }
+    setCurrentUser((prev) =>
+      prev.id === mapped.id &&
+      prev.nome === mapped.nome &&
+      prev.avatar_url === mapped.avatar_url &&
+      prev.cidade === mapped.cidade
+        ? prev
+        : { ...mapped, adminConfig: prev.adminConfig }
+    );
 
     // Se o usuário clicou em comprar ou vender antes de se autenticar, abre o modal desejado
     if (pendingActionRef.current) {
@@ -299,38 +258,37 @@ export default function App() {
     }
   }, []);
 
+  // Sem sessão no Supabase Auth: volta para visitante
+  const resetToGuest = useCallback(() => {
+    setGoogleUser(null);
+    setCurrentUser((prev) => (prev.id ? createGuestUser() : prev));
+    setUserMatches([]);
+    setConversations([]);
+  }, []);
+
+  // Só admins (lista em site_config) recebem a configuração do site no perfil
+  useEffect(() => {
+    const cfg = isAdmin ? siteConfig : undefined;
+    setCurrentUser((prev) => (prev.adminConfig === cfg ? prev : { ...prev, adminConfig: cfg }));
+  }, [isAdmin, siteConfig]);
+
   // Abertura do modal de login padrão
   const handleOpenGoogleLogin = () => {
-    setIsGoogleModalOpen(true);
-  };
-
-  const handleGoogleSignIn = async () => {
     setIsGoogleModalOpen(true);
   };
 
   // Logout Supabase
   const handleLogoutGoogle = async () => {
     await logoutSupabase();
-    await logoutUser();
-    setGoogleUser(null);
-    const guestConfig = getSiteConfig(null);
-    setCurrentUser({
-      id: '',
-      nome: 'Visitante',
-      email: '',
-      avatar_url: '',
-      cidade: guestConfig.cityName || 'São Luis do Paraitinga - SP',
-      created_at: new Date().toISOString(),
-    });
-    setSiteConfig(guestConfig);
+    resetToGuest();
     showToast('Sessão encerrada', 'Você saiu da sua conta.', 'info');
   };
 
   // Atualização de cidade
   const handleUpdateCity = async (newCity: string) => {
-    if (!newCity.trim()) return;
+    if (!newCity.trim() || !googleUser) return;
     try {
-      const updated = await updateCurrentUserProfile({ cidade: newCity.trim() });
+      const updated = await updateCurrentUserProfile(googleUser, { cidade: newCity.trim() });
       setGoogleUser(updated);
       setCurrentUser((prev) => ({ ...prev, cidade: newCity.trim() }));
       showToast('Cidade atualizada', `Sua cidade foi alterada para ${newCity.trim()}`, 'success');
@@ -339,11 +297,11 @@ export default function App() {
     }
   };
 
-  // Atualização de foto oficial
+  // Atualização de foto
   const handleUpdatePhoto = async (newPhoto: string) => {
-    if (!newPhoto.trim()) return;
+    if (!newPhoto.trim() || !googleUser) return;
     try {
-      const updated = await updateCurrentUserProfile({ foto: newPhoto.trim() });
+      const updated = await updateCurrentUserProfile(googleUser, { foto: newPhoto.trim() });
       setGoogleUser(updated);
       setCurrentUser((prev) => ({ ...prev, avatar_url: newPhoto.trim() }));
       showToast('Foto atualizada', 'Sua foto de perfil foi atualizada com sucesso.', 'success');
@@ -352,95 +310,57 @@ export default function App() {
     }
   };
 
-  // Carrega anúncios, matches e conversas ativas
-  const loadData = useCallback(async (userToQuery?: UserProfile) => {
+  // Carrega anúncios, matches e conversas do Supabase
+  const loadData = useCallback(async (userToQuery?: UserProfile, silent = false) => {
     const targetUser = userToQuery || currentUserRef.current;
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     try {
       const res = await fetchListings();
       setListings(res.listings);
-
-      const matches = await getUserMatches(targetUser);
-      setUserMatches(matches);
-
-      const convs = await fetchConversations(targetUser.id, targetUser.email);
-      setConversations(convs);
+      setUserMatches(await getUserMatches(targetUser, res.listings));
+      setConversations(await fetchConversations(targetUser.id));
     } catch (e) {
-      console.warn('Erro ao carregar anúncios e conversas:', e);
+      console.warn('Erro ao carregar dados do Supabase:', e);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
 
   // Recarrega quando o usuário logar ou deslogar
   useEffect(() => {
     loadData(currentUser);
-  }, [currentUser.id, currentUser.email, loadData]);
+  }, [currentUser.id, loadData]);
 
-  // Inicialização de serviços e listeners (apenas uma vez no carregamento)
+  // Inicialização (apenas uma vez no carregamento)
   useEffect(() => {
-    // Limpeza única e imediata de quaisquer anúncios de exemplo no localStorage do navegador
-    try {
-      const storedRaw = localStorage.getItem('tem_aqui_listings_v1');
-      if (storedRaw) {
-        const parsed = JSON.parse(storedRaw);
-        if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter((l: any) =>
-            l && l.id &&
-            !['wanted-1', 'wanted-2', 'wanted-3', 'sale-1', 'sale-2', 'sale-3', 'wanted-1790769631963', 'sale-1790691502353'].includes(l.id) &&
-            l.user_id !== 'user_novousuario_google' &&
-            l.user_id !== 'user_joao_silva' &&
-            !(typeof l.title === 'string' && l.title.toLowerCase().includes('bicicleta caloi'))
-          );
-          if (cleaned.length !== parsed.length) {
-            localStorage.setItem('tem_aqui_listings_v1', JSON.stringify(cleaned));
-          }
-        }
-      }
-    } catch {
-      // ignore
-    }
+    fetchSiteConfig().then(setSiteConfig).catch(() => {});
+    loadCategories().then(setCategories).catch((e) => console.warn('Erro ao carregar categorias:', e));
 
-    loadData();
-
-    // Inicializa autenticação com Supabase e restaura sessão
-    const unsubSupabase = initSupabaseAuth((sbUser) => {
+    // Sessão do Supabase Auth (inclui o retorno do login com Google)
+    const unsubAuth = initSupabaseAuth((sbUser) => {
       if (sbUser) {
         handleUserAuthenticated(sbUser);
+      } else {
+        resetToGuest();
       }
     });
 
-    // Sincronização periódica a cada 4 segundos para que anúncios, matches e conversas apareçam em tempo real entre usuários
+    // Atualização periódica para anúncios, matches e conversas de outros usuários
     const pollInterval = setInterval(() => {
-      fetchListings().then(async (res) => {
-        if (Array.isArray(res.listings)) {
-          setListings(res.listings);
-          const matches = await getUserMatches(currentUserRef.current);
-          setUserMatches(matches);
-        }
-      }).catch(() => {});
-
-      const activeUser = currentUserRef.current;
-      if (activeUser?.id || activeUser?.email) {
-        fetchConversations(activeUser.id, activeUser.email).then((convs) => {
-          if (Array.isArray(convs)) {
-            setConversations(convs);
-          }
-        }).catch(() => {});
-      }
-    }, 4000);
+      loadData(undefined, true);
+    }, 15000);
 
     const handleWindowFocus = () => {
-      loadData();
+      loadData(undefined, true);
     };
     window.addEventListener('focus', handleWindowFocus);
 
     return () => {
       clearInterval(pollInterval);
       window.removeEventListener('focus', handleWindowFocus);
-      unsubSupabase();
+      unsubAuth();
     };
-  }, [loadData, handleUserAuthenticated]);
+  }, [loadData, handleUserAuthenticated, resetToGuest]);
 
   // Abertura com pesquisa vinda do Hero da Home
   const handleSearchOrStartWanted = (queryText: string) => {
@@ -547,57 +467,65 @@ export default function App() {
     setIsDetailModalOpen(true);
   };
 
-  // Admin Operations - Cada alteração é gravada diretamente no perfil do usuário
+  // Admin: configuração do site (tabela site_config; só admins passam pela RLS)
+  const configSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Edição campo a campo: atualiza a tela na hora e grava no banco após uma breve pausa
   const handleConfigChange = useCallback((newCfg: SiteConfig) => {
-    const activeEmail = googleUser?.email || currentUser.email || 'dimasrafting@gmail.com';
-    const saved = saveSiteConfig(newCfg, activeEmail);
-    setSiteConfig(saved);
-    setCurrentUser((prev) => ({ ...prev, adminConfig: saved }));
-    setGoogleUser((prev) => (prev ? { ...prev, adminConfig: saved } : prev));
-  }, [googleUser?.email, currentUser.email]);
+    setSiteConfig(newCfg);
+    if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current);
+    configSaveTimerRef.current = setTimeout(() => {
+      saveSiteConfig(newCfg).catch((e) => showToast('Erro ao salvar configurações', String(e), 'error'));
+    }, 800);
+  }, [showToast]);
 
-  const handleSaveConfig = useCallback((newCfg: SiteConfig) => {
-    const activeEmail = googleUser?.email || currentUser.email || 'dimasrafting@gmail.com';
-    const saved = saveSiteConfig(newCfg, activeEmail);
-    setSiteConfig(saved);
-    setCurrentUser((prev) => ({ ...prev, adminConfig: saved }));
-    setGoogleUser((prev) => (prev ? { ...prev, adminConfig: saved } : prev));
-    showToast(
-      'Configurações salvas no perfil!',
-      `Os ajustes foram salvos no perfil de ${currentUser.nome || activeEmail}.`,
-      'success'
-    );
-  }, [googleUser?.email, currentUser.email, currentUser.nome, showToast]);
-
-  const handleResetConfig = useCallback(() => {
-    const activeEmail = googleUser?.email || currentUser.email || 'dimasrafting@gmail.com';
-    const def = resetSiteConfig(activeEmail);
-    setSiteConfig(def);
-    setCurrentUser((prev) => ({ ...prev, adminConfig: def }));
-    setGoogleUser((prev) => (prev ? { ...prev, adminConfig: def } : prev));
-    showToast('Configurações restauradas', 'Os parâmetros padrão foram redefinidos e salvos no seu perfil.', 'info');
-  }, [googleUser?.email, currentUser.email, showToast]);
-
-  const handleCreateCategory = (input: { name: string; slug?: string; icon: string }) => {
-    const created = createCategory(input);
-    const updated = getStoredCategories();
-    setCategories(updated);
-    showToast('Categoria criada!', `A categoria "${created.name}" foi adicionada com sucesso.`, 'success');
-  };
-
-  const handleUpdateCategory = (id: string, updates: Partial<Category>) => {
-    const updatedCat = updateCategory(id, updates);
-    const updated = getStoredCategories();
-    setCategories(updated);
-    loadData();
-    showToast('Categoria atualizada!', `A categoria "${updatedCat.name}" foi atualizada.`, 'success');
-  };
-
-  const handleDeleteCategory = (id: string) => {
+  const handleSaveConfig = useCallback(async (newCfg: SiteConfig) => {
+    if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current);
     try {
-      const res = deleteCategory(id);
-      const updated = getStoredCategories();
-      setCategories(updated);
+      const saved = await saveSiteConfig(newCfg);
+      setSiteConfig(saved);
+      showToast('Configurações salvas!', 'Os ajustes foram gravados no banco de dados.', 'success');
+    } catch (e) {
+      showToast('Erro ao salvar configurações', String(e), 'error');
+    }
+  }, [showToast]);
+
+  const handleResetConfig = useCallback(async () => {
+    if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current);
+    try {
+      const def = await resetSiteConfig(siteConfig);
+      setSiteConfig(def);
+      showToast('Configurações restauradas', 'Os parâmetros padrão foram redefinidos.', 'info');
+    } catch (e) {
+      showToast('Erro ao restaurar configurações', String(e), 'error');
+    }
+  }, [siteConfig, showToast]);
+
+  const handleCreateCategory = async (input: { name: string; slug?: string; icon: string }) => {
+    try {
+      const created = await createCategory(input);
+      setCategories(await loadCategories());
+      showToast('Categoria criada!', `A categoria "${created.name}" foi adicionada com sucesso.`, 'success');
+    } catch (e) {
+      showToast('Erro ao criar categoria', String(e), 'error');
+    }
+  };
+
+  const handleUpdateCategory = async (id: string, updates: Partial<Category>) => {
+    try {
+      const updatedCat = await updateCategory(id, updates);
+      setCategories(await loadCategories());
+      loadData();
+      showToast('Categoria atualizada!', `A categoria "${updatedCat.name}" foi atualizada.`, 'success');
+    } catch (e) {
+      showToast('Erro ao atualizar categoria', String(e), 'error');
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      const res = await deleteCategory(id);
+      setCategories(await loadCategories());
       loadData();
       showToast(
         'Categoria excluída!',
@@ -609,9 +537,9 @@ export default function App() {
     }
   };
 
-  const handleMoveListingCategory = (listingId: string, targetCategoryId: string) => {
+  const handleMoveListingCategory = async (listingId: string, targetCategoryId: string) => {
     try {
-      const moved = moveListingToCategory(listingId, targetCategoryId);
+      const moved = await moveListingToCategory(listingId, targetCategoryId);
       loadData();
       const targetCat = categories.find((c) => c.id === targetCategoryId);
       showToast(
@@ -628,15 +556,23 @@ export default function App() {
     listingId: string,
     status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
   ) => {
-    await updateListingStatus(listingId, status);
-    loadData();
-    showToast('Status atualizado', `Publicação alterada para ${status}.`, 'info');
+    try {
+      await updateListingStatus(listingId, status);
+      loadData();
+      showToast('Status atualizado', `Publicação alterada para ${status}.`, 'info');
+    } catch (e) {
+      showToast('Erro ao atualizar status', String(e), 'error');
+    }
   };
 
   const handleAdminDeleteListing = async (listingId: string) => {
-    await deleteListing(listingId);
-    loadData();
-    showToast('Publicação removida', 'O item foi excluído do catálogo.', 'info');
+    try {
+      await deleteListing(listingId);
+      loadData();
+      showToast('Publicação removida', 'O item foi excluído do catálogo.', 'info');
+    } catch (e) {
+      showToast('Erro ao excluir publicação', String(e), 'error');
+    }
   };
 
   // Ranking Ações Rápidas
@@ -651,30 +587,28 @@ export default function App() {
 
   // Marcar como concluído
   const handleMarkAsCompleted = async (listingId: string) => {
-    await updateListingStatus(listingId, 'COMPLETED');
-    showToast('Status atualizado', 'Item marcado como resolvido.', 'info');
-    loadData();
+    try {
+      await updateListingStatus(listingId, 'COMPLETED');
+      showToast('Status atualizado', 'Item marcado como resolvido.', 'info');
+      loadData();
+    } catch (e) {
+      showToast('Erro ao atualizar status', String(e), 'error');
+    }
   };
 
   // Excluir
   const handleDeleteListing = async (listingId: string) => {
-    await deleteListing(listingId);
-    showToast('Removido', 'Publicação excluída com sucesso.', 'info');
-    loadData();
+    try {
+      await deleteListing(listingId);
+      showToast('Removido', 'Publicação excluída com sucesso.', 'info');
+      loadData();
+    } catch (e) {
+      showToast('Erro ao excluir', String(e), 'error');
+    }
   };
 
-  // Filtrar procuras e vendas do usuário logado (por id e por e-mail para cobrir multiusuário e diferentes aparelhos)
-  const isUserOwner = (l: Listing) => {
-    if (currentUser?.id && l.user_id === currentUser.id) return true;
-    if (
-      currentUser?.email &&
-      l.user?.email &&
-      currentUser.email.toLowerCase().trim() === l.user.email.toLowerCase().trim()
-    ) {
-      return true;
-    }
-    return false;
-  };
+  // Procuras e vendas do usuário logado (dono = auth.uid())
+  const isUserOwner = (l: Listing) => Boolean(currentUser.id) && l.user_id === currentUser.id;
 
   const userWantedListings = listings.filter(
     (l) => isUserOwner(l) && l.type === 'WANTED'
@@ -1136,14 +1070,6 @@ export default function App() {
       <GoogleLoginModal
         isOpen={isGoogleModalOpen}
         onClose={() => setIsGoogleModalOpen(false)}
-        onUserLoggedIn={(u) => {
-          handleUserAuthenticated(u);
-          showToast(
-            `Olá, ${u.nome}!`,
-            'Login realizado com sucesso!',
-            'success'
-          );
-        }}
       />
 
       <CreateWantedModal
@@ -1178,12 +1104,6 @@ export default function App() {
         listing={selectedListingForEdit}
         categories={categories}
         onSave={handleSaveEditListing}
-        onShowToast={showToast}
-      />
-
-      <GithubModal
-        isOpen={isGithubModalOpen}
-        onClose={() => setIsGithubModalOpen(false)}
         onShowToast={showToast}
       />
 

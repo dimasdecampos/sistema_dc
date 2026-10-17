@@ -16,6 +16,7 @@ import {
 import { UserProfile, SiteConfig } from '../types/marketplace';
 import { Usuario } from '../types/auth';
 import { UserProfileMenu } from './UserProfileMenu';
+import { isUserAdmin } from '../services/siteConfigService';
 
 interface NavbarProps {
   currentTab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin';
@@ -175,6 +176,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {googleUser ? (
                 <UserProfileMenu
                   user={googleUser}
+                  isAdmin={isUserAdmin(googleUser.email, config)}
                   onLogout={onLogoutGoogle}
                   onUpdateCity={onUpdateCity}
                   onUpdatePhoto={onUpdatePhoto}

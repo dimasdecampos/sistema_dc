@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { Category, Listing, SiteConfig, UserProfile } from '../types/marketplace';
 import { Usuario } from '../types/auth';
-import { getStoredCredentials, SUPABASE_STORAGE_FIX_SQL } from '../lib/supabase';
+import { SUPABASE_STORAGE_FIX_SQL } from '../lib/supabase';
 import {
   ensureBucketExists,
   testSupabaseStorageBucket,

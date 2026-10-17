@@ -1,12 +1,5 @@
 import { SiteConfig } from '../types/marketplace';
-import {
-  getSavedUserAdminConfig,
-  saveUserAdminConfigToLocal,
-  saveAdminConfigToUserProfile,
-  getStoredUser,
-} from './authService';
-
-const SITE_CONFIG_STORAGE_KEY = 'tem_aqui_site_config_v1';
+import { getSupabase } from '../lib/supabase';
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
   siteName: 'TemAqui',
@@ -21,114 +14,62 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   contactEmail: 'contato@temaquislp.com.br',
   autoMatchThreshold: 35,
   currencySymbol: 'R$',
-  adminEmails: ['dimasrafting@gmail.com'],
+  adminEmails: [],
 };
 
+/**
+ * Admin = e-mail listado em adminEmails da configuração salva no banco (tabela site_config).
+ * A permissão real de gravação é garantida pela RLS (função is_admin()).
+ */
 export function isUserAdmin(email?: string | null, config?: SiteConfig): boolean {
   if (!email) return false;
   const normalized = email.toLowerCase().trim();
-  if (normalized === 'dimasrafting@gmail.com') return true;
-  const adminList = config?.adminEmails || DEFAULT_SITE_CONFIG.adminEmails || ['dimasrafting@gmail.com'];
-  return adminList.some((e: string) => e.toLowerCase().trim() === normalized);
+  return (config?.adminEmails || []).some((e) => e.toLowerCase().trim() === normalized);
 }
 
 /**
- * Obtém as configurações do site, priorizando as configurações salvas no perfil do usuário
+ * Lê a configuração do site salva no Supabase (mescla com os padrões)
  */
-export function getSiteConfig(userEmail?: string | null): SiteConfig {
-  try {
-    const activeEmail = (userEmail || getStoredUser()?.email || '').toLowerCase().trim();
+export async function fetchSiteConfig(): Promise<SiteConfig> {
+  const supabase = getSupabase();
+  if (!supabase) return DEFAULT_SITE_CONFIG;
 
-    // 1. Tenta carregar do perfil do usuário logado
-    if (activeEmail) {
-      const userSaved = getSavedUserAdminConfig(activeEmail);
-      if (userSaved) {
-        const adminEmails = Array.from(
-          new Set(['dimasrafting@gmail.com', ...(userSaved.adminEmails || [])])
-        );
-        const resolvedCity = (userSaved.cityName && userSaved.cityName !== 'Socorro - SP')
-          ? userSaved.cityName
-          : 'São Luis do Paraitinga - SP';
-        return { ...DEFAULT_SITE_CONFIG, ...userSaved, cityName: resolvedCity, adminEmails };
-      }
-    }
+  const { data, error } = await supabase
+    .from('site_config')
+    .select('config')
+    .eq('id', 1)
+    .maybeSingle();
 
-    // 2. Fallback para configuração geral no localStorage
-    const raw = localStorage.getItem(SITE_CONFIG_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      // Garante que dimasrafting@gmail.com sempre está na lista de admins
-      const adminEmails = Array.from(
-        new Set(['dimasrafting@gmail.com', ...(parsed.adminEmails || [])])
-      );
-      const resolvedCity = (parsed.cityName && parsed.cityName !== 'Socorro - SP')
-        ? parsed.cityName
-        : 'São Luis do Paraitinga - SP';
-      return { ...DEFAULT_SITE_CONFIG, ...parsed, cityName: resolvedCity, adminEmails };
-    }
-  } catch (e) {
-    console.warn('Erro ao carregar configurações do site:', e);
+  if (error) {
+    console.warn('Aviso ao carregar configurações do site:', error.message);
+    return DEFAULT_SITE_CONFIG;
   }
-  return DEFAULT_SITE_CONFIG;
+
+  return { ...DEFAULT_SITE_CONFIG, ...((data?.config as Partial<SiteConfig>) || {}) };
 }
 
 /**
- * Salva as configurações do site no storage global E diretamente no perfil do usuário
+ * Salva a configuração do site no Supabase (somente admins passam pela RLS)
  */
-export function saveSiteConfig(newConfig: SiteConfig, userEmail?: string | null): SiteConfig {
-  try {
-    // Garante que dimasrafting@gmail.com nunca seja removido acidentalmente
-    const adminEmails = Array.from(
-      new Set(['dimasrafting@gmail.com', ...(newConfig.adminEmails || [])])
-    );
-    const resolvedCity = (newConfig.cityName && newConfig.cityName !== 'Socorro - SP')
-      ? newConfig.cityName
-      : 'São Luis do Paraitinga - SP';
-    const configToSave: SiteConfig = { ...newConfig, cityName: resolvedCity, adminEmails };
-
-    // 1. Salva no localStorage geral do app
-    localStorage.setItem(SITE_CONFIG_STORAGE_KEY, JSON.stringify(configToSave));
-
-    // 2. Salva no servidor central compartilhado
-    try {
-      fetch('/api/site-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(configToSave),
-      }).catch(() => {});
-    } catch {
-      // ignore
-    }
-
-    // 3. Salva diretamente no perfil do usuário
-    const targetEmail = (userEmail || getStoredUser()?.email || 'dimasrafting@gmail.com').toLowerCase().trim();
-    if (targetEmail) {
-      saveUserAdminConfigToLocal(targetEmail, configToSave);
-      // Dispara persistência assíncrona no perfil / Supabase
-      saveAdminConfigToUserProfile(configToSave, targetEmail).catch((err) => {
-        console.warn('Aviso ao sincronizar config com perfil do usuário:', err);
-      });
-    }
-
-    return configToSave;
-  } catch (e) {
-    console.error('Erro ao salvar configurações do site:', e);
+export async function saveSiteConfig(config: SiteConfig): Promise<SiteConfig> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error('Supabase não configurado.');
   }
-  return newConfig;
+
+  const { error } = await supabase
+    .from('site_config')
+    .upsert({ id: 1, config, updated_at: new Date().toISOString() });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return config;
 }
 
 /**
- * Restaura as configurações padrão do site e limpa personalizações do perfil do usuário
+ * Restaura os padrões mantendo a lista de administradores (para ninguém perder o acesso)
  */
-export function resetSiteConfig(userEmail?: string | null): SiteConfig {
-  try {
-    localStorage.removeItem(SITE_CONFIG_STORAGE_KEY);
-    const targetEmail = (userEmail || getStoredUser()?.email || '').toLowerCase().trim();
-    if (targetEmail) {
-      saveAdminConfigToUserProfile(DEFAULT_SITE_CONFIG, targetEmail).catch(() => {});
-    }
-  } catch (e) {
-    console.error('Erro ao resetar configurações:', e);
-  }
-  return DEFAULT_SITE_CONFIG;
+export async function resetSiteConfig(current: SiteConfig): Promise<SiteConfig> {
+  return saveSiteConfig({ ...DEFAULT_SITE_CONFIG, adminEmails: current.adminEmails || [] });
 }

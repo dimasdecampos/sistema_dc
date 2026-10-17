@@ -1,6 +1,0 @@
-{
-  "name": "TemAqui - Marketplace de Procura e Oferta",
-  "description": "Plataforma de classificados para cidade pequena baseada em intenção de compra (estou procurando) e venda, com recomendações e matches automáticos.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

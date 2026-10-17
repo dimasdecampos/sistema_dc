@@ -1,170 +1,136 @@
-import { Category, Listing } from '../types/marketplace';
-import { DEFAULT_CATEGORIES } from '../data/defaultCategories';
+import { Category } from '../types/marketplace';
+import { getSupabase } from '../lib/supabase';
 
-const CATEGORIES_STORAGE_KEY = 'tem_aqui_categories_v1';
-const LISTINGS_STORAGE_KEY = 'tem_aqui_listings_v1';
+// Cópia em memória das categorias do banco (para componentes que leem de forma síncrona)
+let categoriesCache: Category[] = [];
+
+function requireSupabase() {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error('Supabase não configurado.');
+  }
+  return supabase;
+}
 
 export function getStoredCategories(): Category[] {
-  try {
-    const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.warn('Erro ao carregar categorias locais:', e);
-  }
-  // Inicializa com as categorias padrão
-  localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(DEFAULT_CATEGORIES));
-  return DEFAULT_CATEGORIES;
+  return categoriesCache;
 }
 
-export function saveStoredCategories(categories: Category[]): void {
-  try {
-    localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories));
-  } catch (e) {
-    console.error('Erro ao salvar categorias:', e);
+/**
+ * Carrega as categorias da tabela `categories` e atualiza a cópia em memória
+ */
+export async function loadCategories(): Promise<Category[]> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
   }
+  categoriesCache = (data || []) as Category[];
+  return categoriesCache;
 }
 
-export function createCategory(input: { name: string; slug?: string; icon: string }): Category {
-  const current = getStoredCategories();
+export async function createCategory(input: { name: string; slug?: string; icon: string }): Promise<Category> {
+  const supabase = requireSupabase();
   const slug =
     input.slug?.trim() ||
     input.name
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+      .replace(/^-+|-+$/g, '') ||
+    `categoria-${Date.now()}`;
 
-  const newCategory: Category = {
-    id: `cat-${slug || Date.now()}`,
-    name: input.name.trim(),
-    slug: slug || `categoria-${Date.now()}`,
-    icon: input.icon.trim() || '📦',
-    created_at: new Date().toISOString(),
-  };
+  const { data, error } = await supabase
+    .from('categories')
+    .insert({
+      id: `cat-${slug}`,
+      name: input.name.trim(),
+      slug,
+      icon: input.icon.trim() || '📦',
+    })
+    .select()
+    .single();
 
-  const updated = [...current, newCategory];
-  saveStoredCategories(updated);
-  return newCategory;
-}
-
-export function updateCategory(id: string, updates: Partial<Category>): Category {
-  const current = getStoredCategories();
-  let updatedCat: Category | null = null;
-
-  const next = current.map((cat) => {
-    if (cat.id === id) {
-      updatedCat = { ...cat, ...updates };
-      return updatedCat;
-    }
-    return cat;
-  });
-
-  if (!updatedCat) {
-    throw new Error('Categoria não encontrada.');
+  if (error) {
+    throw new Error(error.message);
   }
-
-  saveStoredCategories(next);
-  return updatedCat;
+  return data as Category;
 }
 
-export function deleteCategory(id: string, fallbackCategoryId: string = 'cat-outros'): { success: boolean; movedCount: number } {
-  const current = getStoredCategories();
-  if (current.length <= 1) {
+export async function updateCategory(id: string, updates: Partial<Category>): Promise<Category> {
+  const supabase = requireSupabase();
+  const { id: _ignoredId, created_at: _ignoredCreated, ...fields } = updates;
+
+  const { data, error } = await supabase
+    .from('categories')
+    .update(fields)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data as Category;
+}
+
+/**
+ * Exclui a categoria e move os anúncios dela para a categoria alternativa
+ */
+export async function deleteCategory(
+  id: string,
+  fallbackCategoryId: string = 'cat-outros'
+): Promise<{ success: boolean; movedCount: number }> {
+  const supabase = requireSupabase();
+
+  if (categoriesCache.length <= 1) {
     throw new Error('Não é possível excluir a única categoria restante do sistema.');
   }
-
-  const next = current.filter((c) => c.id !== id);
-  saveStoredCategories(next);
-
-  // Reatribui anúncios pertencentes a essa categoria para a categoria fallback
-  let movedCount = 0;
-  try {
-    const rawListings = localStorage.getItem(LISTINGS_STORAGE_KEY);
-    if (rawListings) {
-      const listings: Listing[] = JSON.parse(rawListings);
-      const fallbackCat = next.find((c) => c.id === fallbackCategoryId) || next[0];
-      const updatedListings = listings.map((l) => {
-        if (l.category_id === id) {
-          movedCount++;
-          return {
-            ...l,
-            category_id: fallbackCat.id,
-            category: fallbackCat,
-            updated_at: new Date().toISOString(),
-          };
-        }
-        return l;
-      });
-      localStorage.setItem(LISTINGS_STORAGE_KEY, JSON.stringify(updatedListings));
-    }
-  } catch (e) {
-    console.warn('Erro ao reatribuir anúncios após exclusão da categoria:', e);
+  if (id === fallbackCategoryId) {
+    throw new Error('A categoria alternativa não pode ser excluída.');
   }
 
-  return { success: true, movedCount };
-}
+  const { data: moved, error: moveError } = await supabase
+    .from('listings')
+    .update({ category_id: fallbackCategoryId, updated_at: new Date().toISOString() })
+    .eq('category_id', id)
+    .select('id');
 
-export function reorderCategories(orderedIds: string[]): Category[] {
-  const current = getStoredCategories();
-  const map = new Map(current.map((c) => [c.id, c]));
-  const reordered: Category[] = [];
-
-  for (const id of orderedIds) {
-    const item = map.get(id);
-    if (item) {
-      reordered.push(item);
-      map.delete(id);
-    }
+  if (moveError) {
+    throw new Error(moveError.message);
   }
 
-  // Anexa quaisquer sobras
-  map.forEach((item) => reordered.push(item));
+  const { error } = await supabase.from('categories').delete().eq('id', id);
+  if (error) {
+    throw new Error(error.message);
+  }
 
-  saveStoredCategories(reordered);
-  return reordered;
+  return { success: true, movedCount: moved?.length ?? 0 };
 }
 
 /**
  * Move um anúncio para uma nova categoria (Drag and Drop)
  */
-export function moveListingToCategory(listingId: string, newCategoryId: string): Listing {
-  const rawListings = localStorage.getItem(LISTINGS_STORAGE_KEY);
-  if (!rawListings) {
-    throw new Error('Nenhum anúncio encontrado.');
+export async function moveListingToCategory(
+  listingId: string,
+  newCategoryId: string
+): Promise<{ id: string; title: string }> {
+  const supabase = requireSupabase();
+
+  const { data, error } = await supabase
+    .from('listings')
+    .update({ category_id: newCategoryId, updated_at: new Date().toISOString() })
+    .eq('id', listingId)
+    .select('id, title')
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
   }
-
-  const categories = getStoredCategories();
-  const targetCategory = categories.find((c) => c.id === newCategoryId);
-  if (!targetCategory) {
-    throw new Error('Categoria de destino não encontrada.');
-  }
-
-  const listings: Listing[] = JSON.parse(rawListings);
-  let movedListing: Listing | null = null;
-
-  const updatedListings = listings.map((l) => {
-    if (l.id === listingId) {
-      movedListing = {
-        ...l,
-        category_id: targetCategory.id,
-        category: targetCategory,
-        updated_at: new Date().toISOString(),
-      };
-      return movedListing;
-    }
-    return l;
-  });
-
-  if (!movedListing) {
-    throw new Error('Anúncio não encontrado para mover.');
-  }
-
-  localStorage.setItem(LISTINGS_STORAGE_KEY, JSON.stringify(updatedListings));
-  return movedListing;
+  return data;
 }
