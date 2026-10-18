@@ -1,6 +1,5 @@
 import React from 'react';
-import { Search, X, Tag, PlusCircle, Sparkles } from 'lucide-react';
-import { Category } from '../types/marketplace';
+import { Search, X, Tag, PlusCircle } from 'lucide-react';
 
 interface HomeHeroProps {
   searchQuery: string;
@@ -8,9 +7,6 @@ interface HomeHeroProps {
   onOpenWantedModal?: (initialQuery?: string) => void;
   onOpenSaleModal?: () => void;
   cityName?: string;
-  categories?: Category[];
-  selectedCategory?: string;
-  onSelectCategory?: (categoryId: string) => void;
 }
 
 export const HomeHero: React.FC<HomeHeroProps> = ({
@@ -19,128 +15,83 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
   onOpenWantedModal,
   onOpenSaleModal,
   cityName = 'São Luis do Paraitinga - SP',
-  categories = [],
-  selectedCategory = 'all',
-  onSelectCategory,
 }) => {
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-  };
-
   const simpleCity = cityName.split('-')[0].trim();
 
   return (
-    <div className="w-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white py-8 sm:py-10 border-b border-slate-800 relative overflow-hidden">
-      {/* Decorative gradient glow */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+    <section className="relative overflow-hidden border-b border-slate-200/70 bg-gradient-to-b from-emerald-50 to-white">
+      <div className="pointer-events-none absolute -top-24 left-1/2 h-56 w-[60rem] -translate-x-1/2 rounded-full bg-emerald-200/40 blur-3xl" />
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10 space-y-5">
-        {/* Title & Tagline estilo OLX */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-emerald-300 text-xs font-bold border border-white/10">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Classificados Oficiais de {simpleCity}</span>
-          </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Compre, venda e encontre o que precisa
+      <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+          <h1 className="text-xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-3xl">
+            O que você procura em{' '}
+            <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
+              {simpleCity}
+            </span>
+            ?
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-            Negocie direto com os moradores da cidade. Anuncie desapegos ou publique o que está procurando sem intermediários.
+          <p className="text-sm text-slate-500">
+            Compre, venda e encontre direto com os moradores da cidade.
           </p>
         </div>
 
-        {/* Campo de Busca Principal da Cidade */}
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-          <div className="p-1.5 sm:p-2 bg-white rounded-2xl sm:rounded-3xl shadow-xl shadow-black/20 flex items-center gap-2 focus-within:ring-4 focus-within:ring-emerald-400/20 transition-all">
-            <div className="flex items-center flex-1 px-3 py-1">
-              <Search className="w-5 h-5 text-emerald-600 shrink-0 mr-2.5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder={`O que você está procurando em ${simpleCity}? (ex: celular, bicicleta, sofá...)`}
-                className="w-full text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-hidden py-1.5 font-medium"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => onSearchChange('')}
-                  className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer shrink-0"
-                  title="Limpar busca"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
+        <div className="mt-4 flex flex-col gap-2.5 lg:flex-row lg:items-center">
+          <form
+            onSubmit={(e) => e.preventDefault()}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-md shadow-slate-900/5 transition focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-500/10"
+          >
+            <Search className="ml-3 h-5 w-5 shrink-0 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Celular, bicicleta, sofá..."
+              aria-label="Buscar anúncios"
+              className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden sm:text-base"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                className="shrink-0 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Limpar busca"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
             <button
               type="submit"
-              className="px-5 sm:px-7 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold rounded-xl sm:rounded-2xl shadow-md transition cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+              className="shrink-0 cursor-pointer rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 active:scale-[0.98] sm:px-7"
             >
-              <Search className="w-4 h-4" />
-              <span>Buscar</span>
+              Buscar
             </button>
-          </div>
-        </form>
+          </form>
 
-        {/* Botões de Ação Rápida no Hero (Vender / Procurar) */}
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-          {onOpenSaleModal && (
-            <button
-              type="button"
-              onClick={onOpenSaleModal}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <Tag className="w-4 h-4" />
-              <span>+ Anunciar Desapego (Vender)</span>
-            </button>
-          )}
-
-          {onOpenWantedModal && (
-            <button
-              type="button"
-              onClick={() => onOpenWantedModal(searchQuery)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 active:bg-white/10 text-white font-bold text-xs sm:text-sm rounded-2xl backdrop-blur-md border border-white/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4 text-emerald-400" />
-              <span>+ Estou Procurando Algo (Comprar)</span>
-            </button>
-          )}
-        </div>
-
-        {/* Categorias Rápidas em Destaque */}
-        {categories.length > 0 && onSelectCategory && (
-          <div className="pt-2 flex items-center justify-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
-            <button
-              type="button"
-              onClick={() => onSelectCategory('all')}
-              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
-                selectedCategory === 'all'
-                  ? 'bg-emerald-500 text-slate-950 shadow-sm'
-                  : 'bg-white/10 text-slate-300 hover:bg-white/20'
-              }`}
-            >
-              Todas
-            </button>
-            {categories.slice(0, 7).map((cat) => (
+          <div className="flex items-center gap-2.5">
+            {onOpenSaleModal && (
               <button
-                key={cat.id}
                 type="button"
-                onClick={() => onSelectCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  selectedCategory === cat.id
-                    ? 'bg-emerald-500 text-slate-950 font-bold shadow-sm'
-                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                }`}
+                onClick={onOpenSaleModal}
+                className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] lg:flex-none"
               >
-                <span>{cat.icon}</span>
-                <span>{cat.name}</span>
+                <Tag className="h-4 w-4" />
+                Anunciar
               </button>
-            ))}
+            )}
+            {onOpenWantedModal && (
+              <button
+                type="button"
+                onClick={() => onOpenWantedModal(searchQuery)}
+                className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98] lg:flex-none"
+              >
+                <PlusCircle className="h-4 w-4 text-emerald-600" />
+                Estou procurando algo
+              </button>
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </section>
   );
 };

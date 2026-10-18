@@ -1,14 +1,5 @@
 import React from 'react';
-import {
-  Tag,
-  Search,
-  MessageSquare,
-  Sparkles,
-  MapPin,
-  Clock,
-  CheckCircle,
-  Camera,
-} from 'lucide-react';
+import { Search, Sparkles, Camera } from 'lucide-react';
 import { Listing } from '../types/marketplace';
 
 interface ListingCardProps {
@@ -23,156 +14,85 @@ interface ListingCardProps {
 export const ListingCard: React.FC<ListingCardProps> = ({
   listing,
   onClick,
-  onStartChat,
-  currentUserId,
-  currentUserEmail,
   matchScore,
 }) => {
   const isWanted = listing.type === 'WANTED';
-  const userEmail = (currentUserEmail || '').toLowerCase().trim();
-  const listingEmail = (listing.user?.email || '').toLowerCase().trim();
-  const isOwner =
-    (Boolean(currentUserId) && currentUserId === listing.user_id) ||
-    (Boolean(userEmail) && Boolean(listingEmail) && userEmail === listingEmail);
 
-  const formattedPrice = listing.price != null && listing.price > 0
-    ? `R$ ${listing.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-    : isWanted
-    ? 'A combinar'
-    : 'Grátis / Doação';
+  const formattedPrice =
+    listing.price != null && listing.price > 0
+      ? `R$ ${listing.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      : isWanted
+      ? 'A combinar'
+      : 'Grátis / Doação';
 
-  const defaultImage = isWanted
-    ? 'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=500&auto=format&fit=crop&q=80'
-    : 'https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=500&auto=format&fit=crop&q=80';
-
-  const imageSrc =
-    listing.images && listing.images.length > 0 ? listing.images[0] : defaultImage;
+  const imageSrc = listing.images && listing.images.length > 0 ? listing.images[0] : null;
+  const conditionLabel =
+    listing.condition === 'NEW' ? 'Novo' : listing.condition === 'USED' ? 'Usado' : null;
 
   return (
-    <div
+    <article
       onClick={() => onClick(listing)}
-      className={`group bg-white rounded-3xl border transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 overflow-hidden flex flex-col cursor-pointer ${
-        isWanted
-          ? 'border-emerald-200/80 hover:border-emerald-400 bg-gradient-to-b from-emerald-50/20 to-white'
-          : 'border-slate-200 hover:border-amber-300'
-      }`}
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-900/5"
     >
-      {/* Top Banner / Type Badge */}
-      <div className="relative aspect-16/10 bg-slate-100 overflow-hidden">
-        <img
-          src={imageSrc}
-          alt={listing.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
-        />
+      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={listing.title}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-5xl">
+            {listing.category?.icon || '📦'}
+          </div>
+        )}
 
-        {/* Badge de Tipo: QUERO COMPRAR ou À VENDA */}
-        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-          {isWanted ? (
-            <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-600/90 backdrop-blur-xs text-white shadow-xs flex items-center gap-1">
-              <Search className="w-3 h-3" />
-              <span>Quero Comprar</span>
-            </span>
-          ) : (
-            <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500/90 backdrop-blur-xs text-slate-950 shadow-xs flex items-center gap-1">
-              <Tag className="w-3 h-3" />
-              <span>À Venda</span>
-            </span>
-          )}
-
-          {listing.status === 'COMPLETED' && (
-            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-900/90 text-white">
-              Resolvido
-            </span>
-          )}
-        </div>
-
-        {/* Condição */}
-        <div className="absolute top-2.5 right-2.5">
-          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/90 backdrop-blur-xs text-slate-700 shadow-2xs">
-            {listing.condition === 'NEW'
-              ? 'Novo'
-              : listing.condition === 'USED'
-              ? 'Usado'
-              : 'Qualquer'}
+        {isWanted && (
+          <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+            <Search className="h-3 w-3" />
+            Procura-se
           </span>
-        </div>
+        )}
 
-        {/* Match Score Badge se fornecido */}
+        {listing.status === 'COMPLETED' && (
+          <span className="absolute right-2.5 top-2.5 rounded-full bg-slate-900/85 px-2.5 py-1 text-[11px] font-bold text-white">
+            Resolvido
+          </span>
+        )}
+
         {matchScore != null ? (
-          <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-lg text-xs font-black bg-emerald-600 text-white shadow-xs flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-300" />
-            <span>{matchScore}% Match</span>
-          </div>
+          <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+            <Sparkles className="h-3 w-3 text-amber-300" />
+            {matchScore}% match
+          </span>
         ) : listing.images && listing.images.length > 1 ? (
-          <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-900/75 backdrop-blur-xs text-white shadow-xs flex items-center gap-1">
-            <Camera className="w-3 h-3 text-amber-400" />
-            <span>{listing.images.length} fotos</span>
-          </div>
+          <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-full bg-slate-900/70 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-xs">
+            <Camera className="h-3 w-3" />
+            {listing.images.length}
+          </span>
         ) : null}
       </div>
 
-      {/* Content */}
-      <div className="p-4 flex-1 flex flex-col justify-between">
-        <div>
-          {/* Categoria */}
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
-            <span className="font-semibold text-slate-600 flex items-center gap-1">
-              <span>{listing.category?.icon || '📦'}</span>
-              <span>{listing.category?.name || 'Geral'}</span>
-            </span>
-            <span className="text-[11px] text-slate-400">
-              {new Date(listing.created_at).toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: 'short',
-              })}
-            </span>
-          </div>
+      <div className="flex flex-1 flex-col p-4">
+        <p className="text-xl font-extrabold tracking-tight text-slate-900">{formattedPrice}</p>
+        <h3 className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-slate-700 transition group-hover:text-emerald-700">
+          {listing.title}
+        </h3>
 
-          {/* Title */}
-          <h3 className="font-bold text-base text-slate-900 group-hover:text-emerald-700 transition line-clamp-2 leading-snug">
-            {listing.title}
-          </h3>
-
-          {/* Description */}
-          {listing.description && (
-            <p className="mt-1 text-xs text-slate-500 line-clamp-2 leading-relaxed">
-              {listing.description}
-            </p>
-          )}
-        </div>
-
-        {/* Footer: Preço + Autor + Ação */}
-        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-          <div>
-            <span className="text-[10px] text-slate-400 font-semibold block uppercase">
-              {isWanted ? 'Orçamento máx.' : 'Valor'}
-            </span>
-            <span
-              className={`text-sm sm:text-base font-extrabold ${
-                isWanted ? 'text-emerald-700' : 'text-slate-900'
-              }`}
-            >
-              {formattedPrice}
-            </span>
-          </div>
-
-          {/* User Avatar & Name */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <img
-              src={
-                listing.user?.avatar_url ||
-                'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'
-              }
-              alt={listing.user?.nome || 'Usuário'}
-              className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
-            />
-            <span className="text-xs font-semibold text-slate-700 truncate max-w-[80px]">
-              {listing.user?.nome || 'Morador'}
-            </span>
-          </div>
+        <div className="mt-auto flex items-center justify-between gap-2 pt-3 text-xs text-slate-400">
+          <span className="truncate">
+            {listing.category?.icon} {listing.category?.name || 'Geral'}
+            {conditionLabel ? ` · ${conditionLabel}` : ''}
+          </span>
+          <span className="shrink-0">
+            {new Date(listing.created_at).toLocaleDateString('pt-BR', {
+              day: '2-digit',
+              month: 'short',
+            })}
+          </span>
         </div>
       </div>
-    </div>
+    </article>
   );
 };

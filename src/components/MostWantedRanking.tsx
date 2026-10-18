@@ -1,197 +1,133 @@
 import React, { useState } from 'react';
-import {
-  TrendingUp,
-  Flame,
-  Search,
-  Tag,
-  ArrowRight,
-  Sparkles,
-  ShoppingBag,
-  PlusCircle,
-  Filter,
-} from 'lucide-react';
-import { Category, WantedRankItem } from '../types/marketplace';
+import { Bell, BellRing, Flame, Tag } from 'lucide-react';
+import { WantedRankItem } from '../types/marketplace';
 
 interface MostWantedRankingProps {
   ranking: WantedRankItem[];
-  categories: Category[];
-  selectedCategory: string;
-  onSelectCategory: (categoryId: string) => void;
-  onOpenWantedWithTerm: (term: string, categoryId: string) => void;
+  currentUserId?: string;
+  /** term_key dos itens em que a pessoa já marcou o sininho */
+  myInterestKeys: Set<string>;
+  onToggleInterest: (item: WantedRankItem) => void;
   onOpenSaleWithTerm: (term: string, categoryId: string) => void;
 }
 
+const INITIAL_VISIBLE = 5;
+
 export const MostWantedRanking: React.FC<MostWantedRankingProps> = ({
   ranking,
-  categories,
-  selectedCategory,
-  onSelectCategory,
-  onOpenWantedWithTerm,
+  currentUserId,
+  myInterestKeys,
+  onToggleInterest,
   onOpenSaleWithTerm,
 }) => {
-  const [viewMode, setViewMode] = useState<'compact' | 'full'>('compact');
-
-  const displayedItems = viewMode === 'compact' ? ranking.slice(0, 5) : ranking;
+  const [showAll, setShowAll] = useState(false);
+  const items = showAll ? ranking : ranking.slice(0, INITIAL_VISIBLE);
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-6">
-      {/* Header do Ranking */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20">
-            <Flame className="w-5 h-5 fill-white text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg sm:text-xl font-black text-slate-900">
-                Mais Procurados na Cidade
-              </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-100 text-orange-800 border border-orange-200">
-                Top Demandas
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              O que os moradores estão buscando ativamente agora. Ótima oportunidade para desapegar!
-            </p>
-          </div>
+    <section aria-labelledby="mais-procurados-titulo">
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <h2
+            id="mais-procurados-titulo"
+            className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl"
+          >
+            <Flame className="h-6 w-6 text-orange-500" />
+            Mais procurados na cidade
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Procura isso também? Toque no <BellRing className="inline h-3.5 w-3.5 -translate-y-px text-emerald-600" />{' '}
+            e avisamos quando alguém anunciar.
+          </p>
         </div>
 
-        {ranking.length > 5 && (
+        {ranking.length > INITIAL_VISIBLE && (
           <button
-            onClick={() => setViewMode(viewMode === 'compact' ? 'full' : 'compact')}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 transition cursor-pointer self-start sm:self-auto"
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="shrink-0 cursor-pointer text-sm font-semibold text-emerald-700 transition hover:text-emerald-800"
           >
-            {viewMode === 'compact' ? `Ver todos (${ranking.length})` : 'Mostrar menos'}
+            {showAll ? 'Mostrar menos' : `Ver todos (${ranking.length})`}
           </button>
         )}
       </div>
 
-      {/* Categorias Filtro Horizontal */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none text-xs">
-        <button
-          onClick={() => onSelectCategory('all')}
-          className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-            selectedCategory === 'all'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-          }`}
-        >
-          <span>🔥 Todos</span>
-        </button>
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => onSelectCategory(cat.id)}
-            className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-              selectedCategory === cat.id
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-            }`}
-          >
-            <span>{cat.icon}</span>
-            <span>{cat.name}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Lista do Ranking */}
-      {displayedItems.length === 0 ? (
-        <div className="text-center py-8 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-          <p className="text-xs font-medium text-slate-500">
-            Nenhuma procura registrada nesta categoria ainda.
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Seja o primeiro a publicar o que você está precisando comprar!
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
+          <p className="text-sm font-semibold text-slate-700">Ninguém registrou uma procura ainda.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Clique em "Estou procurando algo" para ser o primeiro.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {displayedItems.map((item, index) => {
+        <ol className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200/80 bg-white">
+          {items.map((item, index) => {
+            const isOwn = Boolean(currentUserId) && item.seeker_user_ids.includes(currentUserId!);
+            const isFollowing = myInterestKeys.has(item.id);
+            const active = isOwn || isFollowing;
             const hasOffers = item.available_offers > 0;
+
+            const bellLabel = isOwn
+              ? 'Você já está procurando isso'
+              : isFollowing
+              ? 'Você será avisado. Toque para desativar'
+              : 'Também procuro. Me avise quando anunciarem';
+
             return (
-              <div
-                key={item.id}
-                className="group p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-md bg-gradient-to-br from-white to-slate-50/60 transition-all flex flex-col justify-between gap-3"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
-                          index === 0
-                            ? 'bg-amber-400 text-amber-950 shadow-xs'
-                            : index === 1
-                            ? 'bg-slate-300 text-slate-800'
-                            : index === 2
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        #{index + 1}
-                      </span>
-                      <h3 className="font-extrabold text-sm sm:text-base text-slate-900 group-hover:text-emerald-700 transition">
-                        {item.term}
-                      </h3>
-                    </div>
+              <li key={item.id} className="flex items-center gap-3 px-3 py-3.5 sm:gap-4 sm:px-5">
+                <span
+                  className={`w-6 shrink-0 text-center text-sm font-extrabold ${
+                    index === 0 ? 'text-orange-500' : 'text-slate-300'
+                  }`}
+                >
+                  {index + 1}
+                </span>
 
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded-lg border border-slate-200 shrink-0">
-                      <span>{item.category_icon}</span>
-                      <span>{item.category_name}</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-sm font-bold text-slate-900 sm:text-base">{item.term}</h3>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                    <span>
+                      {item.category_icon} {item.category_name}
                     </span>
-                  </div>
-
-                  {/* Informações de demanda e preço */}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                    <span className="flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
-                      <Search className="w-3 h-3 text-emerald-600" />
-                      <span>{item.total_seekers} {item.total_seekers === 1 ? 'procura ativa' : 'procuras ativas'}</span>
-                    </span>
-
-                    {item.avg_budget && (
-                      <span className="text-[11px] font-semibold text-slate-700">
-                        Preço médio: <strong className="text-slate-900">R$ {item.avg_budget}</strong>
-                      </span>
-                    )}
-
-                    <span
-                      className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                        hasOffers
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
-                          : 'bg-amber-50 text-amber-800 border border-amber-200/60'
-                      }`}
-                    >
+                    <span aria-hidden="true">·</span>
+                    <span className={hasOffers ? 'text-slate-500' : 'font-semibold text-amber-600'}>
                       {hasOffers
                         ? `${item.available_offers} ${item.available_offers === 1 ? 'oferta à venda' : 'ofertas à venda'}`
-                        : 'Sem ofertas (Alta chance de vender!)'}
+                        : 'Ninguém vendendo ainda'}
                     </span>
-                  </div>
+                  </p>
                 </div>
 
-                {/* Botões de Ação Rápida */}
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => onOpenWantedWithTerm(item.term, item.category_id)}
-                    className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer flex items-center gap-1"
-                    title="Publicar que você também procura este item"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>Também procuro</span>
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenSaleWithTerm(item.term, item.category_id)}
+                  className="hidden shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 sm:inline-flex"
+                  title="Tenho isso para vender"
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  Tenho para vender
+                </button>
 
-                  <button
-                    onClick={() => onOpenSaleWithTerm(item.term, item.category_id)}
-                    className="px-3 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950 rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
-                    title="Publicar que você tem este item para vender"
-                  >
-                    <Tag className="w-3.5 h-3.5" />
-                    <span>Eu tenho pra vender!</span>
-                  </button>
-                </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => onToggleInterest(item)}
+                  disabled={isOwn}
+                  aria-pressed={active}
+                  aria-label={`${bellLabel}. ${item.total_seekers} ${item.total_seekers === 1 ? 'pessoa procura' : 'pessoas procuram'} ${item.term}`}
+                  title={bellLabel}
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-bold transition active:scale-95 ${
+                    active
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'cursor-pointer border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  } ${isOwn ? 'cursor-default' : 'cursor-pointer'}`}
+                >
+                  {active ? <BellRing className="h-4 w-4 fill-current" /> : <Bell className="h-4 w-4" />}
+                  <span className="tabular-nums">{item.total_seekers}</span>
+                </button>
+              </li>
             );
           })}
-        </div>
+        </ol>
       )}
-    </div>
+    </section>
   );
 };

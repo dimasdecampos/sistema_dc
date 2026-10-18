@@ -7,8 +7,10 @@ import {
   Conversation,
   Message,
   UserProfile,
+  WantedInterest,
 } from '../types/marketplace';
 import { calculateMatchScore, getMatchesForUser } from './matchingService';
+import { getInterestMatches } from './interestService';
 import { deleteMultipleImagesFromSupabase } from './storageService';
 
 const MATCH_MIN_SCORE = 35;
@@ -433,8 +435,17 @@ export const fetchConversationMessages = getConversationMessages;
  */
 export async function getUserMatches(
   userOrId: { id?: string; email?: string } | string,
-  listings?: Listing[]
+  listings?: Listing[],
+  interests: WantedInterest[] = []
 ): Promise<Match[]> {
   const all = listings ?? (await fetchListings()).listings;
-  return getMatchesForUser(userOrId, all, MATCH_MIN_SCORE);
+  const own = getMatchesForUser(userOrId, all, MATCH_MIN_SCORE);
+
+  // Sininhos: anúncios novos que combinam com itens seguidos (sem repetir o que já veio das próprias procuras)
+  const alreadyMatched = new Set(own.map((m) => m.sale_listing_id));
+  const fromInterests = getInterestMatches(interests, all, MATCH_MIN_SCORE).filter(
+    (m) => !alreadyMatched.has(m.sale_listing_id)
+  );
+
+  return [...own, ...fromInterests].sort((a, b) => b.score - a.score);
 }

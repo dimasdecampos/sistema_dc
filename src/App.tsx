@@ -17,7 +17,15 @@ import {
   CreateWantedInput,
   CreateSaleInput,
   SiteConfig,
+  WantedInterest,
+  WantedRankItem,
 } from './types/marketplace';
+import {
+  fetchInterestCounts,
+  fetchMyInterests,
+  addInterest,
+  removeInterest,
+} from './services/interestService';
 import {
   fetchListings,
   fetchConversations,
@@ -93,8 +101,11 @@ export default function App() {
   const [homeCategory, setHomeCategory] = useState<string>('all');
   const [homeSort, setHomeSort] = useState<'recent' | 'price-asc' | 'price-desc'>('recent');
 
-  // Ranking Category Filter
-  const [rankingCategory, setRankingCategory] = useState<string>('all');
+  // Sininhos do ranking "mais procurados"
+  const [interestCounts, setInterestCounts] = useState<Record<string, number>>({});
+  const [myInterests, setMyInterests] = useState<WantedInterest[]>([]);
+  const myInterestKeys = React.useMemo(() => new Set(myInterests.map((i) => i.term_key)), [myInterests]);
+  const lastMatchCountRef = useRef<number | null>(null);
 
   // Navigation tab
   const [currentTab, setCurrentTab] = useState<
@@ -263,6 +274,8 @@ export default function App() {
     setGoogleUser(null);
     setCurrentUser((prev) => (prev.id ? createGuestUser() : prev));
     setUserMatches([]);
+    setMyInterests([]);
+    lastMatchCountRef.current = null;
     setConversations([]);
   }, []);
 
@@ -317,14 +330,35 @@ export default function App() {
     try {
       const res = await fetchListings();
       setListings(res.listings);
-      setUserMatches(await getUserMatches(targetUser, res.listings));
+
+      // Sininhos: contadores públicos e os do usuário (falha aqui não deve derrubar o resto)
+      const [counts, mine] = await Promise.all([
+        fetchInterestCounts().catch(() => ({} as Record<string, number>)),
+        fetchMyInterests(targetUser.id).catch(() => [] as WantedInterest[]),
+      ]);
+      setInterestCounts(counts);
+      setMyInterests(mine);
+
+      const matches = await getUserMatches(targetUser, res.listings, mine);
+      setUserMatches(matches);
+
+      // Nas atualizações automáticas, avisa quando surgir algo novo que combina com o usuário
+      if (silent && lastMatchCountRef.current !== null && matches.length > lastMatchCountRef.current) {
+        showToast(
+          'Apareceu algo que você procura! 🔔',
+          'Veja em "Meu Painel" as ofertas compatíveis.',
+          'info'
+        );
+      }
+      lastMatchCountRef.current = matches.length;
+
       setConversations(await fetchConversations(targetUser.id));
     } catch (e) {
       console.warn('Erro ao carregar dados do Supabase:', e);
     } finally {
       if (!silent) setIsLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   // Recarrega quando o usuário logar ou deslogar
   useEffect(() => {
@@ -575,14 +609,35 @@ export default function App() {
     }
   };
 
-  // Ranking Ações Rápidas
-  const handleOpenWantedWithTerm = (term: string, categoryId: string) => {
-    setInitialWantedQuery(term);
-    setIsWantedModalOpen(true);
-  };
+  // Sininho do ranking: "também procuro, me avise quando anunciarem"
+  const handleToggleInterest = async (item: WantedRankItem) => {
+    if (!googleUser || !currentUser.id) {
+      setIsGoogleModalOpen(true);
+      showToast(
+        'Login com Google necessário',
+        'Entre com sua conta para ser avisado quando anunciarem este item.',
+        'info'
+      );
+      return;
+    }
 
-  const handleOpenSaleWithTerm = (term: string, categoryId: string) => {
-    setIsSaleModalOpen(true);
+    const existing = myInterests.find((i) => i.term_key === item.id);
+    try {
+      if (existing) {
+        await removeInterest(existing.id);
+        showToast('Aviso desativado', `Você não será mais avisado sobre "${item.term}".`, 'info');
+      } else {
+        await addInterest(currentUser.id, item);
+        showToast(
+          'Aviso ativado 🔔',
+          `Vamos te avisar aqui no site quando alguém anunciar "${item.term}".`,
+          'success'
+        );
+      }
+    } catch (e) {
+      showToast('Não foi possível atualizar o aviso', String(e), 'error');
+    }
+    loadData(undefined, true);
   };
 
   // Marcar como concluído
@@ -621,7 +676,7 @@ export default function App() {
   const recentWanted = listings.filter((l) => l.type === 'WANTED').slice(0, 3);
 
   // Ranking calculado para a categoria selecionada
-  const rankingItems = computeWantedRanking(listings, rankingCategory);
+  const rankingItems = computeWantedRanking(listings, 'all', interestCounts);
 
   // Anúncios filtrados para a Home com base na busca em tempo real, abas e categorias
   const homeFilteredListings = listings
@@ -666,6 +721,9 @@ export default function App() {
         googleUser={googleUser}
         config={siteConfig}
         isAdmin={isAdmin}
+        categories={categories}
+        selectedCategory={homeCategory}
+        onSelectCategory={setHomeCategory}
         onOpenGoogleLogin={handleOpenGoogleLogin}
         onLogoutGoogle={handleLogoutGoogle}
         onUpdateCity={handleUpdateCity}
@@ -681,166 +739,139 @@ export default function App() {
       <main className="flex-1">
         {/* TAB 1: INÍCIO */}
         {currentTab === 'home' && (
-          <div className="space-y-6 sm:space-y-8">
-            {/* Campo de Busca Principal da Cidade */}
+          <div>
             <HomeHero
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               cityName={siteConfig.cityName}
               onOpenSaleModal={handleRequestOpenSale}
               onOpenWantedModal={handleRequestOpenWanted}
-              categories={categories}
-              selectedCategory={homeCategory}
-              onSelectCategory={setHomeCategory}
             />
 
-            {/* Conteúdo Principal dos Anúncios */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-              {/* Banner de Matches se houver ofertas compatíveis para o usuário */}
+            <div className="mx-auto max-w-7xl space-y-6 px-4 pb-16 pt-5 sm:px-6 sm:pt-6 lg:px-8">
+              {/* Aviso discreto de matches para o usuário */}
               {userMatches.length > 0 && (
-                <div
+                <button
+                  type="button"
                   onClick={() => handleSelectTab('dashboard')}
-                  className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 rounded-2xl p-4 text-white shadow-md shadow-emerald-600/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:scale-[1.005] transition-all"
+                  className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left transition hover:bg-emerald-100/70"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shrink-0">
-                      <Sparkles className="w-5 h-5 fill-amber-300 text-amber-300" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-sm sm:text-base">
-                        Encontramos {userMatches.length} oferta(s) compatível(is) com suas procuras!
-                      </h3>
-                      <p className="text-xs text-emerald-100">
-                        Clique para ver e conversar diretamente com o anunciante.
-                      </p>
-                    </div>
-                  </div>
-
-                  <button className="px-4 py-2 bg-white text-emerald-800 font-extrabold text-xs rounded-xl shadow-xs hover:bg-emerald-50 transition shrink-0 flex items-center justify-center gap-1">
-                    <span>Ver no Painel</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                  <span className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                      <Sparkles className="h-4 w-4" />
+                    </span>
+                    <span className="text-sm font-semibold text-emerald-900">
+                      {userMatches.length} oferta(s) compatível(is) com o que você procura
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-emerald-700">
+                    Ver
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
+                </button>
               )}
 
-              {/* Controles de Filtro Simples e Intuitivos */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs">
-                {/* Seletor de Tipo: Todos, À Venda, Quem Procura */}
-                <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl sm:rounded-2xl border border-slate-200/70 overflow-x-auto scrollbar-none">
-                  <button
-                    onClick={() => setFeedTypeFilter('ALL')}
-                    className={`px-3 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                      feedTypeFilter === 'ALL'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Todos ({listings.filter((l) => l.status === 'ACTIVE').length})
-                  </button>
-
-                  <button
-                    onClick={() => setFeedTypeFilter('SALE')}
-                    className={`px-3 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                      feedTypeFilter === 'SALE'
-                        ? 'bg-amber-500 text-slate-950 shadow-xs'
-                        : 'text-amber-800 hover:bg-amber-50'
-                    }`}
-                  >
-                    <Tag className="w-3.5 h-3.5" />
-                    <span>À Venda ({listings.filter((l) => l.status === 'ACTIVE' && l.type === 'SALE').length})</span>
-                  </button>
-
-                  <button
-                    onClick={() => setFeedTypeFilter('WANTED')}
-                    className={`px-3 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                      feedTypeFilter === 'WANTED'
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'text-emerald-700 hover:bg-emerald-50'
-                    }`}
-                  >
-                    <Search className="w-3.5 h-3.5" />
-                    <span>Quem Procura ({listings.filter((l) => l.status === 'ACTIVE' && l.type === 'WANTED').length})</span>
-                  </button>
+              {/* Barra de filtros */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex w-fit items-center gap-1 rounded-xl bg-slate-100 p-1">
+                  {(
+                    [
+                      { id: 'ALL', label: 'Tudo' },
+                      { id: 'SALE', label: 'À venda' },
+                      { id: 'WANTED', label: 'Procurando' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setFeedTypeFilter(opt.id)}
+                      className={`cursor-pointer whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition ${
+                        feedTypeFilter === opt.id
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Ordenação e Contagem */}
-                <div className="flex items-center justify-between md:justify-end gap-3">
-                  <span className="text-xs text-slate-500 font-medium">
+                <div className="flex flex-wrap items-center gap-3">
+                  {homeCategory !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => setHomeCategory('all')}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-emerald-50 py-1.5 pl-3 pr-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                      title="Remover filtro de categoria"
+                    >
+                      {categories.find((c) => c.id === homeCategory)?.icon}{' '}
+                      {categories.find((c) => c.id === homeCategory)?.name || 'Categoria'}
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-200/70 text-xs leading-none">
+                        ✕
+                      </span>
+                    </button>
+                  )}
+
+                  <span className="text-sm text-slate-400">
                     {homeFilteredListings.length}{' '}
                     {homeFilteredListings.length === 1 ? 'anúncio' : 'anúncios'}
                   </span>
 
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
-                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                  <label className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600">
+                    <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
                     <select
                       value={homeSort}
-                      onChange={(e) => setHomeSort(e.target.value as any)}
-                      className="bg-transparent font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+                      onChange={(e) => setHomeSort(e.target.value as 'recent' | 'price-asc' | 'price-desc')}
+                      aria-label="Ordenar anúncios"
+                      className="cursor-pointer bg-transparent font-semibold text-slate-700 focus:outline-hidden"
                     >
                       <option value="recent">Mais recentes</option>
                       <option value="price-asc">Menor preço</option>
                       <option value="price-desc">Maior preço</option>
                     </select>
-                  </div>
+                  </label>
                 </div>
               </div>
 
-              {/* Categorias em Pílulas */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs scrollbar-none">
-                <button
-                  onClick={() => setHomeCategory('all')}
-                  className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
-                    homeCategory === 'all'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                  }`}
-                >
-                  Todas as categorias
-                </button>
-
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setHomeCategory(cat.id)}
-                    className={`px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                      homeCategory === cat.id
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                    }`}
-                  >
-                    <span>{cat.icon}</span>
-                    <span>{cat.name}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Grade dos Anúncios */}
-              {homeFilteredListings.length === 0 ? (
-                <div className="text-center py-14 px-4 bg-white rounded-3xl border border-slate-200 space-y-3">
-                  <Search className="w-10 h-10 text-slate-300 mx-auto" />
-                  <h3 className="text-base font-bold text-slate-800">
-                    Nenhum anúncio encontrado para esta busca ou categoria
-                  </h3>
-                  <p className="text-xs text-slate-500 max-w-md mx-auto">
-                    Não encontrou o que procura? Você pode cadastrar uma procura para que moradores te avisem, ou desapegar de algo!
+              {/* Grade dos anúncios */}
+              {isLoading && listings.length === 0 ? (
+                <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="animate-pulse overflow-hidden rounded-2xl border border-slate-200/80 bg-white">
+                      <div className="aspect-[4/3] bg-slate-100" />
+                      <div className="space-y-2 p-4">
+                        <div className="h-5 w-1/2 rounded bg-slate-100" />
+                        <div className="h-4 w-3/4 rounded bg-slate-100" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : homeFilteredListings.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-4 py-16 text-center">
+                  <Search className="mx-auto h-9 w-9 text-slate-300" />
+                  <h3 className="mt-3 text-base font-bold text-slate-800">Nenhum anúncio por aqui ainda</h3>
+                  <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                    Tente outra busca ou categoria. Você também pode anunciar algo, ou avisar o que está procurando.
                   </p>
-                  <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
                     <button
-                      onClick={() => handleRequestOpenWanted(searchQuery)}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                      type="button"
+                      onClick={handleRequestOpenSale}
+                      className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
-                      Eu quero comprar
+                      Anunciar
                     </button>
                     <button
-                      onClick={handleRequestOpenSale}
-                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold rounded-xl transition cursor-pointer"
+                      type="button"
+                      onClick={() => handleRequestOpenWanted(searchQuery)}
+                      className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
-                      Eu quero vender
+                      Estou procurando algo
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+                <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
                   {homeFilteredListings.map((item) => (
                     <ListingCard
                       key={item.id}
@@ -853,15 +884,14 @@ export default function App() {
                 </div>
               )}
 
-              {/* Ranking das Coisas Mais Procuradas */}
-              <div className="pt-6">
+              {/* Ranking das coisas mais procuradas */}
+              <div className="pt-10">
                 <MostWantedRanking
                   ranking={rankingItems}
-                  categories={categories}
-                  selectedCategory={rankingCategory}
-                  onSelectCategory={setRankingCategory}
-                  onOpenWantedWithTerm={handleOpenWantedWithTerm}
-                  onOpenSaleWithTerm={handleOpenSaleWithTerm}
+                  currentUserId={currentUser.id}
+                  myInterestKeys={myInterestKeys}
+                  onToggleInterest={handleToggleInterest}
+                  onOpenSaleWithTerm={() => handleRequestOpenSale()}
                 />
               </div>
             </div>

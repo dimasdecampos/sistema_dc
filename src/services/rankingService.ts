@@ -16,9 +16,14 @@ function extractCoreTerm(title: string): string {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
+/**
+ * Ranking do que mais procuram. O contador de cada item soma as procuras publicadas
+ * com os sininhos ("também procuro"), vindos de `interestCounts` (term_key -> total).
+ */
 export function computeWantedRanking(
   listings: Listing[],
-  categoryId?: string
+  categoryId?: string,
+  interestCounts: Record<string, number> = {}
 ): WantedRankItem[] {
   const categories = getStoredCategories();
   const categoryMap = new Map<string, Category>(categories.map((c) => [c.id, c]));
@@ -42,6 +47,7 @@ export function computeWantedRanking(
       budgets: number[];
       sample_titles: string[];
       seekersCount: number;
+      userIds: string[];
     }
   >();
 
@@ -60,11 +66,15 @@ export function computeWantedRanking(
         budgets: [],
         sample_titles: [],
         seekersCount: 0,
+        userIds: [],
       });
     }
 
     const entry = groups.get(key)!;
     entry.seekersCount += 1;
+    if (!entry.userIds.includes(listing.user_id)) {
+      entry.userIds.push(listing.user_id);
+    }
     if (listing.price && listing.price > 0) {
       entry.budgets.push(listing.price);
     }
@@ -101,11 +111,12 @@ export function computeWantedRanking(
 
     rankedItems.push({
       id: key,
+      seeker_user_ids: group.userIds,
       term: group.term,
       category_id: group.category_id,
       category_name: cat.name,
       category_icon: cat.icon,
-      total_seekers: group.seekersCount,
+      total_seekers: group.seekersCount + (interestCounts[key] || 0),
       avg_budget: avgBudget,
       available_offers: offersCount,
       sample_titles: group.sample_titles,

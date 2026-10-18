@@ -115,8 +115,21 @@ export interface SiteConfig {
   adminEmails?: string[];
 }
 
-export interface WantedRankItem {
+/** Sininho "também procuro": a pessoa quer ser avisada quando anunciarem este item */
+export interface WantedInterest {
   id: string;
+  user_id: string;
+  term_key: string;
+  term: string;
+  category_id: string | null;
+  created_at: string;
+}
+
+export interface WantedRankItem {
+  /** Mesmo valor de wanted_interests.term_key: "<category_id>__<termo em minúsculas>" */
+  id: string;
+  /** Quem já tem uma procura ativa publicada para este item */
+  seeker_user_ids: string[];
   term: string;
   category_id: string;
   category_name: string;

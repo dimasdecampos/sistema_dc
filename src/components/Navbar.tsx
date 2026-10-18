@@ -11,11 +11,11 @@ import {
   ArrowRightLeft,
   Loader2,
   ShieldCheck,
-  BellRing,
 } from 'lucide-react';
-import { UserProfile, SiteConfig } from '../types/marketplace';
+import { UserProfile, SiteConfig, Category } from '../types/marketplace';
 import { Usuario } from '../types/auth';
 import { UserProfileMenu } from './UserProfileMenu';
+import { CategoryMenu } from './CategoryMenu';
 import { isUserAdmin } from '../services/siteConfigService';
 
 interface NavbarProps {
@@ -34,6 +34,9 @@ interface NavbarProps {
   onOpenWantedModal: () => void;
   onOpenSaleModal: () => void;
   isAdmin?: boolean;
+  categories: Category[];
+  selectedCategory: string;
+  onSelectCategory: (categoryId: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -43,6 +46,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   googleUser,
   config,
   isAdmin = false,
+  categories,
+  selectedCategory,
+  onSelectCategory,
   onOpenGoogleLogin,
   onLogoutGoogle,
   onUpdateCity,
@@ -55,22 +61,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   return (
     <>
-      {/* Aviso do Topo (Configurável no Admin) */}
-      {config?.noticeBannerEnabled && config.noticeBannerText && (
-        <div
-          className={`py-1.5 px-4 text-center text-xs font-semibold flex items-center justify-center gap-2 ${
-            config.noticeBannerType === 'warning'
-              ? 'bg-amber-500 text-slate-950'
-              : config.noticeBannerType === 'info'
-              ? 'bg-blue-600 text-white'
-              : 'bg-emerald-700 text-white'
-          }`}
-        >
-          <BellRing className="w-3.5 h-3.5 shrink-0" />
-          <span>{config.noticeBannerText}</span>
-        </div>
-      )}
-
       {/* Top Navbar Desktop & Mobile */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
@@ -88,9 +78,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="font-extrabold text-base sm:text-xl text-slate-900 tracking-tight leading-none truncate">
                     {config?.siteName || 'TemAqui'}
                   </span>
-                  <span className="hidden xs:inline-block px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wider shrink-0">
-                    Cidade
-                  </span>
                 </div>
                 <p className="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1 font-medium mt-0.5 truncate max-w-[90px] xs:max-w-[120px] sm:max-w-none">
                   <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 shrink-0" />
@@ -98,6 +85,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </p>
               </div>
             </div>
+
+            {/* Menu de categorias */}
+            <CategoryMenu
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onSelectCategory={(id) => {
+                onSelectCategory(id);
+                onSelectTab('home');
+              }}
+            />
 
             {/* Desktop Navigation Links - Limpo e Organizado */}
             <nav className="hidden md:flex items-center gap-1.5">
@@ -148,8 +145,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </nav>
 
-            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-              {/* Botão Anunciar Venda estilo OLX */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
+              {/* Botão Anunciar Venda */}
               <button
                 type="button"
                 onClick={onOpenSaleModal}
