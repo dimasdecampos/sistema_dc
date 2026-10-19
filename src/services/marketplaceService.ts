@@ -22,7 +22,7 @@ const CONVERSATION_SELECT = `
   listing:listings(*, category:categories(*), user:profiles(*), listing_images(image_url)),
   buyer:profiles!conversations_buyer_id_fkey(*),
   seller:profiles!conversations_seller_id_fkey(*),
-  messages(text, created_at)
+  messages(text, created_at, sender_id, read)
 `;
 
 function requireSupabase() {
@@ -41,15 +41,22 @@ function mapListing(row: Record<string, any>): Listing {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapConversation(row: Record<string, any>): Conversation {
+function mapConversation(row: Record<string, any>, myId?: string): Conversation {
   const { messages, listing, ...rest } = row;
-  const sorted = ((messages || []) as { text: string; created_at: string }[])
+  const sorted = ((messages || []) as {
+    text: string;
+    created_at: string;
+    sender_id: string;
+    read: boolean | null;
+  }[])
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
   return {
     ...rest,
     listing: listing ? mapListing(listing) : undefined,
     last_message: sorted.length > 0 ? sorted[sorted.length - 1].text : undefined,
+    // Não lidas = mensagens da outra pessoa que ainda não foram abertas
+    unread_count: myId ? sorted.filter((m) => m.sender_id !== myId && !m.read).length : 0,
   } as Conversation;
 }
 
@@ -320,7 +327,7 @@ export async function fetchConversations(userId?: string): Promise<Conversation[
   if (error) {
     throw new Error(error.message);
   }
-  return (data || []).map(mapConversation);
+  return (data || []).map((c) => mapConversation(c, userId));
 }
 
 /**
@@ -352,7 +359,7 @@ export async function startOrGetConversation(
     throw new Error(findError.message);
   }
   if (existing) {
-    return { conversation: mapConversation(existing), isNew: false };
+    return { conversation: mapConversation(existing, buyer.id), isNew: false };
   }
 
   const { data: created, error: createError } = await supabase
@@ -383,7 +390,7 @@ export async function startOrGetConversation(
   if (fullError || !full) {
     throw new Error(fullError?.message || 'Conversa criada, mas não foi possível carregá-la.');
   }
-  return { conversation: mapConversation(full), isNew: true };
+  return { conversation: mapConversation(full, buyer.id), isNew: true };
 }
 
 /**
@@ -433,6 +440,26 @@ export async function getConversationMessages(conversationId: string): Promise<M
 }
 
 export const fetchConversationMessages = getConversationMessages;
+
+/**
+ * Marca como lidas as mensagens da outra pessoa na conversa (quando o chat está aberto na tela).
+ * Retorna quantas mensagens foram marcadas.
+ */
+export async function markConversationRead(conversationId: string, myId: string): Promise<number> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from('messages')
+    .update({ read: true })
+    .eq('conversation_id', conversationId)
+    .neq('sender_id', myId)
+    .eq('read', false)
+    .select('id');
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data?.length ?? 0;
+}
 
 /**
  * Matches das procuras do usuário. Se `listings` já foi carregado, evita nova consulta.

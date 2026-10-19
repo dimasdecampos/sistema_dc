@@ -130,6 +130,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </button>
 
+              <button
+                onClick={() => onSelectTab('conversations')}
+                aria-label="Conversas"
+                title="Conversas"
+                className={`px-3 xl:px-3.5 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-2 relative ${
+                  currentTab === 'conversations'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span className="hidden xl:inline">Conversas</span>
+                {unreadCount > 0 && (
+                  <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
               {/* Botão Admin Direct Access - Visível para administradores autorizados */}
               {(isAdmin || currentTab === 'admin') && (
                 <button
@@ -252,7 +271,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <MessageSquare className="w-5 h-5" />
             <span className="text-[10px] mt-0.5">Conversas</span>
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-emerald-600" />
+              <span className="absolute -top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
             )}
           </button>
 

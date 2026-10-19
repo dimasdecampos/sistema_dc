@@ -21,6 +21,13 @@ import {
   WantedRankItem,
 } from './types/marketplace';
 import { proposeTrade } from './services/tradeService';
+import { getSupabase } from './lib/supabase';
+import {
+  disablePush,
+  registerServiceWorker,
+  showLocalNotification,
+  syncPushSubscription,
+} from './services/notificationService';
 import {
   fetchInterestCounts,
   fetchMyInterests,
@@ -110,6 +117,8 @@ export default function App() {
   const [myInterests, setMyInterests] = useState<WantedInterest[]>([]);
   const myInterestKeys = React.useMemo(() => new Set(myInterests.map((i) => i.term_key)), [myInterests]);
   const lastMatchCountRef = useRef<number | null>(null);
+  // Total de mensagens não lidas na última carga (para avisar só quando sobe)
+  const lastUnreadRef = useRef<number | null>(null);
 
   // Navigation tab
   const [currentTab, setCurrentTab] = useState<
@@ -230,6 +239,9 @@ export default function App() {
     setIsSaleModalOpen(true);
   }, [googleUser, showToast]);
 
+  const currentTabRef = useRef(currentTab);
+  currentTabRef.current = currentTab;
+
   const currentUserRef = useRef<UserProfile>(currentUser);
   currentUserRef.current = currentUser;
 
@@ -299,6 +311,7 @@ export default function App() {
     setUserMatches([]);
     setMyInterests([]);
     lastMatchCountRef.current = null;
+    lastUnreadRef.current = null;
     setConversations([]);
   }, []);
 
@@ -315,6 +328,7 @@ export default function App() {
 
   // Logout Supabase
   const handleLogoutGoogle = async () => {
+    await disablePush();
     await logoutSupabase();
     resetToGuest();
     showToast('Sessão encerrada', 'Você saiu da sua conta.', 'info');
@@ -375,7 +389,29 @@ export default function App() {
       }
       lastMatchCountRef.current = matches.length;
 
-      setConversations(await fetchConversations(targetUser.id));
+      const convs = await fetchConversations(targetUser.id);
+      setConversations(convs);
+
+      // Mensagem nova: avisa quando o total de não lidas sobe (na tela, ou pelo sistema com a aba escondida)
+      const unread = convs.reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
+      if (silent && lastUnreadRef.current !== null && unread > lastUnreadRef.current) {
+        const latest = convs
+          .filter((c) => (c.unread_count ?? 0) > 0)
+          .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
+        const viewingChats = currentTabRef.current === 'conversations' && !document.hidden;
+
+        if (latest && !viewingChats) {
+          const partner = latest.buyer_id === targetUser.id ? latest.seller : latest.buyer;
+          const title = partner?.nome ? `Mensagem de ${partner.nome}` : 'Nova mensagem';
+          const body = latest.last_message || 'Você recebeu uma mensagem nova.';
+          if (document.hidden) {
+            void showLocalNotification({ title, body, conversationId: latest.id });
+          } else {
+            showToast(title, body, 'info');
+          }
+        }
+      }
+      lastUnreadRef.current = unread;
     } catch (e) {
       console.warn('Erro ao carregar dados do Supabase:', e);
     } finally {
@@ -387,6 +423,67 @@ export default function App() {
   useEffect(() => {
     loadData(currentUser);
   }, [currentUser.id, loadData]);
+
+  // Total de mensagens não lidas (selo do menu e contador no título da aba)
+  const totalUnread = React.useMemo(
+    () => conversations.reduce((sum, c) => sum + (c.unread_count ?? 0), 0),
+    [conversations]
+  );
+
+  useEffect(() => {
+    const baseTitle = 'TemAqui - Marketplace de Procura e Oferta';
+    document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
+  }, [totalUnread]);
+
+  // Mensagens novas em tempo real (depende do Realtime ligado para a tabela messages;
+  // sem ele, a atualização periódica abaixo cobre em até 15 segundos)
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase || !currentUser.id) return;
+
+    const channel = supabase
+      .channel(`messages-${currentUser.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+        loadData(undefined, true);
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [currentUser.id, loadData]);
+
+  // Service worker (avisos com o site fechado) e inscrição de push deste aparelho
+  useEffect(() => {
+    void registerServiceWorker();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser.id) void syncPushSubscription();
+  }, [currentUser.id]);
+
+  // Tocar numa notificação abre a conversa (site já aberto: mensagem do service worker;
+  // site fechado: link /?chat=ID)
+  const openChat = useCallback((conversationId?: string | null) => {
+    if (conversationId) setActiveConvId(conversationId);
+    setCurrentTab('conversations');
+  }, []);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'open-chat') openChat(event.data.conversationId);
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [openChat]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('chat')) return;
+    openChat(params.get('chat'));
+    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+  }, [openChat]);
 
   // Inicialização (apenas uma vez no carregamento)
   useEffect(() => {
@@ -781,7 +878,7 @@ export default function App() {
         onUpdatePhoto={handleUpdatePhoto}
         isLoggingIn={isLoggingIn}
         matchesCount={userMatches.length}
-        unreadCount={conversations.length}
+        unreadCount={totalUnread}
         onOpenSaleModal={handleRequestOpenSale}
       />
 
@@ -1035,6 +1132,7 @@ export default function App() {
               onSelectConversation={setActiveConvId}
               onRefreshConversations={loadData}
               onTradeAccepted={() => loadData(undefined, true)}
+              onMessagesRead={() => loadData(undefined, true)}
               onViewListing={handleViewListing}
               onOpenGoogleLogin={() => setIsGoogleModalOpen(true)}
             />

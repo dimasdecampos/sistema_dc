@@ -13,9 +13,11 @@ import { Conversation, Message, UserProfile, Listing } from '../types/marketplac
 import {
   fetchConversationMessages,
   sendMessage,
+  markConversationRead,
 } from '../services/marketplaceService';
 import { acceptTrade, fetchTradeProposals } from '../services/tradeService';
 import { TradeProposalCard } from './TradeProposalCard';
+import { NotificationPrompt } from './NotificationPrompt';
 import type { TradeProposal } from '../types/marketplace';
 
 interface ConversationsViewProps {
@@ -26,6 +28,8 @@ interface ConversationsViewProps {
   onRefreshConversations: () => void;
   /** Chamado depois de aceitar uma troca, para recarregar os anúncios (agora concluídos) */
   onTradeAccepted?: () => void;
+  /** Chamado depois de marcar mensagens como lidas, para atualizar os selos de não lidas */
+  onMessagesRead?: () => void;
   onViewListing?: (listing: Listing) => void;
   onOpenGoogleLogin?: () => void;
 }
@@ -37,6 +41,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
   onSelectConversation,
   onRefreshConversations,
   onTradeAccepted,
+  onMessagesRead,
   onViewListing,
   onOpenGoogleLogin,
 }) => {
@@ -45,9 +50,17 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showMobileList, setShowMobileList] = useState(!activeConversationId);
+  const [isTabVisible, setIsTabVisible] = useState(() => !document.hidden);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Só marca mensagens como lidas com a aba à vista
+  useEffect(() => {
+    const onVisibility = () => setIsTabVisible(!document.hidden);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   // Usuário não autenticado
   if (!currentUser.id || !currentUser.email) {
@@ -121,6 +134,22 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
       return () => clearInterval(msgInterval);
     }
   }, [selectedConv?.id]);
+
+  // Marca como lidas as mensagens da outra pessoa, mas só quando o chat está de fato na tela:
+  // aba à vista e, no celular, a conversa aberta (não a lista).
+  useEffect(() => {
+    if (!selectedConv || !currentUser.id) return;
+    const chatOnScreen =
+      isTabVisible && (!showMobileList || window.matchMedia('(min-width: 768px)').matches);
+    if (!chatOnScreen) return;
+    if (!messages.some((m) => m.sender_id !== currentUser.id && !m.read)) return;
+
+    markConversationRead(selectedConv.id, currentUser.id)
+      .then((count) => {
+        if (count > 0) onMessagesRead?.();
+      })
+      .catch(() => {});
+  }, [messages, showMobileList, isTabVisible, selectedConv?.id, currentUser.id]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -219,6 +248,8 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
           </span>
         </div>
 
+        <NotificationPrompt />
+
         <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
           {conversations.map((conv) => {
             const partner =
@@ -268,8 +299,17 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                     <span>{conv.listing?.title || 'Anúncio'}</span>
                   </p>
 
-                  <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                    {conv.last_message || 'Iniciou a conversa'}
+                  <p
+                    className={`mt-0.5 flex items-center gap-2 text-[11px] ${
+                      (conv.unread_count ?? 0) > 0 ? 'font-bold text-slate-900' : 'text-slate-500'
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{conv.last_message || 'Iniciou a conversa'}</span>
+                    {(conv.unread_count ?? 0) > 0 && (
+                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-extrabold text-white">
+                        {conv.unread_count}
+                      </span>
+                    )}
                   </p>
                 </div>
               </button>
@@ -411,14 +451,14 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
           </div>
 
           {/* Quick Replies Chips */}
-          <div className="px-3 pt-2 pb-1 bg-white border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
-            <span className="text-[10px] text-slate-400 shrink-0 font-medium">Sugestões:</span>
+          <div className="px-3 pt-2 pb-1 bg-white border-t border-slate-100 flex flex-wrap items-center gap-1.5 max-h-24 overflow-y-auto shrink-0">
+            <span className="w-full text-[10px] text-slate-400 font-medium sm:w-auto">Sugestões:</span>
             {quickReplies.map((chip, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => handleQuickChip(chip)}
-                className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-xl whitespace-nowrap transition cursor-pointer border border-slate-200/80 shadow-2xs"
+                className="max-w-full px-3 py-1.5 text-left text-xs sm:text-[11px] leading-snug font-semibold bg-slate-100 hover:bg-emerald-50 active:bg-emerald-100 text-slate-700 hover:text-emerald-700 rounded-xl transition cursor-pointer border border-slate-200/80 shadow-2xs"
               >
                 {chip}
               </button>
