@@ -81,7 +81,7 @@ export const StorePage: React.FC<StorePageProps> = ({
     <button
       type="button"
       onClick={onBack}
-      className="mb-4 inline-flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+      className="mb-2 inline-flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
     >
       <ArrowLeft className="h-4 w-4" />
       Voltar
@@ -139,7 +139,7 @@ export const StorePage: React.FC<StorePageProps> = ({
 
       {/* Faixa da loja na cor escolhida pelo vendedor */}
       <section
-        className="relative overflow-hidden rounded-3xl p-5 shadow-sm sm:p-8"
+        className="relative overflow-hidden rounded-2xl p-4 shadow-sm sm:p-5"
         style={{
           background: `linear-gradient(135deg, ${color}, ${shadeColor(color, -30)})`,
           color: textOnColor,
@@ -150,12 +150,12 @@ export const StorePage: React.FC<StorePageProps> = ({
           style={{ background: withAlpha(textOnColor, 0.08) }}
         />
 
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <Avatar
               src={profile.avatar_url}
               name={name}
-              className="h-16 w-16 border-2 border-white/70 text-2xl sm:h-20 sm:w-20"
+              className="h-12 w-12 border-2 border-white/70 text-xl sm:h-14 sm:w-14"
             />
             <div className="min-w-0">
               <span
@@ -165,9 +165,9 @@ export const StorePage: React.FC<StorePageProps> = ({
                 <BadgeCheck className="h-3.5 w-3.5" />
                 Loja Premium
               </span>
-              <h1 className="mt-1.5 flex items-center gap-2 break-words text-2xl font-extrabold leading-tight sm:text-3xl">
+              <h1 className="mt-1 flex items-center gap-2 break-words text-xl font-extrabold leading-tight sm:text-2xl">
                 <span className="min-w-0 break-words">{name}</span>
-                <PremiumBadge className="h-6 w-6 sm:h-7 sm:w-7" />
+                <PremiumBadge className="h-5 w-5 sm:h-6 sm:w-6" />
               </h1>
               <p className="mt-0.5 flex items-center gap-1.5 text-sm" style={{ opacity: 0.85 }}>
                 <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -193,18 +193,16 @@ export const StorePage: React.FC<StorePageProps> = ({
         </div>
 
         {/* Números da loja */}
-        <dl className="relative mt-6 grid grid-cols-3 gap-2 sm:gap-3">
+        <dl className="relative mt-3 flex flex-wrap gap-2">
           {stats.map(({ icon: Icon, label, value }) => (
             <div
               key={label}
-              className="rounded-2xl px-3 py-3 sm:px-4"
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs"
               style={{ background: withAlpha(textOnColor, 0.14) }}
             >
-              <dt className="flex items-center gap-1.5 text-[11px] font-semibold leading-tight sm:text-xs" style={{ opacity: 0.85 }}>
-                <Icon className="hidden h-3.5 w-3.5 shrink-0 sm:block" />
-                {label}
-              </dt>
-              <dd className="mt-1 text-2xl font-black tabular-nums sm:text-3xl">{value}</dd>
+              <Icon className="h-3.5 w-3.5 shrink-0" style={{ opacity: 0.85 }} />
+              <dd className="text-sm font-black tabular-nums">{value}</dd>
+              <dt className="font-semibold" style={{ opacity: 0.85 }}>{label}</dt>
             </div>
           ))}
         </dl>
@@ -212,7 +210,7 @@ export const StorePage: React.FC<StorePageProps> = ({
 
       {/* Filtro de categorias */}
       {categoryChips.length > 0 && (
-        <div className="mt-6 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {[{ id: 'all', label: 'Todas', icon: '🛍️', count: activeProducts.length }, ...categoryChips.map(({ category, count }) => ({
             id: category.id,
             label: category.name,
