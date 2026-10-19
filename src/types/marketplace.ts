@@ -19,6 +19,10 @@ export interface UserProfile {
   created_at: string;
   updated_at?: string;
   adminConfig?: SiteConfig;
+  /** Recurso premium (concedido pelo admin): loja personalizada do vendedor */
+  is_premium?: boolean;
+  store_name?: string | null;
+  store_color?: string | null;
 }
 
 export interface ListingImage {

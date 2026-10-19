@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Loader2, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Loader2, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { AdminUser, deleteUserData, fetchAdminUsers } from '../services/adminService';
+import { fetchPremiumUserIds, setUserPremium } from '../services/storeService';
 
 interface AdminUsersProps {
   currentUserId?: string;
@@ -17,12 +18,15 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ currentUserId, onDataCha
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [premiumIds, setPremiumIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      setUsers(await fetchAdminUsers());
+      const [list, premium] = await Promise.all([fetchAdminUsers(), fetchPremiumUserIds()]);
+      setUsers(list);
+      setPremiumIds(premium);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -44,6 +48,33 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ currentUserId, onDataCha
         (u.cidade || '').toLowerCase().includes(q)
     );
   }, [users, search]);
+
+  const handleTogglePremium = async (user: AdminUser) => {
+    const grant = !premiumIds.has(user.id);
+    const ok = window.confirm(
+      grant
+        ? `Conceder PREMIUM a "${user.nome}"? Ele ganha uma loja própria (nome e cor personalizáveis).`
+        : `Remover o premium de "${user.nome}"? A loja dele deixa de aparecer.`
+    );
+    if (!ok) return;
+
+    setBusyId(user.id);
+    setError(null);
+    try {
+      await setUserPremium(user.id, grant);
+      setPremiumIds((prev) => {
+        const next = new Set(prev);
+        if (grant) next.add(user.id);
+        else next.delete(user.id);
+        return next;
+      });
+      onDataChanged?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const handleDelete = async (user: AdminUser) => {
     const ok = window.confirm(
@@ -110,6 +141,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ currentUserId, onDataCha
               <th className="px-4 py-3 text-right font-bold">Anúncios</th>
               <th className="px-4 py-3 font-bold">Cadastro</th>
               <th className="px-4 py-3 font-bold">Último acesso</th>
+              <th className="px-4 py-3 font-bold">Premium</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -150,6 +182,23 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ currentUserId, onDataCha
                   <td className="px-4 py-3 text-right font-bold tabular-nums text-slate-900">{u.listings_count}</td>
                   <td className="px-4 py-3 text-slate-500">{formatDate(u.created_at)}</td>
                   <td className="px-4 py-3 text-slate-500">{formatDate(u.last_sign_in_at)}</td>
+                  <td className="px-4 py-3">
+                    {/* Concede ou remove o premium (loja personalizada) */}
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePremium(u)}
+                      disabled={busyId === u.id}
+                      title={premiumIds.has(u.id) ? 'Remover premium' : 'Conceder premium'}
+                      className={`inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        premiumIds.has(u.id)
+                          ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                          : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      <BadgeCheck className="h-3.5 w-3.5" />
+                      {premiumIds.has(u.id) ? 'Premium' : 'Conceder'}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
@@ -171,7 +220,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ currentUserId, onDataCha
             })}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">
                   Nenhum usuário encontrado.
                 </td>
               </tr>

@@ -19,8 +19,8 @@ import { CategoryMenu } from './CategoryMenu';
 import { isUserAdmin } from '../services/siteConfigService';
 
 interface NavbarProps {
-  currentTab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin';
-  onSelectTab: (tab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin') => void;
+  currentTab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store';
+  onSelectTab: (tab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store') => void;
   user: UserProfile;
   googleUser: Usuario | null;
   config?: SiteConfig;

@@ -1,6 +1,8 @@
 import React from 'react';
 import { ArrowLeftRight, Search, Sparkles, Camera } from 'lucide-react';
 import { Listing } from '../types/marketplace';
+import { storeDisplayName } from '../services/storeService';
+import { resolveStoreColor } from '../utils/storeTheme';
 
 interface ListingCardProps {
   listing: Listing;
@@ -9,12 +11,15 @@ interface ListingCardProps {
   currentUserId?: string;
   currentUserEmail?: string;
   matchScore?: number;
+  /** Abre a loja do vendedor (só vendedores premium têm loja) */
+  onOpenStore?: (sellerId: string) => void;
 }
 
 export const ListingCard: React.FC<ListingCardProps> = ({
   listing,
   onClick,
   matchScore,
+  onOpenStore,
 }) => {
   const isWanted = listing.type === 'WANTED';
 
@@ -86,6 +91,27 @@ export const ListingCard: React.FC<ListingCardProps> = ({
         <h3 className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-slate-700 transition group-hover:text-emerald-700">
           {listing.title}
         </h3>
+
+        {/* Selo da loja: só vendedores premium; leva para a loja sem abrir o anúncio */}
+        {!isWanted && listing.user?.is_premium && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenStore?.(listing.user_id);
+            }}
+            disabled={!onOpenStore}
+            className="mt-1.5 inline-flex max-w-full items-center gap-1 self-start truncate rounded-full px-2 py-0.5 text-[11px] font-bold transition enabled:cursor-pointer enabled:hover:opacity-80"
+            style={{
+              color: resolveStoreColor(listing.user.store_color),
+              background: `${resolveStoreColor(listing.user.store_color)}1a`,
+            }}
+            title="Ver a loja"
+          >
+            <span aria-hidden="true">🏪</span>
+            <span className="truncate">{storeDisplayName(listing.user)}</span>
+          </button>
+        )}
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-3 text-xs text-slate-400">
           <span className="truncate">

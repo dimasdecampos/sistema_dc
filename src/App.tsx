@@ -64,6 +64,9 @@ import { ListingDetailModal } from './components/ListingDetailModal';
 import { EditListingModal } from './components/EditListingModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { StorePage } from './components/StorePage';
+import { StoreSettings } from './components/StoreSettings';
+import { fetchSellerProfile, SellerProfile } from './services/storeService';
 import { ListingCard } from './components/ListingCard';
 import { getBuyersInterestedInSale } from './services/matchingService';
 import {
@@ -121,9 +124,13 @@ export default function App() {
   // Total de mensagens não lidas na última carga (para avisar só quando sobe)
   const lastUnreadRef = useRef<number | null>(null);
 
+  // Loja do vendedor (recurso premium): qual vendedor está aberto e de onde a pessoa veio
+  const [storeSellerId, setStoreSellerId] = useState<string | null>(null);
+  const storeBackTabRef = useRef<'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store'>('home');
+
   // Navigation tab
   const [currentTab, setCurrentTab] = useState<
-    'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin'
+    'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store'
   >(() => (typeof window !== 'undefined' && window.location.hash === '#admin' ? 'admin' : 'home'));
 
   // Listen for hash changes for /#admin
@@ -138,7 +145,7 @@ export default function App() {
   }, []);
 
   const handleSelectTab = (
-    tab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin'
+    tab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store'
   ) => {
     setCurrentTab(tab);
     // Ao entrar em Conversas pelo menu, começa pela lista (sem reabrir a última conversa).
@@ -379,6 +386,23 @@ export default function App() {
     try {
       const res = await fetchListings();
       setListings(res.listings);
+
+      // Premium/loja do próprio usuário (o admin pode ter concedido o premium desde o último acesso)
+      if (targetUser.id) {
+        fetchSellerProfile(targetUser.id)
+          .then((p) => {
+            if (!p) return;
+            setCurrentUser((prev) =>
+              prev.id === p.id &&
+              (prev.is_premium !== p.is_premium ||
+                prev.store_name !== p.store_name ||
+                prev.store_color !== p.store_color)
+                ? { ...prev, is_premium: p.is_premium, store_name: p.store_name, store_color: p.store_color }
+                : prev
+            );
+          })
+          .catch(() => {});
+      }
 
       // Sininhos: contadores públicos e os do usuário (falha aqui não deve derrubar o resto)
       const [counts, mine] = await Promise.all([
@@ -663,6 +687,27 @@ export default function App() {
     } catch (e) {
       showToast('Erro ao abrir conversa', String(e), 'error');
     }
+  };
+
+  // Abre a loja de um vendedor premium; "Voltar" retorna à tela de onde a pessoa veio
+  const handleOpenStore = useCallback((sellerId: string) => {
+    if (currentTabRef.current !== 'store') storeBackTabRef.current = currentTabRef.current;
+    setStoreSellerId(sellerId);
+    setIsDetailModalOpen(false);
+    setCurrentTab('store');
+    window.scrollTo({ top: 0 });
+  }, []);
+
+  // Nome/cor da loja salvos no painel: atualiza o perfil na tela e recarrega os anúncios
+  const handleStoreSaved = (saved: SellerProfile) => {
+    setCurrentUser((prev) => ({
+      ...prev,
+      is_premium: saved.is_premium,
+      store_name: saved.store_name,
+      store_color: saved.store_color,
+    }));
+    showToast('Loja atualizada', 'As mudanças já aparecem na sua loja.', 'success');
+    loadData(undefined, true);
   };
 
   // Ver detalhes
@@ -1049,6 +1094,7 @@ export default function App() {
                       onClick={handleViewListing}
                       currentUserId={currentUser.id}
                       currentUserEmail={currentUser.email}
+                      onOpenStore={handleOpenStore}
                     />
                   ))}
                 </div>
@@ -1177,9 +1223,33 @@ export default function App() {
           </div>
         )}
 
+        {/* LOJA DO VENDEDOR (premium) */}
+        {currentTab === 'store' && storeSellerId && (
+          <ErrorBoundary resetKey={storeSellerId}>
+            <StorePage
+              sellerId={storeSellerId}
+              listings={listings}
+              categories={categories}
+              currentUserId={currentUser.id}
+              onBack={() =>
+                setCurrentTab(storeBackTabRef.current === 'store' ? 'home' : storeBackTabRef.current)
+              }
+              onViewListing={handleViewListing}
+              onEditStore={() => handleSelectTab('dashboard')}
+            />
+          </ErrorBoundary>
+        )}
+
         {/* TAB 5: MEU PAINEL (DASHBOARD) */}
         {currentTab === 'dashboard' && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <div className="mb-6">
+              <StoreSettings
+                user={currentUser}
+                onSaved={handleStoreSaved}
+                onOpenStore={() => handleOpenStore(currentUser.id)}
+              />
+            </div>
             <UserDashboard
               user={currentUser}
               googleUser={googleUser}
@@ -1313,6 +1383,7 @@ export default function App() {
         isAdmin={isAdmin}
         allListings={listings}
         onProposeTrade={handleProposeTrade}
+        onOpenStore={handleOpenStore}
       />
 
       <EditListingModal

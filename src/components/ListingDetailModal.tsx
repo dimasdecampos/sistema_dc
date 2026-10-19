@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Listing, Match, UserProfile } from '../types/marketplace';
 import { TradeSection } from './TradeSection';
+import { storeDisplayName } from '../services/storeService';
 
 interface ListingDetailModalProps {
   listing: Listing | null;
@@ -27,6 +28,8 @@ interface ListingDetailModalProps {
   /** Todos os anúncios carregados, para achar produtos que combinam para troca */
   allListings?: Listing[];
   onProposeTrade?: (offered: Listing, target: Listing) => Promise<void>;
+  /** Abre a loja do vendedor (só vendedores premium têm loja) */
+  onOpenStore?: (sellerId: string) => void;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -40,6 +43,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   isAdmin = false,
   allListings = [],
   onProposeTrade,
+  onOpenStore,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
 
@@ -208,9 +212,25 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 className="w-12 h-12 rounded-2xl object-cover border border-slate-200"
               />
               <div>
-                <h4 className="font-bold text-sm text-slate-900">
-                  {listing.user?.nome || 'Morador local'}
-                </h4>
+                {listing.user?.is_premium && onOpenStore ? (
+                  // Vendedor premium: o nome leva para a loja dele
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenStore(listing.user_id);
+                    }}
+                    className="flex cursor-pointer items-center gap-1.5 text-left text-sm font-bold text-slate-900 underline decoration-emerald-500 decoration-2 underline-offset-2 transition hover:text-emerald-700"
+                    title="Ver a loja deste vendedor"
+                  >
+                    <span aria-hidden="true">🏪</span>
+                    <span>{storeDisplayName(listing.user)}</span>
+                  </button>
+                ) : (
+                  <h4 className="font-bold text-sm text-slate-900">
+                    {listing.user?.nome || 'Morador local'}
+                  </h4>
+                )}
                 <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                   <MapPin className="w-3.5 h-3.5 text-emerald-600" />
                   <span>{listing.user?.cidade || 'São Luis do Paraitinga - SP'}</span>
