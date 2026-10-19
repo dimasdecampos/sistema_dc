@@ -1204,7 +1204,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <button
                               type="button"
                               onClick={() => {
-                                if (confirm(`Excluir publicação "${item.title}" definitivamente? Todas as fotos deste anúncio serão removidas do Supabase Storage.`)) {
+                                if (confirm(`Excluir publicação "${item.title}" definitivamente? As fotos (também do Storage) e as conversas deste anúncio serão apagadas. Não dá para desfazer.`)) {
                                   onDeleteListing(item.id);
                                 }
                               }}

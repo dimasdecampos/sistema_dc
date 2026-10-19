@@ -442,6 +442,26 @@ export async function getConversationMessages(conversationId: string): Promise<M
 export const fetchConversationMessages = getConversationMessages;
 
 /**
+ * Exclui a conversa para as duas pessoas (mensagens e propostas de troca saem em cascata).
+ * A regra do banco só deixa participantes da conversa excluírem.
+ */
+export async function deleteConversation(conversationId: string): Promise<void> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from('conversations')
+    .delete()
+    .eq('id', conversationId)
+    .select('id');
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data || data.length === 0) {
+    throw new Error('Não foi possível excluir: a conversa não existe mais ou você não participa dela.');
+  }
+}
+
+/**
  * Marca como lidas as mensagens da outra pessoa na conversa (quando o chat está aberto na tela).
  * Retorna quantas mensagens foram marcadas.
  */

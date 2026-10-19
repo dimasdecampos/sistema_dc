@@ -8,12 +8,14 @@ import {
   CheckCheck,
   ShieldCheck,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import { Conversation, Message, UserProfile, Listing } from '../types/marketplace';
 import {
   fetchConversationMessages,
   sendMessage,
   markConversationRead,
+  deleteConversation,
 } from '../services/marketplaceService';
 import { acceptTrade, fetchTradeProposals } from '../services/tradeService';
 import { TradeProposalCard } from './TradeProposalCard';
@@ -53,6 +55,8 @@ interface ConversationsViewProps {
   onTradeAccepted?: () => void;
   /** Chamado depois de marcar mensagens como lidas, para atualizar os selos de não lidas */
   onMessagesRead?: () => void;
+  /** Chamado depois de excluir uma conversa, para atualizar a lista */
+  onConversationDeleted?: (conversationId: string) => void;
   onViewListing?: (listing: Listing) => void;
   onOpenGoogleLogin?: () => void;
 }
@@ -65,6 +69,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
   onRefreshConversations,
   onTradeAccepted,
   onMessagesRead,
+  onConversationDeleted,
   onViewListing,
   onOpenGoogleLogin,
 }) => {
@@ -77,6 +82,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [messagesError, setMessagesError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -272,6 +278,31 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
     onTradeAccepted?.();
   };
 
+  // Excluir a conversa: apaga para as duas pessoas, por isso a confirmação deixa isso claro
+  const handleDeleteConversation = async () => {
+    if (!selectedConv) return;
+    const name = otherUser?.nome || 'a outra pessoa';
+    const ok = window.confirm(
+      `Excluir esta conversa com ${name}?\n\n` +
+        `As mensagens serão apagadas para você e para ${name}. Não dá para desfazer.`
+    );
+    if (!ok) return;
+
+    setIsDeletingChat(true);
+    try {
+      const deletedId = selectedConv.id;
+      await deleteConversation(deletedId);
+      setMessages([]);
+      setProposals({});
+      if (isMobile) closeChat(); // no celular, volta para a lista
+      onConversationDeleted?.(deletedId);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Não foi possível excluir a conversa.');
+    } finally {
+      setIsDeletingChat(false);
+    }
+  };
+
   const handleQuickChip = (chipText: string) => {
     handleSendMessage(chipText);
   };
@@ -463,6 +494,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
               </div>
             </div>
 
+            <div className="flex items-center gap-1.5 shrink-0">
             {/* Product Card Pill */}
             {selectedConv.listing && (
               <div
@@ -490,6 +522,18 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={handleDeleteConversation}
+              disabled={isDeletingChat}
+              aria-label="Excluir conversa"
+              title="Excluir conversa"
+              className="cursor-pointer rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+            >
+              <Trash2 className="h-4.5 w-4.5" />
+            </button>
+            </div>
           </div>
 
           {/* Banner de negociação segura */}

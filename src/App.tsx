@@ -823,9 +823,16 @@ export default function App() {
 
   // Excluir
   const handleDeleteListing = async (listingId: string) => {
+    const title = listings.find((l) => l.id === listingId)?.title;
+    const ok = window.confirm(
+      `Excluir ${title ? `"${title}"` : 'este anúncio'} definitivamente?\n\n` +
+        'As fotos e as conversas desse anúncio também serão apagadas. Não dá para desfazer.'
+    );
+    if (!ok) return;
+
     try {
       await deleteListing(listingId);
-      showToast('Removido', 'Publicação excluída com sucesso.', 'info');
+      showToast('Removido', 'Anúncio, fotos e conversas foram excluídos.', 'info');
       loadData();
     } catch (e) {
       showToast('Erro ao excluir', String(e), 'error');
@@ -1156,6 +1163,13 @@ export default function App() {
               onRefreshConversations={() => loadData(undefined, true)}
               onTradeAccepted={() => loadData(undefined, true)}
               onMessagesRead={() => loadData(undefined, true)}
+              onConversationDeleted={(id) => {
+                // Some da lista na hora e esquece a conversa aberta; depois confirma com o banco
+                setConversations((prev) => prev.filter((c) => c.id !== id));
+                setActiveConvId(undefined);
+                showToast('Conversa excluída', 'As mensagens foram apagadas.', 'info');
+                loadData(undefined, true);
+              }}
               onViewListing={handleViewListing}
               onOpenGoogleLogin={() => setIsGoogleModalOpen(true)}
             />
