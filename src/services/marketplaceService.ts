@@ -93,6 +93,7 @@ async function createListing(
     price?: number | null;
     condition: Listing['condition'];
     images?: string[];
+    accepts_trade?: boolean;
   },
   currentUser: UserProfile
 ): Promise<{ listing: Listing; newMatches: Match[] }> {
@@ -112,6 +113,8 @@ async function createListing(
       price: input.price != null && Number(input.price) > 0 ? Number(input.price) : null,
       condition: input.condition,
       status: 'ACTIVE',
+      // Troca só existe em anúncio de venda
+      accepts_trade: type === 'SALE' && input.accepts_trade === true,
     })
     .select(LISTING_SELECT)
     .single();
@@ -270,6 +273,7 @@ export async function updateListing(
   if (updates.category_id !== undefined) payload.category_id = updates.category_id;
   if (updates.condition !== undefined) payload.condition = updates.condition;
   if (updates.status !== undefined) payload.status = updates.status;
+  if (updates.accepts_trade !== undefined) payload.accepts_trade = updates.accepts_trade;
 
   const { data: row, error } = await supabase
     .from('listings')

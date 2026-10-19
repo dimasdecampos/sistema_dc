@@ -20,6 +20,7 @@ import {
   WantedInterest,
   WantedRankItem,
 } from './types/marketplace';
+import { proposeTrade } from './services/tradeService';
 import {
   fetchInterestCounts,
   fetchMyInterests,
@@ -475,6 +476,24 @@ export default function App() {
     } catch (e) {
       showToast('Erro ao publicar anúncio', String(e), 'error');
     }
+  };
+
+  // Propor troca: envia a proposta ao chat do dono do produto desejado e abre a conversa.
+  // Lança erro em caso de falha para o bloco de troca mostrar a mensagem.
+  const handleProposeTrade = async (offered: Listing, target: Listing) => {
+    const { conversation, alreadySent } = await proposeTrade(offered, target, currentUser);
+
+    setConversations(await fetchConversations(currentUser.id));
+    setActiveConvId(conversation.id);
+    setCurrentTab('conversations');
+
+    showToast(
+      alreadySent ? 'Proposta já enviada' : 'Proposta de troca enviada! 🔄',
+      alreadySent
+        ? `Você já tinha proposto essa troca para ${target.user?.nome || 'o dono'}. Continue a conversa por aqui.`
+        : `Perguntamos a ${target.user?.nome || 'o dono'} se aceita trocar. A resposta aparece nesta conversa.`,
+      alreadySent ? 'info' : 'success'
+    );
   };
 
   // Iniciar conversa direta sobre um anúncio
@@ -1144,6 +1163,12 @@ export default function App() {
         relatedMatches={relatedMatchesForSelected}
         onEditListing={handleOpenEditListing}
         isAdmin={isAdmin}
+        allListings={listings}
+        onProposeTrade={handleProposeTrade}
+        onOpenLogin={() => {
+          setIsDetailModalOpen(false);
+          setIsGoogleModalOpen(true);
+        }}
       />
 
       <EditListingModal

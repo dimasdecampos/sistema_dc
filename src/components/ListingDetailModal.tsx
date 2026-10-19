@@ -13,6 +13,7 @@ import {
   Edit2,
 } from 'lucide-react';
 import { Listing, Match, UserProfile } from '../types/marketplace';
+import { TradeSection } from './TradeSection';
 
 interface ListingDetailModalProps {
   listing: Listing | null;
@@ -23,6 +24,10 @@ interface ListingDetailModalProps {
   relatedMatches?: Match[];
   onEditListing?: (listing: Listing) => void;
   isAdmin?: boolean;
+  /** Todos os anúncios carregados, para achar produtos que combinam para troca */
+  allListings?: Listing[];
+  onProposeTrade?: (offered: Listing, target: Listing) => Promise<void>;
+  onOpenLogin?: () => void;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -34,6 +39,9 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   relatedMatches = [],
   onEditListing,
   isAdmin = false,
+  allListings = [],
+  onProposeTrade,
+  onOpenLogin,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
 
@@ -220,6 +228,20 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               <p className="mt-0.5">Endereço não exibido</p>
             </div>
           </div>
+
+          {/* Troca de produtos (venda com "aceito troca") */}
+          {onProposeTrade && (
+            <TradeSection
+              listing={listing}
+              allListings={allListings}
+              currentUser={currentUser}
+              onOpenLogin={onOpenLogin}
+              onProposeTrade={async (offered, target) => {
+                await onProposeTrade(offered, target);
+                onClose();
+              }}
+            />
+          )}
 
           {/* Ação de Edição para Dono ou Admin */}
           {(isOwner || isAdmin) && onEditListing && (

@@ -38,6 +38,8 @@ export interface Listing {
   price?: number | null; // For SALE: sale price. For WANTED: max budget
   condition: ListingCondition;
   status: ListingStatus;
+  /** Anúncio de venda aberto a troca por outro produto de valor parecido */
+  accepts_trade?: boolean;
   created_at: string;
   updated_at: string;
   // Relational joins
@@ -97,6 +99,7 @@ export interface CreateSaleInput {
   price: number;
   condition: 'NEW' | 'USED';
   images?: string[];
+  accepts_trade?: boolean;
 }
 
 export interface SiteConfig {

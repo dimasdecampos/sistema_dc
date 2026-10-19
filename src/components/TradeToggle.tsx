@@ -1,0 +1,37 @@
+import React from 'react';
+import { ArrowLeftRight } from 'lucide-react';
+import { TRADE_PRICE_MARGIN } from '../services/tradeService';
+
+interface TradeToggleProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+/** Chave "Aceito troca" dos formulários de anúncio de venda */
+export const TradeToggle: React.FC<TradeToggleProps> = ({ checked, onChange }) => {
+  const marginLabel = `${Math.round(TRADE_PRICE_MARGIN * 100)}%`;
+
+  return (
+    <label
+      className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition ${
+        checked ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-slate-50 hover:bg-slate-100/60'
+      }`}
+    >
+      <ArrowLeftRight className={`mt-0.5 h-5 w-5 shrink-0 ${checked ? 'text-emerald-600' : 'text-slate-400'}`} />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-slate-900">Aceito troca</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">
+          Quem tiver um produto de valor parecido (até {marginLabel} de diferença) poderá propor a troca
+          direto pelo chat.
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-emerald-600"
+      />
+    </label>
+  );
+};

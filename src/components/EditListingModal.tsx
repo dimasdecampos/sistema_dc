@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Listing, Category, ListingCondition, ListingStatus } from '../types/marketplace';
 import { uploadImageToSupabase, deleteImageFromSupabase } from '../services/storageService';
+import { TradeToggle } from './TradeToggle';
 
 interface EditListingModalProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
   const [condition, setCondition] = useState<ListingCondition>('USED');
   const [status, setStatus] = useState<ListingStatus>('ACTIVE');
   const [images, setImages] = useState<string[]>([]);
+  const [acceptsTrade, setAcceptsTrade] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -55,6 +57,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
       setCategoryId(listing.category_id || categories[0]?.id || '');
       setPrice(listing.price != null ? String(listing.price) : '');
       setCondition(listing.condition || 'USED');
+      setAcceptsTrade(listing.accepts_trade === true);
       setStatus(listing.status || 'ACTIVE');
       setImages(listing.images || []);
       setErrorMsg('');
@@ -139,6 +142,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
         condition,
         status,
         images,
+        ...(isWanted ? {} : { accepts_trade: acceptsTrade }),
       });
 
       onShowToast?.('Anúncio atualizado!', 'As alterações foram salvas com sucesso.', 'success');
@@ -292,6 +296,9 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
               className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
             />
           </div>
+
+          {/* Troca (somente anúncio de venda) */}
+          {!isWanted && <TradeToggle checked={acceptsTrade} onChange={setAcceptsTrade} />}
 
           {/* Fotos do anúncio */}
           <div>

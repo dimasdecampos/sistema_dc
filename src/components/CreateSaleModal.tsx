@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { CreateSaleInput, UserProfile } from '../types/marketplace';
 import { getStoredCategories } from '../services/categoryService';
+import { TradeToggle } from './TradeToggle';
 import {
   uploadImageToSupabase,
   MAX_PHOTOS_PER_PRODUCT,
@@ -39,6 +40,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [photoWarning, setPhotoWarning] = useState<string | null>(null);
+  const [acceptsTrade, setAcceptsTrade] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -116,6 +118,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
         price: parseFloat(price.replace(',', '.')),
         condition,
         images: photos.length > 0 ? photos.slice(0, MAX_PHOTOS_PER_PRODUCT) : undefined,
+        accepts_trade: acceptsTrade,
       });
 
       // Reset
@@ -123,6 +126,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
       setDescription('');
       setPrice('');
       setPhotos([]);
+      setAcceptsTrade(false);
       setPhotoWarning(null);
       onClose();
     } finally {
@@ -299,6 +303,9 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Troca */}
+          <TradeToggle checked={acceptsTrade} onChange={setAcceptsTrade} />
 
           {/* Fotos */}
           <div>

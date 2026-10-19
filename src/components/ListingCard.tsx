@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, Camera } from 'lucide-react';
+import { ArrowLeftRight, Search, Sparkles, Camera } from 'lucide-react';
 import { Listing } from '../types/marketplace';
 
 interface ListingCardProps {
@@ -52,6 +52,13 @@ export const ListingCard: React.FC<ListingCardProps> = ({
           <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
             <Search className="h-3 w-3" />
             Procura-se
+          </span>
+        )}
+
+        {!isWanted && listing.accepts_trade && (
+          <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-emerald-700 shadow-sm">
+            <ArrowLeftRight className="h-3 w-3" />
+            Aceita troca
           </span>
         )}
 
