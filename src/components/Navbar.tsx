@@ -238,7 +238,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={onOpenSaleModal}
             aria-label="Anunciar"
-            className="flex flex-col items-center -mt-4 bg-amber-500 text-slate-950 p-2.5 rounded-2xl shadow-md shadow-amber-500/30"
+            className="flex flex-col items-center bg-amber-500 text-slate-950 p-2 rounded-2xl shadow-sm shadow-amber-500/30 active:scale-95 transition"
           >
             <PlusCircle className="w-6 h-6 stroke-[2.5]" />
           </button>

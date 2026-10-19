@@ -34,7 +34,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
           </p>
         </div>
 
-        <div className="mt-4 flex flex-col gap-2.5 lg:flex-row lg:items-center">
+        <div className="mt-4 flex items-center gap-2">
           <form
             onSubmit={(e) => e.preventDefault()}
             className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-md shadow-slate-900/5 transition focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-500/10"
@@ -60,7 +60,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
             )}
             <button
               type="submit"
-              className="shrink-0 cursor-pointer rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 active:scale-[0.98] sm:px-7"
+              className="hidden shrink-0 cursor-pointer rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 active:scale-[0.98] sm:block sm:px-7"
             >
               Buscar
             </button>
@@ -71,7 +71,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               <button
                 type="button"
                 onClick={onOpenSaleModal}
-                className="inline-flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-amber-500 px-4 py-3 text-sm font-extrabold text-slate-950 shadow-sm transition hover:bg-amber-400 active:scale-[0.98] lg:flex-none"
+                className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-amber-500 px-3.5 py-3 text-sm font-extrabold text-slate-950 shadow-sm transition hover:bg-amber-400 active:scale-[0.98] sm:px-4"
               >
                 <Tag className="h-4 w-4" />
                 Anunciar
