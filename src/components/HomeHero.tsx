@@ -1,10 +1,9 @@
 import React from 'react';
-import { Search, X, Tag, PlusCircle } from 'lucide-react';
+import { Search, X, Tag } from 'lucide-react';
 
 interface HomeHeroProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  onOpenWantedModal?: (initialQuery?: string) => void;
   onOpenSaleModal?: () => void;
   cityName?: string;
 }
@@ -12,7 +11,6 @@ interface HomeHeroProps {
 export const HomeHero: React.FC<HomeHeroProps> = ({
   searchQuery,
   onSearchChange,
-  onOpenWantedModal,
   onOpenSaleModal,
   cityName = 'São Luis do Paraitinga - SP',
 }) => {
@@ -73,21 +71,10 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               <button
                 type="button"
                 onClick={onOpenSaleModal}
-                className="inline-flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-900 px-3 py-3 sm:px-4 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] lg:flex-none"
+                className="inline-flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-amber-500 px-4 py-3 text-sm font-extrabold text-slate-950 shadow-sm transition hover:bg-amber-400 active:scale-[0.98] lg:flex-none"
               >
                 <Tag className="h-4 w-4" />
                 Anunciar
-              </button>
-            )}
-            {onOpenWantedModal && (
-              <button
-                type="button"
-                onClick={() => onOpenWantedModal(searchQuery)}
-                className="inline-flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-3 sm:px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98] lg:flex-none"
-              >
-                <PlusCircle className="h-4 w-4 shrink-0 text-emerald-600" />
-                <span className="sm:hidden">Estou procurando</span>
-                <span className="hidden sm:inline">Estou procurando algo</span>
               </button>
             )}
           </div>

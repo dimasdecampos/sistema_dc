@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, BellRing, Flame, Tag } from 'lucide-react';
+import { Bell, BellRing, Flame, PlusCircle, Tag } from 'lucide-react';
 import { WantedRankItem } from '../types/marketplace';
 
 interface MostWantedRankingProps {
@@ -8,6 +8,8 @@ interface MostWantedRankingProps {
   /** term_key dos itens em que a pessoa já marcou o sininho */
   myInterestKeys: Set<string>;
   onToggleInterest: (item: WantedRankItem) => void;
+  /** Abre o formulário "estou procurando algo" */
+  onOpenWanted: () => void;
   onOpenSaleWithTerm: (term: string, categoryId: string) => void;
 }
 
@@ -18,6 +20,7 @@ export const MostWantedRanking: React.FC<MostWantedRankingProps> = ({
   currentUserId,
   myInterestKeys,
   onToggleInterest,
+  onOpenWanted,
   onOpenSaleWithTerm,
 }) => {
   const [showAll, setShowAll] = useState(false);
@@ -25,7 +28,7 @@ export const MostWantedRanking: React.FC<MostWantedRankingProps> = ({
 
   return (
     <section aria-labelledby="mais-procurados-titulo">
-      <div className="mb-4 flex items-end justify-between gap-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <h2
             id="mais-procurados-titulo"
@@ -40,15 +43,25 @@ export const MostWantedRanking: React.FC<MostWantedRankingProps> = ({
           </p>
         </div>
 
-        {ranking.length > INITIAL_VISIBLE && (
+        <div className="flex shrink-0 items-center gap-3">
+          {ranking.length > INITIAL_VISIBLE && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="cursor-pointer text-sm font-semibold text-slate-500 transition hover:text-slate-900"
+            >
+              {showAll ? 'Mostrar menos' : `Ver todos (${ranking.length})`}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setShowAll((v) => !v)}
-            className="shrink-0 cursor-pointer text-sm font-semibold text-emerald-700 transition hover:text-emerald-800"
+            onClick={onOpenWanted}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 active:scale-[0.98]"
           >
-            {showAll ? 'Mostrar menos' : `Ver todos (${ranking.length})`}
+            <PlusCircle className="h-4 w-4" />
+            Estou procurando algo
           </button>
-        )}
+        </div>
       </div>
 
       {items.length === 0 ? (

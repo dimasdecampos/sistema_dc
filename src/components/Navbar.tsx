@@ -31,7 +31,6 @@ interface NavbarProps {
   isLoggingIn?: boolean;
   matchesCount: number;
   unreadCount: number;
-  onOpenWantedModal: () => void;
   onOpenSaleModal: () => void;
   isAdmin?: boolean;
   categories: Category[];
@@ -56,7 +55,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   isLoggingIn = false,
   matchesCount,
   unreadCount,
-  onOpenWantedModal,
   onOpenSaleModal,
 }) => {
   return (
@@ -162,18 +160,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="hidden sm:inline">Anunciar</span>
               </button>
 
-              {/* Botão Procurar */}
-              <button
-                type="button"
-                onClick={onOpenWantedModal}
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-sm rounded-2xl border border-emerald-200/80 transition-all cursor-pointer"
-                title="Cadastrar o que você procura"
-                aria-label="Quero comprar"
-              >
-                <PlusCircle className="w-4 h-4 text-emerald-600" />
-                <span className="hidden xl:inline">Quero comprar</span>
-              </button>
-
               {/* Google Login or UserProfileMenu */}
               {googleUser ? (
                 <UserProfileMenu
@@ -250,8 +236,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
-            onClick={onOpenWantedModal}
-            className="flex flex-col items-center -mt-4 bg-emerald-600 text-white p-2.5 rounded-2xl shadow-md shadow-emerald-600/30"
+            onClick={onOpenSaleModal}
+            aria-label="Anunciar"
+            className="flex flex-col items-center -mt-4 bg-amber-500 text-slate-950 p-2.5 rounded-2xl shadow-md shadow-amber-500/30"
           >
             <PlusCircle className="w-6 h-6 stroke-[2.5]" />
           </button>

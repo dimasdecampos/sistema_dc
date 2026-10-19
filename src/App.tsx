@@ -145,7 +145,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Filters for feed
-  const [feedTypeFilter, setFeedTypeFilter] = useState<'ALL' | 'WANTED' | 'SALE'>('ALL');
+  const [feedTypeFilter, setFeedTypeFilter] = useState<'ALL' | 'WANTED' | 'SALE'>('SALE');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -752,7 +752,6 @@ export default function App() {
         isLoggingIn={isLoggingIn}
         matchesCount={userMatches.length}
         unreadCount={conversations.length}
-        onOpenWantedModal={() => handleRequestOpenWanted('')}
         onOpenSaleModal={handleRequestOpenSale}
       />
 
@@ -766,7 +765,6 @@ export default function App() {
               onSearchChange={setSearchQuery}
               cityName={siteConfig.cityName}
               onOpenSaleModal={handleRequestOpenSale}
-              onOpenWantedModal={handleRequestOpenWanted}
             />
 
             <div className="mx-auto max-w-7xl space-y-6 px-4 pb-16 pt-5 sm:px-6 sm:pt-6 lg:px-8">
@@ -797,9 +795,9 @@ export default function App() {
                 <div className="flex w-fit items-center gap-1 rounded-xl bg-slate-100 p-1">
                   {(
                     [
-                      { id: 'ALL', label: 'Tudo' },
                       { id: 'SALE', label: 'À venda' },
                       { id: 'WANTED', label: 'Procurando' },
+                      { id: 'ALL', label: 'Tudo' },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -872,22 +870,17 @@ export default function App() {
                   <Search className="mx-auto h-9 w-9 text-slate-300" />
                   <h3 className="mt-3 text-base font-bold text-slate-800">Nenhum anúncio por aqui ainda</h3>
                   <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                    Tente outra busca ou categoria. Você também pode anunciar algo, ou avisar o que está procurando.
+                    {feedTypeFilter === 'WANTED'
+                      ? 'Ninguém publicou uma procura nesta busca ou categoria ainda.'
+                      : 'Tente outra busca ou categoria, ou seja o primeiro a anunciar.'}
                   </p>
                   <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
                     <button
                       type="button"
                       onClick={handleRequestOpenSale}
-                      className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      className="cursor-pointer rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-extrabold text-slate-950 transition hover:bg-amber-400"
                     >
                       Anunciar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRequestOpenWanted(searchQuery)}
-                      className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                      Estou procurando algo
                     </button>
                   </div>
                 </div>
@@ -912,6 +905,7 @@ export default function App() {
                   currentUserId={currentUser.id}
                   myInterestKeys={myInterestKeys}
                   onToggleInterest={handleToggleInterest}
+                  onOpenWanted={() => handleRequestOpenWanted(searchQuery)}
                   onOpenSaleWithTerm={() => handleRequestOpenSale()}
                 />
               </div>
