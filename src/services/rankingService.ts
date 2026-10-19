@@ -1,5 +1,8 @@
 import { Listing, WantedRankItem, Category } from '../types/marketplace';
 import { getStoredCategories } from './categoryService';
+import { calculateMatchScore } from './matchingService';
+
+const MATCH_MIN_SCORE = 35;
 
 /**
  * Normaliza título de procura para agrupar termos similares
@@ -94,15 +97,23 @@ export function computeWantedRanking(
       icon: '📦',
     };
 
-    // Ofertas existentes que contêm o termo
-    const termLower = group.term.toLowerCase();
-    const offersCount = salesListings.filter((sale) => {
-      if (sale.category_id !== group.category_id) return false;
-      return (
-        sale.title.toLowerCase().includes(termLower) ||
-        (sale.description && sale.description.toLowerCase().includes(termLower))
-      );
-    }).length;
+    // Ofertas à venda que combinam com o termo (mesma regra de nomes parecidos dos matches)
+    const termAsWanted: Listing = {
+      id: key,
+      user_id: '',
+      type: 'WANTED',
+      title: group.term,
+      description: '',
+      category_id: group.category_id,
+      price: null,
+      condition: 'ANY',
+      status: 'ACTIVE',
+      created_at: '',
+      updated_at: '',
+    };
+    const offersCount = salesListings.filter(
+      (sale) => calculateMatchScore(termAsWanted, sale) >= MATCH_MIN_SCORE
+    ).length;
 
     const avgBudget =
       group.budgets.length > 0

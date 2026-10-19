@@ -293,41 +293,34 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
                   <span>Bucket: img/</span>
                 </span>
               </label>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  disabled={isUploadingPhoto}
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer disabled:opacity-50 md:hidden"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>Tirar foto</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={isUploadingPhoto}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer disabled:opacity-50"
-                >
-                  {isUploadingPhoto ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Enviando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{photoUrl ? 'Alterar (galeria)' : 'Galeria'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
             </div>
 
             {isUploadingPhoto && (
               <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800 animate-in fade-in">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
                 <span>Otimizando e carregando foto de referência...</span>
+              </div>
+            )}
+
+            {!photoUrl && !isUploadingPhoto && (
+              <div className="mt-2 flex gap-2">
+                {/* Câmera: só em celular/tablet; abre a câmera traseira direto */}
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="md:hidden w-20 h-20 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/50 flex flex-col items-center justify-center text-emerald-700 transition cursor-pointer"
+                >
+                  <Camera className="w-5 h-5 mb-1" />
+                  <span className="text-[10px] font-semibold">Tirar foto</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-20 h-20 rounded-2xl border-2 border-dashed border-slate-200 hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50/50 flex flex-col items-center justify-center text-slate-400 hover:text-emerald-700 transition cursor-pointer"
+                >
+                  <Upload className="w-5 h-5 mb-1" />
+                  <span className="text-[10px] font-semibold">Galeria</span>
+                </button>
               </div>
             )}
 

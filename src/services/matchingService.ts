@@ -1,13 +1,32 @@
 import { Listing, Match } from '../types/marketplace';
 
-// Stopwords em português que não agregam valor à busca de produtos
+// Palavras que não identificam um produto: intenção de compra/venda, ligações, estado, preço e conversa
 const STOPWORDS = new Set([
   'quero', 'comprar', 'estou', 'procurando', 'procuro', 'preciso', 'de', 'do', 'da',
   'dos', 'das', 'um', 'uma', 'uns', 'umas', 'para', 'pra', 'por', 'favor', 'vendo',
-  'venda', 'tenho', 'alguem', 'alguém', 'com', 'sem', 'em', 'bom', 'ótimo', 'otimo',
-  'estado', 'novo', 'nova', 'usado', 'usada', 'usados', 'usadas', 'barato', 'urgente',
-  'ou', 'e', 'que', 'se', 'no', 'na', 'nos', 'nas', 'qualquer', 'tipo'
+  'venda', 'tenho', 'alguem', 'com', 'sem', 'em', 'bom', 'boa', 'bons', 'boas',
+  'otimo', 'otima', 'otimos', 'otimas', 'estado', 'novo', 'nova', 'novos', 'novas',
+  'usado', 'usada', 'usados', 'usadas', 'barato', 'urgente', 'ou', 'e', 'que', 'se',
+  'no', 'na', 'nos', 'nas', 'qualquer', 'tipo', 'ate', 'reais', 'real', 'rs', 'mil',
+  'quem', 'tem', 'tenha', 'algum', 'alguma', 'aceito', 'proposta', 'troco', 'retirar',
+  'retirada', 'funcionando', 'perfeito', 'perfeita', 'conservado', 'conservada',
 ]);
+
+// Palavras diferentes que significam o mesmo produto (já no singular, sem acento)
+const SYNONYM_GROUPS: string[][] = [
+  ['celular', 'smartphone', 'telefone'],
+  ['bicicleta', 'bike'],
+  ['notebook', 'laptop'],
+  ['geladeira', 'refrigerador'],
+  ['televisao', 'tv', 'televisor'],
+  ['carro', 'automovel'],
+  ['moto', 'motocicleta'],
+];
+
+const CANONICAL = new Map<string, string>();
+for (const group of SYNONYM_GROUPS) {
+  for (const word of group) CANONICAL.set(word, group[0]);
+}
 
 /**
  * Normaliza o texto removendo acentos, pontuação e convertendo para minúsculas
@@ -17,50 +36,94 @@ export function normalizeText(text: string): string {
   return text
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .trim();
+}
+
+/**
+ * Remove expressões de preço ("até R$ 800", "por 500", "300 reais") para que o valor
+ * não seja confundido com uma característica do produto (como "aro 26" ou "11")
+ */
+function stripPriceExpressions(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\b(?:até|ate|por|r\$|rs)\s*\$?\s*\d[\d.,]*(?:\s*(?:reais|mil))?/g, ' ')
+    .replace(/\d[\d.,]*\s*(?:reais|mil\b)/g, ' ');
 }
 
 /**
  * Extrai palavras-chave relevantes de uma frase
  */
 export function extractKeywords(text: string): string[] {
-  const normalized = normalizeText(text);
+  const normalized = normalizeText(stripPriceExpressions(text));
   const words = normalized.split(/\s+/).filter(Boolean);
-  
-  // Filtra stopwords, mas preserva números (como "26" em "aro 26", "110v", etc.)
+
+  // Filtra stopwords, mas preserva números e medidas (como "26" em "aro 26", "110v", "128gb")
   return words.filter((w) => {
-    if (/^\d+/.test(w)) return true;
+    if (/^\d/.test(w)) return true;
     return w.length >= 2 && !STOPWORDS.has(w);
   });
 }
 
+const isNumeric = (word: string) => /^\d/.test(word);
+
 /**
- * Verifica se uma palavra-chave bate com outra (incluindo plurais e prefixos)
+ * Leva a palavra ao singular (bicicletas -> bicicleta, televisões -> televisão, papéis -> papel)
  */
-function keywordsMatch(k1: string, k2: string): boolean {
-  if (k1 === k2) return true;
-  // Plurais simples em português
-  if (k1 + 's' === k2 || k2 + 's' === k1) return true;
-  if (k1.endsWith('es') && k1.slice(0, -2) === k2) return true;
-  if (k2.endsWith('es') && k2.slice(0, -2) === k1) return true;
-  // Substring para raízes com mais de 4 letras
-  if (k1.length >= 4 && k2.length >= 4) {
-    if (k1.startsWith(k2) || k2.startsWith(k1)) return true;
-  }
-  return false;
+function stem(word: string): string {
+  if (word.length <= 3 || /\d/.test(word)) return word;
+  if (word.endsWith('oes') || word.endsWith('aes') || word.endsWith('aos')) return word.slice(0, -3) + 'ao';
+  if (word.endsWith('ais')) return word.slice(0, -3) + 'al';
+  if (word.endsWith('eis')) return word.slice(0, -3) + 'el';
+  if (word.endsWith('ns')) return word.slice(0, -2) + 'm';
+  if (/[rzs]es$/.test(word)) return word.slice(0, -2);
+  if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+  return word;
+}
+
+function canonical(word: string): string {
+  const singular = stem(word);
+  return CANONICAL.get(singular) ?? singular;
+}
+
+/** Diferença de no máximo uma letra (troca, falta ou sobra): cobre erros de digitação e gênero */
+function withinOneEdit(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
+  if (a.length > b.length) return a.slice(i + 1) === b.slice(i);
+  return b.slice(i + 1) === a.slice(i);
 }
 
 /**
- * Calcula a pontuação de similaridade entre um anúncio de PROCURA (WANTED)
- * e um anúncio de VENDA (SALE).
- * Retorna um score de 0 a 100.
+ * Duas palavras são o mesmo termo? Ignora plural e sinônimos; tolera 1 letra de diferença
+ * apenas em palavras longas (evita "casa" = "casaco" e "mesa" = "mesada"). Números só batem se iguais.
+ */
+function wordsMatch(a: string, b: string): boolean {
+  if (isNumeric(a) || isNumeric(b)) return a === b;
+  const ca = canonical(a);
+  const cb = canonical(b);
+  if (ca === cb) return true;
+  return ca.length >= 6 && cb.length >= 6 && withinOneEdit(ca, cb);
+}
+
+/** "furadeira ou parafusadeira" -> duas opções, comparadas separadamente */
+function splitAlternatives(title: string): string[] {
+  const parts = title.split(/\s+ou\s+|\s*[,;/]\s*/i).filter((p) => p.trim().length > 0);
+  return parts.length > 0 ? parts : [title];
+}
+
+/**
+ * Calcula a pontuação de compatibilidade entre uma PROCURA (WANTED) e uma VENDA (SALE).
+ * Retorna 0 a 100. Sem correspondência no nome do produto, não há match (a categoria sozinha não basta).
  */
 export function calculateMatchScore(wanted: Listing, sale: Listing): number {
   if (wanted.type !== 'WANTED' || sale.type !== 'SALE') return 0;
   if (wanted.status !== 'ACTIVE' || sale.status !== 'ACTIVE') return 0;
-  
+
   // O próprio usuário não recebe match de si mesmo (verifica id e e-mail)
   if (wanted.user_id && sale.user_id && wanted.user_id === sale.user_id) return 0;
   if (
@@ -71,79 +134,85 @@ export function calculateMatchScore(wanted: Listing, sale: Listing): number {
     return 0;
   }
 
-  let score = 0;
+  const saleTitle = extractKeywords(sale.title);
+  const saleDesc = extractKeywords(sale.description || '');
+  const inSaleTitle = (w: string) => saleTitle.some((s) => wordsMatch(w, s));
+  const inSaleText = (w: string) => inSaleTitle(w) || saleDesc.some((s) => wordsMatch(w, s));
 
-  // 1. Categoria (até 30 pontos)
-  const isSameCategory = wanted.category_id === sale.category_id;
-  if (isSameCategory) {
-    score += 30;
-  }
+  // 1. Nome do produto: escolhe a melhor das opções ("A ou B") da procura.
+  // A primeira palavra (o produto em si) pesa o dobro; palavra só na descrição vale metade.
+  let best: { ratio: number; nums: string[] } | null = null;
+  for (const part of splitAlternatives(wanted.title)) {
+    const keywords = extractKeywords(part);
+    const words = keywords.filter((k) => !isNumeric(k));
+    if (words.length === 0) continue;
 
-  // 2. Extração de palavras-chave
-  const wantedTitleKeywords = extractKeywords(wanted.title);
-  const wantedDescKeywords = extractKeywords(wanted.description || '');
-  const saleTitleKeywords = extractKeywords(sale.title);
-  const saleDescKeywords = extractKeywords(sale.description || '');
+    let credit = 0;
+    let total = 0;
+    words.forEach((w, index) => {
+      const weight = index === 0 ? 2 : 1;
+      total += weight;
+      if (inSaleTitle(w)) credit += weight;
+      else if (inSaleText(w)) credit += weight / 2;
+    });
 
-  // Todas as palavras da procura
-  const allWantedKeywords = Array.from(new Set([...wantedTitleKeywords, ...wantedDescKeywords]));
-  if (allWantedKeywords.length === 0) {
-    return isSameCategory ? 20 : 0;
-  }
-
-  // 3. Similaridade no TÍTULO (até 45 pontos)
-  let titleMatchesCount = 0;
-  wantedTitleKeywords.forEach((wk) => {
-    const foundInSaleTitle = saleTitleKeywords.some((sk) => keywordsMatch(wk, sk));
-    if (foundInSaleTitle) {
-      titleMatchesCount++;
+    const ratio = credit / total;
+    if (!best || ratio > best.ratio) {
+      best = { ratio, nums: keywords.filter(isNumeric) };
     }
-  });
-
-  if (wantedTitleKeywords.length > 0) {
-    const titleRatio = titleMatchesCount / wantedTitleKeywords.length;
-    score += Math.round(titleRatio * 45);
   }
 
-  // 4. Similaridade na DESCRIÇÃO (até 15 pontos)
-  let descMatchesCount = 0;
-  allWantedKeywords.forEach((wk) => {
-    const foundInSaleDesc = saleDescKeywords.some((sk) => keywordsMatch(wk, sk));
-    if (foundInSaleDesc) {
-      descMatchesCount++;
+  // Nenhuma palavra do produto bate (ou só uma palavra genérica solta): não é o mesmo produto
+  if (!best || best.ratio < 0.5) return 0;
+
+  let score = Math.round(best.ratio * 60);
+
+  // 2. Números e medidas ("aro 26", "iPhone 11", "110v") precisam bater
+  if (best.nums.length > 0) {
+    const saleNumbers = [...saleTitle, ...saleDesc].filter(isNumeric);
+    const matched = best.nums.filter((n) => saleNumbers.includes(n)).length;
+
+    if (matched === best.nums.length) {
+      score += 10;
+    } else if (matched === 0) {
+      // O anúncio cita outro número no título (ex.: pediu aro 26, o anúncio é aro 29): não é o item
+      if (saleTitle.some(isNumeric)) return 0;
+      score -= 10; // o anúncio não informa a medida: pode servir, mas é incerto
+    } else {
+      score -= 15;
     }
-  });
-
-  if (allWantedKeywords.length > 0) {
-    const descRatio = Math.min(1, descMatchesCount / allWantedKeywords.length);
-    score += Math.round(descRatio * 15);
   }
 
-  // 5. Condição do produto (até 10 pontos)
-  if (wanted.condition === 'ANY') {
-    score += 10;
-  } else if (wanted.condition === sale.condition) {
-    score += 10;
+  // 3. Categoria
+  if (wanted.category_id === sale.category_id) {
+    score += 15;
+  }
+
+  // 4. Detalhes da descrição da procura que aparecem no anúncio (até 10 pontos)
+  const descWords = extractKeywords(wanted.description || '').filter((w) => !isNumeric(w));
+  if (descWords.length > 0) {
+    const found = descWords.filter(inSaleText).length;
+    score += Math.round(Math.min(1, found / descWords.length) * 10);
+  }
+
+  // 5. Condição do produto
+  if (wanted.condition === 'ANY' || wanted.condition === sale.condition) {
+    score += 5;
   } else if (wanted.condition === 'NEW' && sale.condition === 'USED') {
     score -= 15; // Quem quer novo penaliza item usado
   }
 
-  // 6. Preço máximo desejado vs Preço de venda (ajuste de até +10 / -15)
+  // 6. Preço máximo desejado vs preço de venda
   if (wanted.price != null && wanted.price > 0 && sale.price != null && sale.price > 0) {
     if (sale.price <= wanted.price) {
-      score += 10; // Cabe no orçamento
+      score += 5; // Cabe no orçamento
     } else {
-      // Se passa do orçamento, calcula a diferença percentual
       const overPercentage = (sale.price - wanted.price) / wanted.price;
-      if (overPercentage > 0.5) {
-        score -= 20; // 50% mais caro
-      } else {
-        score -= 10;
-      }
+      if (overPercentage > 1) return 0; // mais que o dobro do orçamento: não serve
+      score -= overPercentage > 0.5 ? 20 : 10;
     }
   }
 
-  // Garantir limites entre 0 e 100
   return Math.max(0, Math.min(100, score));
 }
 

@@ -310,28 +310,6 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
                 </span>
               </label>
 
-              {photos.length < MAX_PHOTOS_PER_PRODUCT && (
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={isUploadingPhotos}
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer disabled:opacity-50 md:hidden"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>Tirar foto</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isUploadingPhotos}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 font-semibold cursor-pointer disabled:opacity-50"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Galeria</span>
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Banner de Aviso de Limite */}
@@ -375,6 +353,26 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
                 </div>
               ))}
 
+              {/* Câmera: só em celular/tablet; abre a câmera traseira direto */}
+              {photos.length < MAX_PHOTOS_PER_PRODUCT && (
+                <button
+                  type="button"
+                  disabled={isUploadingPhotos}
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="md:hidden w-20 h-20 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/50 flex flex-col items-center justify-center text-emerald-700 transition cursor-pointer disabled:opacity-50"
+                >
+                  {isUploadingPhotos ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-emerald-600 mb-1" />
+                  ) : (
+                    <Camera className="w-5 h-5 mb-1" />
+                  )}
+                  <span className="text-[10px] font-semibold">
+                    {isUploadingPhotos ? 'Enviando...' : 'Tirar foto'}
+                  </span>
+                </button>
+              )}
+
+              {/* Galeria: escolhe uma ou várias fotos já salvas */}
               {photos.length < MAX_PHOTOS_PER_PRODUCT && (
                 <button
                   type="button"
@@ -382,14 +380,8 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
                   onClick={() => fileInputRef.current?.click()}
                   className="w-20 h-20 rounded-2xl border-2 border-dashed border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/50 flex flex-col items-center justify-center text-slate-400 hover:text-amber-700 transition cursor-pointer disabled:opacity-50"
                 >
-                  {isUploadingPhotos ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-amber-600 mb-1" />
-                  ) : (
-                    <Camera className="w-5 h-5 mb-1" />
-                  )}
-                  <span className="text-[10px] font-semibold">
-                    {isUploadingPhotos ? 'Enviando...' : `Foto ${photos.length + 1}/5`}
-                  </span>
+                  <Upload className="w-5 h-5 mb-1" />
+                  <span className="text-[10px] font-semibold">Galeria</span>
                 </button>
               )}
             </div>
