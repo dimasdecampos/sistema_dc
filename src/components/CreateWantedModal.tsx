@@ -40,6 +40,7 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialQuery) {
@@ -136,6 +137,15 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
           ref={fileInputRef}
           onChange={handleFileUpload}
           accept="image/*"
+          className="hidden"
+        />
+        {/* Câmera direta no celular (capture abre a câmera traseira) */}
+        <input
+          type="file"
+          ref={cameraInputRef}
+          onChange={handleFileUpload}
+          accept="image/*"
+          capture="environment"
           className="hidden"
         />
 
@@ -283,24 +293,35 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
                   <span>Bucket: img/</span>
                 </span>
               </label>
-              <button
-                type="button"
-                disabled={isUploadingPhoto}
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer disabled:opacity-50"
-              >
-                {isUploadingPhoto ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Enviando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>{photoUrl ? 'Alterar foto' : 'Carregar imagem'}</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={isUploadingPhoto}
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer disabled:opacity-50 md:hidden"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Tirar foto</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isUploadingPhoto}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  {isUploadingPhoto ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Enviando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{photoUrl ? 'Alterar (galeria)' : 'Galeria'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {isUploadingPhoto && (

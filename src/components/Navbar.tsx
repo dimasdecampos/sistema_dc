@@ -64,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Top Navbar Desktop & Mobile */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-15 sm:h-18 gap-2 sm:gap-6">
+          <div className="flex items-center justify-between h-15 sm:h-18 gap-2 sm:gap-3 lg:gap-6">
             {/* Logo Brand */}
             <div
               onClick={() => onSelectTab('home')}
@@ -79,7 +79,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {config?.siteName || 'TemAqui'}
                   </span>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1 font-medium mt-0.5 truncate max-w-[90px] xs:max-w-[120px] sm:max-w-none">
+                <p className="hidden lg:flex items-center gap-1 mt-0.5 text-[11px] font-medium text-slate-500 truncate">
                   <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 shrink-0" />
                   <span className="truncate">{config?.cityName || user.cidade || 'São Luis do Paraitinga - SP'}</span>
                 </p>
@@ -100,26 +100,30 @@ export const Navbar: React.FC<NavbarProps> = ({
             <nav className="hidden md:flex items-center gap-1.5">
               <button
                 onClick={() => onSelectTab('home')}
-                className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-2 ${
+                aria-label="Início"
+                title="Início"
+                className={`px-3 xl:px-3.5 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-2 ${
                   currentTab === 'home'
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <Home className="w-4 h-4" />
-                <span>Início</span>
+                <span className="hidden xl:inline">Início</span>
               </button>
 
               <button
                 onClick={() => onSelectTab('dashboard')}
-                className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-2 relative ${
+                aria-label="Meu Painel"
+                title="Meu Painel"
+                className={`px-3 xl:px-3.5 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-2 relative ${
                   currentTab === 'dashboard'
                     ? 'bg-emerald-600 text-white shadow-xs shadow-emerald-600/30'
                     : 'text-slate-700 hover:text-slate-900 hover:bg-emerald-50/70'
                 }`}
               >
                 <User className="w-4 h-4" />
-                <span>Meu Painel</span>
+                <span className="hidden xl:inline">Meu Painel</span>
                 {matchesCount > 0 && (
                   <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-extrabold animate-pulse">
                     <Sparkles className="w-3 h-3" />
@@ -140,7 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   title="Acessar painel de administração"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>/admin</span>
+                  <span className="hidden xl:inline">/admin</span>
                 </button>
               )}
             </nav>
@@ -152,21 +156,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={onOpenSaleModal}
                 className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-xs hover:shadow-md transition-all cursor-pointer"
                 title="Publicar anúncio de venda / desapego"
+                aria-label="Anunciar"
               >
                 <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
-                <span className="hidden xs:inline">Anunciar</span>
-                <span className="xs:hidden">+</span>
+                <span className="hidden sm:inline">Anunciar</span>
               </button>
 
               {/* Botão Procurar */}
               <button
                 type="button"
                 onClick={onOpenWantedModal}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 sm:py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl border border-emerald-200/80 transition-all cursor-pointer"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-sm rounded-2xl border border-emerald-200/80 transition-all cursor-pointer"
                 title="Cadastrar o que você procura"
+                aria-label="Quero comprar"
               >
-                <PlusCircle className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Quero Comprar</span>
+                <PlusCircle className="w-4 h-4 text-emerald-600" />
+                <span className="hidden xl:inline">Quero comprar</span>
               </button>
 
               {/* Google Login or UserProfileMenu */}
@@ -210,10 +215,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                       />
                     </svg>
                   )}
-                  <span className="hidden sm:inline">
+                  <span className="hidden lg:inline">
                     {isLoggingIn ? 'Entrando...' : 'Entrar com Google'}
                   </span>
-                  <span className="sm:hidden">Entrar</span>
+                  <span className="lg:hidden">Entrar</span>
                 </button>
               )}
             </div>
@@ -222,7 +227,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </header>
 
       {/* Mobile Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg px-2 py-1.5">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-around">
           <button
             onClick={() => onSelectTab('home')}

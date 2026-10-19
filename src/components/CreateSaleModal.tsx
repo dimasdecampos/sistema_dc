@@ -41,6 +41,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
   const [photoWarning, setPhotoWarning] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -162,6 +163,15 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
           onChange={handleFileUpload}
           accept="image/*"
           multiple
+          className="hidden"
+        />
+        {/* Câmera direta no celular (capture abre a câmera traseira) */}
+        <input
+          type="file"
+          ref={cameraInputRef}
+          onChange={handleFileUpload}
+          accept="image/*"
+          capture="environment"
           className="hidden"
         />
 
@@ -301,15 +311,26 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
               </label>
 
               {photos.length < MAX_PHOTOS_PER_PRODUCT && (
-                <button
-                  type="button"
-                  disabled={isUploadingPhotos}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 font-semibold cursor-pointer disabled:opacity-50"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>+ Adicionar foto</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={isUploadingPhotos}
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer disabled:opacity-50 md:hidden"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Tirar foto</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isUploadingPhotos}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 font-semibold cursor-pointer disabled:opacity-50"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Galeria</span>
+                  </button>
+                </div>
               )}
             </div>
 

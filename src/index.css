@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+@theme {
+  /* Celulares pequenos: usado por classes xs: em alguns componentes */
+  --breakpoint-xs: 30rem;
+}
+
+/* Nunca deixa a página rolar para os lados em telas estreitas */
+html,
+body {
+  overflow-x: clip;
+}

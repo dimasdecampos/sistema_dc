@@ -24,7 +24,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
 
       <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
-          <h1 className="text-xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-3xl">
+          <h1 className="text-[clamp(1.25rem,1rem+1.6vw,1.875rem)] font-extrabold leading-tight tracking-tight text-slate-900">
             O que você procura em{' '}
             <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
               {simpleCity}
@@ -73,7 +73,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               <button
                 type="button"
                 onClick={onOpenSaleModal}
-                className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] lg:flex-none"
+                className="inline-flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-900 px-3 py-3 sm:px-4 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] lg:flex-none"
               >
                 <Tag className="h-4 w-4" />
                 Anunciar
@@ -83,10 +83,11 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenWantedModal(searchQuery)}
-                className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98] lg:flex-none"
+                className="inline-flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-3 sm:px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98] lg:flex-none"
               >
-                <PlusCircle className="h-4 w-4 text-emerald-600" />
-                Estou procurando algo
+                <PlusCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span className="sm:hidden">Estou procurando</span>
+                <span className="hidden sm:inline">Estou procurando algo</span>
               </button>
             )}
           </div>

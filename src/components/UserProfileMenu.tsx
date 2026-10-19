@@ -112,7 +112,8 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
       {/* Trigger Button: Modern User Pill */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 sm:gap-2.5 p-0.5 sm:p-1 sm:pr-3 rounded-full bg-white border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs transition cursor-pointer group shrink-0"
+        aria-label="Menu da conta"
+        className="flex items-center gap-1.5 xl:gap-2.5 p-0.5 sm:p-1 sm:pr-2 xl:pr-3 rounded-full bg-white border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs transition cursor-pointer group shrink-0"
       >
         <div className="relative shrink-0">
           {photoUrl ? (
@@ -136,7 +137,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
             </svg>
           </div>
         </div>
-        <div className="text-left hidden sm:block">
+        <div className="text-left hidden xl:block">
           <p className="text-xs font-semibold text-slate-800 leading-tight group-hover:text-emerald-700 transition">
             {user.nome}
           </p>
@@ -145,7 +146,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
           </p>
         </div>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform hidden xs:block ${
+          className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform hidden sm:block ${
             isOpen ? 'rotate-180' : ''
           }`}
         />

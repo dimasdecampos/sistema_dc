@@ -4,6 +4,7 @@ import {
   Tag,
   Search,
   Upload,
+  Camera,
   Loader2,
   Trash2,
   AlertCircle,
@@ -45,6 +46,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (listing && isOpen) {
@@ -333,9 +335,21 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
                   ) : (
                     <>
                       <Upload className="w-5 h-5" />
-                      <span className="text-[10px] font-bold">+ Adicionar</span>
+                      <span className="text-[10px] font-bold">Galeria</span>
                     </>
                   )}
+                </button>
+              )}
+
+              {images.length < 5 && (
+                <button
+                  type="button"
+                  disabled={isUploadingPhoto}
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="md:hidden aspect-square rounded-xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 text-emerald-700 flex flex-col items-center justify-center gap-1 transition cursor-pointer disabled:opacity-50"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span className="text-[10px] font-bold">Câmera</span>
                 </button>
               )}
             </div>
@@ -346,6 +360,15 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
               onChange={handleFileUpload}
               accept="image/*"
               multiple
+              className="hidden"
+            />
+            {/* Câmera direta no celular (capture abre a câmera traseira) */}
+            <input
+              type="file"
+              ref={cameraInputRef}
+              onChange={handleFileUpload}
+              accept="image/*"
+              capture="environment"
               className="hidden"
             />
           </div>
