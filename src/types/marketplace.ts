@@ -67,6 +67,8 @@ export interface Message {
   text: string;
   created_at: string;
   read: boolean;
+  /** Mensagem que carrega o cartão de uma proposta de troca */
+  trade_proposal_id?: string | null;
 }
 
 export interface Conversation {
@@ -141,4 +143,32 @@ export interface WantedRankItem {
   avg_budget: number | null;
   available_offers: number;
   sample_titles: string[];
+}
+
+export type TradeProposalStatus = 'PENDING' | 'ACCEPTED' | 'CANCELLED';
+
+/** Dados mínimos de um anúncio dentro de uma proposta de troca */
+export interface TradeProposalListing {
+  id: string;
+  user_id: string;
+  title: string;
+  price: number | null;
+  status: ListingStatus;
+  images: string[];
+  owner_name?: string;
+}
+
+export interface TradeProposal {
+  id: string;
+  conversation_id: string;
+  offered_listing_id: string;
+  target_listing_id: string;
+  proposer_id: string;
+  status: TradeProposalStatus;
+  created_at: string;
+  responded_at: string | null;
+  /** Produto de quem propôs */
+  offered?: TradeProposalListing;
+  /** Produto desejado (o dono dele recebe a proposta) */
+  target?: TradeProposalListing;
 }

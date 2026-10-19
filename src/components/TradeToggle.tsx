@@ -1,6 +1,5 @@
 import React from 'react';
 import { ArrowLeftRight } from 'lucide-react';
-import { TRADE_PRICE_MARGIN } from '../services/tradeService';
 
 interface TradeToggleProps {
   checked: boolean;
@@ -9,8 +8,6 @@ interface TradeToggleProps {
 
 /** Chave "Aceito troca" dos formulários de anúncio de venda */
 export const TradeToggle: React.FC<TradeToggleProps> = ({ checked, onChange }) => {
-  const marginLabel = `${Math.round(TRADE_PRICE_MARGIN * 100)}%`;
-
   return (
     <label
       className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition ${
@@ -21,7 +18,7 @@ export const TradeToggle: React.FC<TradeToggleProps> = ({ checked, onChange }) =
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-bold text-slate-900">Aceito troca</span>
         <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">
-          Quem tiver um produto de valor parecido (até {marginLabel} de diferença) poderá propor a troca
+          Quem tiver um produto de valor parecido (você escolhe a faixa de 5%, 10% ou 15%) poderá propor a troca
           direto pelo chat.
         </span>
       </span>

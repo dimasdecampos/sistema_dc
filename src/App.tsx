@@ -481,10 +481,10 @@ export default function App() {
   // Propor troca: envia a proposta ao chat do dono do produto desejado e abre a conversa.
   // Lança erro em caso de falha para o bloco de troca mostrar a mensagem.
   const handleProposeTrade = async (offered: Listing, target: Listing) => {
-    const { conversation, alreadySent } = await proposeTrade(offered, target, currentUser);
+    const { conversationId, alreadySent } = await proposeTrade(offered, target, currentUser);
 
     setConversations(await fetchConversations(currentUser.id));
-    setActiveConvId(conversation.id);
+    setActiveConvId(conversationId);
     setCurrentTab('conversations');
 
     showToast(
@@ -498,6 +498,12 @@ export default function App() {
 
   // Iniciar conversa direta sobre um anúncio
   const handleStartChat = async (listing: Listing) => {
+    // Anúncio concluído (inclusive por troca aceita) não recebe novas conversas
+    if (listing.status !== 'ACTIVE') {
+      showToast('Anúncio concluído', 'Este anúncio não recebe mais conversas.', 'info');
+      return;
+    }
+
     if (!googleUser || !currentUser.email) {
       setIsGoogleModalOpen(true);
       showToast(
@@ -1023,6 +1029,7 @@ export default function App() {
               currentUser={currentUser}
               onSelectConversation={setActiveConvId}
               onRefreshConversations={loadData}
+              onTradeAccepted={() => loadData(undefined, true)}
               onViewListing={handleViewListing}
               onOpenGoogleLogin={() => setIsGoogleModalOpen(true)}
             />
@@ -1165,10 +1172,6 @@ export default function App() {
         isAdmin={isAdmin}
         allListings={listings}
         onProposeTrade={handleProposeTrade}
-        onOpenLogin={() => {
-          setIsDetailModalOpen(false);
-          setIsGoogleModalOpen(true);
-        }}
       />
 
       <EditListingModal

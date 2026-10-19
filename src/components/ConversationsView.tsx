@@ -14,6 +14,9 @@ import {
   fetchConversationMessages,
   sendMessage,
 } from '../services/marketplaceService';
+import { acceptTrade, fetchTradeProposals } from '../services/tradeService';
+import { TradeProposalCard } from './TradeProposalCard';
+import type { TradeProposal } from '../types/marketplace';
 
 interface ConversationsViewProps {
   conversations: Conversation[];
@@ -21,6 +24,8 @@ interface ConversationsViewProps {
   currentUser: UserProfile;
   onSelectConversation: (id: string) => void;
   onRefreshConversations: () => void;
+  /** Chamado depois de aceitar uma troca, para recarregar os anúncios (agora concluídos) */
+  onTradeAccepted?: () => void;
   onViewListing?: (listing: Listing) => void;
   onOpenGoogleLogin?: () => void;
 }
@@ -31,10 +36,12 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
   currentUser,
   onSelectConversation,
   onRefreshConversations,
+  onTradeAccepted,
   onViewListing,
   onOpenGoogleLogin,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [proposals, setProposals] = useState<Record<string, TradeProposal>>({});
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showMobileList, setShowMobileList] = useState(!activeConversationId);
@@ -91,7 +98,13 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
       }).catch((e) => console.warn('Erro ao carregar mensagens:', e));
       setShowMobileList(false);
 
+      // Propostas de troca da conversa (cartões com o botão "Aceitar troca")
+      const refreshProposals = () =>
+        fetchTradeProposals(selectedConv.id).then(setProposals).catch(() => {});
+      refreshProposals();
+
       const msgInterval = setInterval(() => {
+        refreshProposals();
         fetchConversationMessages(selectedConv.id).then((freshMsgs) => {
           setMessages((prev) => {
             if (
@@ -133,6 +146,22 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
       setIsLoading(false);
       inputRef.current?.focus();
     }
+  };
+
+  // Aceita a troca: os dois anúncios passam a concluídos; recarrega o chat, as propostas e os anúncios
+  const handleAcceptTrade = async (proposal: TradeProposal) => {
+    await acceptTrade(proposal.id);
+    if (selectedConv) {
+      const [msgs, fresh] = await Promise.all([
+        fetchConversationMessages(selectedConv.id),
+        fetchTradeProposals(selectedConv.id),
+      ]);
+      setMessages(msgs);
+      setProposals(fresh);
+      setTimeout(scrollToBottom, 80);
+    }
+    onRefreshConversations();
+    onTradeAccepted?.();
   };
 
   const handleQuickChip = (chipText: string) => {
@@ -332,6 +361,20 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 const isMine =
                   m.sender_id === currentUser.id ||
                   (userEmail && m.sender_id === userEmail);
+
+                // Mensagem de proposta de troca: mostra o cartão no lugar da bolha
+                const proposal = m.trade_proposal_id ? proposals[m.trade_proposal_id] : undefined;
+                if (proposal) {
+                  return (
+                    <div key={m.id}>
+                      <TradeProposalCard
+                        proposal={proposal}
+                        currentUserId={currentUser.id}
+                        onAccept={handleAcceptTrade}
+                      />
+                    </div>
+                  );
+                }
 
                 return (
                   <div

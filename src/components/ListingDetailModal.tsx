@@ -27,7 +27,6 @@ interface ListingDetailModalProps {
   /** Todos os anúncios carregados, para achar produtos que combinam para troca */
   allListings?: Listing[];
   onProposeTrade?: (offered: Listing, target: Listing) => Promise<void>;
-  onOpenLogin?: () => void;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -41,7 +40,6 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   isAdmin = false,
   allListings = [],
   onProposeTrade,
-  onOpenLogin,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
 
@@ -235,7 +233,6 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               listing={listing}
               allListings={allListings}
               currentUser={currentUser}
-              onOpenLogin={onOpenLogin}
               onProposeTrade={async (offered, target) => {
                 await onProposeTrade(offered, target);
                 onClose();
@@ -261,7 +258,11 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           )}
 
           {/* Ação Principal: Botão para Iniciar Conversa */}
-          {!isOwner ? (
+          {!isOwner && listing.status !== 'ACTIVE' ? (
+            <div className="p-3 bg-slate-100 rounded-2xl text-center text-xs text-slate-500 font-semibold">
+              Este anúncio já foi concluído e não recebe novas conversas nem propostas.
+            </div>
+          ) : !isOwner ? (
             <button
               onClick={() => {
                 onStartChat(listing);
