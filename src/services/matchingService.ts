@@ -10,6 +10,7 @@ const STOPWORDS = new Set([
   'no', 'na', 'nos', 'nas', 'qualquer', 'tipo', 'ate', 'reais', 'real', 'rs', 'mil',
   'quem', 'tem', 'tenha', 'algum', 'alguma', 'aceito', 'proposta', 'troco', 'retirar',
   'retirada', 'funcionando', 'perfeito', 'perfeita', 'conservado', 'conservada',
+  'menos', 'abaixo', 'maximo', 'minimo',
 ]);
 
 // Palavras diferentes que significam o mesmo produto (já no singular, sem acento)
@@ -110,6 +111,30 @@ function wordsMatch(a: string, b: string): boolean {
   return ca.length >= 6 && cb.length >= 6 && withinOneEdit(ca, cb);
 }
 
+/** "800" -> 800, "1.500" -> 1500, "1.500,50" -> 1500.5, "1,5" -> 1.5 */
+function parseMoney(raw: string): number {
+  let s = raw.replace(/[.,]+$/, '');
+  if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(s)) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else {
+    s = s.replace(',', '.');
+  }
+  return parseFloat(s);
+}
+
+/**
+ * Lê um valor máximo escrito em texto livre: "até R$ 800", "no máximo 1.500",
+ * "menos de 2 mil", "abaixo de 300". Retorna null se não houver.
+ */
+function parseBudgetFromText(text: string): number | null {
+  const match = text
+    .toLowerCase()
+    .match(/(?:^|[^a-zà-ú])(?:at[eé]|no m[aá]ximo|m[aá]ximo|menos de|abaixo de)(?![a-zà-ú])\s*(?:r\$|rs)?\s*(\d[\d.,]*)(\s*mil(?![a-zà-ú]))?/);
+  if (!match) return null;
+  const value = parseMoney(match[1]) * (match[2] ? 1000 : 1);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 /** "furadeira ou parafusadeira" -> duas opções, comparadas separadamente */
 function splitAlternatives(title: string): string[] {
   const parts = title.split(/\s+ou\s+|\s*[,;/]\s*/i).filter((p) => p.trim().length > 0);
@@ -202,15 +227,18 @@ export function calculateMatchScore(wanted: Listing, sale: Listing): number {
     score -= 15; // Quem quer novo penaliza item usado
   }
 
-  // 6. Preço máximo desejado vs preço de venda
-  if (wanted.price != null && wanted.price > 0 && sale.price != null && sale.price > 0) {
-    if (sale.price <= wanted.price) {
-      score += 5; // Cabe no orçamento
-    } else {
-      const overPercentage = (sale.price - wanted.price) / wanted.price;
-      if (overPercentage > 1) return 0; // mais que o dobro do orçamento: não serve
-      score -= overPercentage > 0.5 ? 20 : 10;
-    }
+  // 6. Preço: o valor da procura é o máximo que a pessoa paga.
+  // O anúncio só combina se o preço de venda for menor ou igual a esse máximo.
+  // Sem orçamento na procura, ou sem preço no anúncio, o preço não filtra nada.
+  // Se o campo de orçamento está vazio, vale o limite escrito no texto ("até R$ 800").
+  const maxPrice =
+    wanted.price != null && wanted.price > 0
+      ? wanted.price
+      : parseBudgetFromText(wanted.title) ?? parseBudgetFromText(wanted.description || '');
+
+  if (maxPrice != null && sale.price != null && sale.price > 0) {
+    if (sale.price > maxPrice) return 0;
+    score += 5; // cabe no orçamento
   }
 
   return Math.max(0, Math.min(100, score));
