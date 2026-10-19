@@ -80,7 +80,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
   };
 
   const arrowClass =
-    'absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/35 text-white opacity-0 backdrop-blur-sm transition hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100';
+    'absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/35 text-white opacity-0 backdrop-blur-sm transition hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:hidden';
 
   return (
     <article
@@ -116,7 +116,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
           </div>
         )}
 
-        {/* Setas para trocar de foto: discretas, aparecem ao passar o mouse (sempre visíveis no toque) */}
+        {/* Setas para trocar de foto: discretas, aparecem ao passar o mouse (somem em telas de toque) */}
         {photoCount > 1 && (
           <>
             <button
@@ -157,9 +157,13 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
               </span>
             )}
             {!isWanted && listing.accepts_trade && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-emerald-700 shadow-sm backdrop-blur-sm">
-                <ArrowLeftRight className="h-3 w-3" />
-                Aceita troca
+              <span
+                aria-label="Aceita troca"
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2 py-1 text-[11px] font-bold text-emerald-800 shadow-sm backdrop-blur-md sm:px-2.5"
+              >
+                <ArrowLeftRight className="h-3 w-3 shrink-0" />
+                <span className="sm:hidden">Troca</span>
+                <span className="hidden sm:inline">Aceita troca</span>
               </span>
             )}
           </div>
