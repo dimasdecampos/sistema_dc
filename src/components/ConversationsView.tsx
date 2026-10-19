@@ -20,6 +20,29 @@ import { TradeProposalCard } from './TradeProposalCard';
 import { NotificationPrompt } from './NotificationPrompt';
 import type { TradeProposal } from '../types/marketplace';
 
+/** Área visível da tela (descontando o teclado). Só observa enquanto `enabled`. */
+function useVisualViewport(enabled: boolean) {
+  const [viewport, setViewport] = useState<{ height: number; offsetTop: number } | null>(null);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!enabled || !vv) {
+      setViewport(null);
+      return;
+    }
+    const update = () => setViewport({ height: Math.max(vv.height, 240), offsetTop: vv.offsetTop });
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, [enabled]);
+
+  return viewport;
+}
+
 interface ConversationsViewProps {
   conversations: Conversation[];
   activeConversationId?: string;
@@ -51,6 +74,9 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showMobileList, setShowMobileList] = useState(!activeConversationId);
   const [isTabVisible, setIsTabVisible] = useState(() => !document.hidden);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [messagesError, setMessagesError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -62,31 +88,55 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
-  // Usuário não autenticado
-  if (!currentUser.id || !currentUser.email) {
-    return (
-      <div className="bg-white rounded-3xl p-10 sm:p-14 text-center border border-slate-200/90 shadow-2xs space-y-4 max-w-lg mx-auto">
-        <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
-          <MessageSquare className="w-8 h-8" />
-        </div>
-        <h3 className="font-extrabold text-xl text-slate-900">
-          Suas Conversas
-        </h3>
-        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
-          Faça login com sua conta do Google para conversar com compradores e vendedores da cidade em tempo real.
-        </p>
-        {onOpenGoogleLogin && (
-          <button
-            onClick={onOpenGoogleLogin}
-            className="inline-flex items-center gap-2 px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
-          >
-            <span>Entrar com o Google</span>
-          </button>
-        )}
-      </div>
-    );
-  }
+  // Celular (menos de 768px): a conversa aberta ocupa a tela toda, como no WhatsApp
+  const [isMobile, setIsMobile] = useState(() => !window.matchMedia('(min-width: 768px)').matches);
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 768px)');
+    const onChange = () => setIsMobile(!query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
 
+  const chatOpenMobile = isMobile && !showMobileList && conversations.length > 0;
+  // Altura real da área visível (muda quando o teclado abre) para a caixa de mensagem não ficar escondida
+  const viewport = useVisualViewport(chatOpenMobile);
+
+  // Trava a rolagem do site por trás do chat em tela cheia
+  useEffect(() => {
+    if (!chatOpenMobile) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [chatOpenMobile]);
+
+  // Botão "voltar" do celular fecha a conversa (volta para a lista) em vez de sair da tela
+  const chatHistoryPushed = useRef(false);
+  useEffect(() => {
+    if (!chatOpenMobile) return;
+    window.history.pushState({ chatOpen: true }, '');
+    chatHistoryPushed.current = true;
+    const onPop = () => {
+      chatHistoryPushed.current = false;
+      setShowMobileList(true);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [chatOpenMobile]);
+
+  const closeChat = () => {
+    if (chatHistoryPushed.current) window.history.back();
+    else setShowMobileList(true);
+  };
+
+  // Teclado abriu/fechou: mantém a última mensagem à vista
+  useEffect(() => {
+    if (chatOpenMobile) messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [chatOpenMobile, viewport?.height]);
+
+  // IMPORTANTE: todos os hooks ficam acima de qualquer "return". Retornar antes de um hook faz o React
+  // lançar "Rendered more hooks..." quando o login termina de carregar, e o site inteiro fica em branco.
   const selectedConv =
     conversations.find((c) => c.id === activeConversationId) ||
     conversations[0];
@@ -102,22 +152,49 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
 
   // Carrega mensagens reais do banco e sincroniza a cada 2.5s para chat em tempo real
   useEffect(() => {
-    if (selectedConv) {
-      fetchConversationMessages(selectedConv.id).then((msgs) => {
+    const conversationId = selectedConv?.id;
+    if (!conversationId || !currentUser.id) return;
+
+    // Respostas que chegam depois de trocar de conversa (ou sair da tela) são descartadas
+    let cancelled = false;
+
+    // Trocou de conversa: limpa o que era da anterior e mostra "carregando"
+    setMessages([]);
+    setProposals({});
+    setMessagesError(false);
+    setIsLoadingMessages(true);
+
+    fetchConversationMessages(conversationId)
+      .then((msgs) => {
+        if (cancelled) return;
         setMessages(msgs);
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 120);
-      }).catch((e) => console.warn('Erro ao carregar mensagens:', e));
+        setIsLoadingMessages(false);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 120);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        console.warn('Erro ao carregar mensagens:', e);
+        setMessagesError(true);
+        setIsLoadingMessages(false);
+      });
 
-      // Propostas de troca da conversa (cartões com o botão "Aceitar troca")
-      const refreshProposals = () =>
-        fetchTradeProposals(selectedConv.id).then(setProposals).catch(() => {});
+    // Propostas de troca da conversa (cartões com o botão "Aceitar troca")
+    const refreshProposals = () =>
+      fetchTradeProposals(conversationId)
+        .then((fresh) => {
+          if (!cancelled) setProposals(fresh);
+        })
+        .catch(() => {});
+    refreshProposals();
+
+    const msgInterval = setInterval(() => {
+      // Não consulta com a aba escondida (economiza bateria; o push cobre esse caso)
+      if (document.hidden) return;
       refreshProposals();
-
-      const msgInterval = setInterval(() => {
-        refreshProposals();
-        fetchConversationMessages(selectedConv.id).then((freshMsgs) => {
+      fetchConversationMessages(conversationId)
+        .then((freshMsgs) => {
+          if (cancelled) return;
+          setMessagesError(false);
           setMessages((prev) => {
             if (
               freshMsgs.length !== prev.length ||
@@ -128,12 +205,15 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
             }
             return prev;
           });
-        }).catch(() => {});
-      }, 5000);
+        })
+        .catch(() => {});
+    }, 5000);
 
-      return () => clearInterval(msgInterval);
-    }
-  }, [selectedConv?.id]);
+    return () => {
+      cancelled = true;
+      clearInterval(msgInterval);
+    };
+  }, [selectedConv?.id, currentUser.id, reloadKey]);
 
   // Marca como lidas as mensagens da outra pessoa, mas só quando o chat está de fato na tela:
   // aba à vista e, no celular, a conversa aberta (não a lista).
@@ -195,6 +275,31 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
   const handleQuickChip = (chipText: string) => {
     handleSendMessage(chipText);
   };
+
+  // Usuário não autenticado (ou sessão ainda carregando)
+  if (!currentUser.id || !currentUser.email) {
+    return (
+      <div className="bg-white rounded-3xl p-10 sm:p-14 text-center border border-slate-200/90 shadow-2xs space-y-4 max-w-lg mx-auto">
+        <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+          <MessageSquare className="w-8 h-8" />
+        </div>
+        <h3 className="font-extrabold text-xl text-slate-900">
+          Suas Conversas
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
+          Faça login com sua conta do Google para conversar com compradores e vendedores da cidade em tempo real.
+        </p>
+        {onOpenGoogleLogin && (
+          <button
+            onClick={onOpenGoogleLogin}
+            className="inline-flex items-center gap-2 px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+          >
+            <span>Entrar com o Google</span>
+          </button>
+        )}
+      </div>
+    );
+  }
 
   if (conversations.length === 0) {
     return (
@@ -321,15 +426,19 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
       {/* Main Chat Area */}
       {selectedConv ? (
         <div
-          className={`flex-1 flex flex-col bg-white overflow-hidden ${
-            showMobileList ? 'hidden md:flex' : 'flex'
+          className={`flex-1 flex-col bg-white overflow-hidden ${
+            showMobileList ? 'hidden md:flex' : 'flex fixed inset-x-0 z-50 md:static md:inset-auto md:z-auto'
           }`}
+          style={
+            chatOpenMobile ? { top: viewport?.offsetTop ?? 0, height: viewport?.height ?? '100dvh' } : undefined
+          }
         >
-          {/* Chat Header */}
-          <div className="p-3 sm:p-4 border-b border-slate-200/80 bg-white flex items-center justify-between gap-2 shrink-0">
+          {/* Chat Header (fixo no topo; no celular respeita o recorte da câmera) */}
+          <div className="p-3 sm:p-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-4 border-b border-slate-200/80 bg-white flex items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
               <button
-                onClick={() => setShowMobileList(true)}
+                onClick={closeChat}
+                aria-label="Voltar para as conversas"
                 className="md:hidden p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -384,14 +493,31 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
           </div>
 
           {/* Banner de negociação segura */}
-          <div className="bg-emerald-50/70 border-b border-emerald-100 px-4 py-2 flex items-center gap-1.5 text-[11px] text-emerald-900 shrink-0">
+          <div className="hidden md:flex bg-emerald-50/70 border-b border-emerald-100 px-4 py-2 items-center gap-1.5 text-[11px] text-emerald-900 shrink-0">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span>Negociação direta na cidade: combine a entrega ou retirada em locais públicos e movimentados.</span>
           </div>
 
           {/* Messages Stream */}
-          <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-3 bg-slate-50/40">
-            {messages.length === 0 ? (
+          <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto overscroll-contain space-y-3 bg-slate-50/40">
+            {messages.length === 0 && messagesError ? (
+              <div className="py-10 text-center text-xs text-slate-500 space-y-3">
+                <p>Não foi possível carregar as mensagens.</p>
+                <button
+                  type="button"
+                  onClick={() => setReloadKey((k) => k + 1)}
+                  className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-800"
+                >
+                  Tentar de novo
+                </button>
+              </div>
+            ) : messages.length === 0 && isLoadingMessages ? (
+              <div className="space-y-3 animate-pulse" aria-label="Carregando mensagens">
+                <div className="h-10 w-2/3 rounded-2xl bg-slate-200/70" />
+                <div className="ml-auto h-10 w-1/2 rounded-2xl bg-emerald-100" />
+                <div className="h-10 w-3/5 rounded-2xl bg-slate-200/70" />
+              </div>
+            ) : messages.length === 0 ? (
               <div className="text-center py-8 text-xs text-slate-400">
                 Nenhuma mensagem enviada ainda. Envie uma mensagem para iniciar a conversa!
               </div>
@@ -451,7 +577,12 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
           </div>
 
           {/* Quick Replies Chips */}
-          <div className="px-3 pt-2 pb-1 bg-white border-t border-slate-100 flex flex-wrap items-center gap-1.5 max-h-24 overflow-y-auto shrink-0">
+          <div
+            className={`px-3 pt-2 pb-1 bg-white border-t border-slate-100 flex-wrap items-center gap-1.5 max-h-24 overflow-y-auto shrink-0 md:flex ${
+              // No celular as sugestões só aparecem no começo da conversa, para sobrar espaço às mensagens
+              messages.length <= 2 && inputText.length === 0 ? 'flex' : 'hidden'
+            }`}
+          >
             <span className="w-full text-[10px] text-slate-400 font-medium sm:w-auto">Sugestões:</span>
             {quickReplies.map((chip, idx) => (
               <button
@@ -471,7 +602,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
               e.preventDefault();
               handleSendMessage();
             }}
-            className="p-3 sm:p-4 bg-white flex items-center gap-2 shrink-0"
+            className="p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-4 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0"
           >
             <input
               ref={inputRef}

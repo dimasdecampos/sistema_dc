@@ -63,6 +63,7 @@ import { CreateSaleModal } from './components/CreateSaleModal';
 import { ListingDetailModal } from './components/ListingDetailModal';
 import { EditListingModal } from './components/EditListingModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ListingCard } from './components/ListingCard';
 import { getBuyersInterestedInSale } from './services/matchingService';
 import {
@@ -361,7 +362,18 @@ export default function App() {
   };
 
   // Carrega anúncios, matches e conversas do Supabase
+  // Uma recarga por vez: pedidos que chegam durante uma recarga viram uma única recarga extra no fim
+  // (evita respostas fora de ordem e muito tráfego quando mensagem, foco da aba e atualização periódica coincidem)
+  const loadInFlightRef = useRef(false);
+  const loadQueuedRef = useRef(false);
+  const loadDataRef = useRef<(userToQuery?: UserProfile, silent?: boolean) => Promise<void>>(async () => {});
+
   const loadData = useCallback(async (userToQuery?: UserProfile, silent = false) => {
+    if (loadInFlightRef.current) {
+      loadQueuedRef.current = true;
+      return;
+    }
+    loadInFlightRef.current = true;
     const targetUser = userToQuery || currentUserRef.current;
     if (!silent) setIsLoading(true);
     try {
@@ -416,8 +428,14 @@ export default function App() {
       console.warn('Erro ao carregar dados do Supabase:', e);
     } finally {
       if (!silent) setIsLoading(false);
+      loadInFlightRef.current = false;
+      if (loadQueuedRef.current) {
+        loadQueuedRef.current = false;
+        void loadDataRef.current(undefined, true);
+      }
     }
   }, [showToast]);
+  loadDataRef.current = loadData;
 
   // Recarrega quando o usuário logar ou deslogar
   useEffect(() => {
@@ -441,14 +459,18 @@ export default function App() {
     const supabase = getSupabase();
     if (!supabase || !currentUser.id) return;
 
+    // Várias mensagens em sequência viram uma única recarga
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const channel = supabase
       .channel(`messages-${currentUser.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
-        loadData(undefined, true);
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => loadData(undefined, true), 400);
       })
       .subscribe();
 
     return () => {
+      if (timer) clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
   }, [currentUser.id, loadData]);
@@ -1125,17 +1147,19 @@ export default function App() {
         {/* TAB 4: CONVERSAS */}
         {currentTab === 'conversations' && (
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <ErrorBoundary resetKey={currentUser.id}>
             <ConversationsView
               conversations={conversations}
               activeConversationId={activeConvId}
               currentUser={currentUser}
               onSelectConversation={setActiveConvId}
-              onRefreshConversations={loadData}
+              onRefreshConversations={() => loadData(undefined, true)}
               onTradeAccepted={() => loadData(undefined, true)}
               onMessagesRead={() => loadData(undefined, true)}
               onViewListing={handleViewListing}
               onOpenGoogleLogin={() => setIsGoogleModalOpen(true)}
             />
+            </ErrorBoundary>
           </div>
         )}
 
