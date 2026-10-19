@@ -3,6 +3,9 @@ import { getSupabase } from '../lib/supabase';
 import { Usuario } from '../types/auth';
 import { DEFAULT_CITY, ensureProfile, getOfficialGooglePhoto } from './authService';
 
+/** Chave do sessionStorage com o "#..." da tela em que a pessoa clicou em entrar */
+export const RETURN_HASH_KEY = 'temaqui_return_hash';
+
 export interface AuthStateListener {
   (user: Usuario | null): void;
 }
@@ -65,6 +68,13 @@ export async function signInWithSupabaseGoogle(): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) {
     throw new Error('Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+  }
+
+  // O retorno do Google substitui o "#..." da URL; guardamos para voltar à tela de onde a pessoa saiu
+  try {
+    sessionStorage.setItem(RETURN_HASH_KEY, window.location.hash);
+  } catch {
+    // sessionStorage indisponível: volta para a home, sem prejuízo
   }
 
   const { error } = await supabase.auth.signInWithOAuth({

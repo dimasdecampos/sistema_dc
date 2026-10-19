@@ -42,7 +42,7 @@ import {
   getOfficialGooglePhoto,
   DEFAULT_CITY,
 } from './services/authService';
-import { initSupabaseAuth, logoutSupabase } from './services/supabaseAuth';
+import { initSupabaseAuth, logoutSupabase, RETURN_HASH_KEY } from './services/supabaseAuth';
 import { Usuario } from './types/auth';
 import { GoogleLoginModal } from './components/GoogleLoginModal';
 import { Navbar } from './components/Navbar';
@@ -89,6 +89,9 @@ export default function App() {
   const [googleUser, setGoogleUser] = useState<Usuario | null>(null);
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
   const [isLoggingIn] = useState(false);
+  // Evita mostrar "acesso restrito" enquanto a sessão e a configuração ainda estão carregando
+  const [authReady, setAuthReady] = useState(false);
+  const [configReady, setConfigReady] = useState(false);
 
   // Usuário ativo no marketplace (visitante até o Supabase confirmar a sessão)
   const [currentUser, setCurrentUser] = useState<UserProfile>(createGuestUser);
@@ -226,6 +229,20 @@ export default function App() {
 
   // Aplica o usuário vindo da sessão do Supabase Auth (já com o perfil do banco)
   const handleUserAuthenticated = useCallback((u: Usuario) => {
+    // Volta para a tela de onde a pessoa saiu antes do login com o Google (ex.: /#admin)
+    try {
+      const returnHash = sessionStorage.getItem(RETURN_HASH_KEY);
+      if (returnHash !== null) {
+        sessionStorage.removeItem(RETURN_HASH_KEY);
+        if (returnHash === '#admin') {
+          setCurrentTab('admin');
+          window.history.replaceState(null, '', `${window.location.pathname}#admin`);
+        }
+      }
+    } catch {
+      // sem sessionStorage: segue para a home
+    }
+
     setGoogleUser((prev) =>
       prev &&
       prev.id === u.id &&
@@ -367,7 +384,10 @@ export default function App() {
 
   // Inicialização (apenas uma vez no carregamento)
   useEffect(() => {
-    fetchSiteConfig().then(setSiteConfig).catch(() => {});
+    fetchSiteConfig()
+      .then(setSiteConfig)
+      .catch(() => {})
+      .finally(() => setConfigReady(true));
     loadCategories().then(setCategories).catch((e) => console.warn('Erro ao carregar categorias:', e));
 
     // Sessão do Supabase Auth (inclui o retorno do login com Google)
@@ -377,6 +397,7 @@ export default function App() {
       } else {
         resetToGuest();
       }
+      setAuthReady(true);
     });
 
     // Atualização periódica para anúncios, matches e conversas de outros usuários
@@ -1021,7 +1042,9 @@ export default function App() {
         {/* TAB 6: PAINEL DE ADMINISTRAÇÃO /admin */}
         {currentTab === 'admin' && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-            {isAdmin ? (
+            {!authReady || !configReady ? (
+              <div className="py-24 text-center text-sm text-slate-400">Verificando acesso...</div>
+            ) : isAdmin ? (
               <AdminPanel
                 config={siteConfig}
                 categories={categories}
@@ -1039,6 +1062,7 @@ export default function App() {
                 onUpdateListingStatus={handleAdminUpdateListingStatus}
                 onEditListing={handleOpenEditListing}
                 onCloseAdmin={() => handleSelectTab('home')}
+                onDataChanged={() => loadData(undefined, true)}
               />
             ) : (
               <div className="max-w-md mx-auto bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-4 shadow-sm">

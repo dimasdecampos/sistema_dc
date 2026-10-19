@@ -5,6 +5,7 @@ import {
   MoveRight,
   ShieldCheck,
   BarChart3,
+  Users,
   Plus,
   Trash2,
   Edit2,
@@ -33,6 +34,8 @@ import {
 import { Category, Listing, SiteConfig, UserProfile } from '../types/marketplace';
 import { Usuario } from '../types/auth';
 import { SUPABASE_STORAGE_FIX_SQL } from '../lib/supabase';
+import { AdminOverview } from './AdminOverview';
+import { AdminUsers } from './AdminUsers';
 import {
   ensureBucketExists,
   testSupabaseStorageBucket,
@@ -57,6 +60,8 @@ interface AdminPanelProps {
   onUpdateListingStatus: (listingId: string, status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED') => void;
   onEditListing?: (listing: Listing) => void;
   onCloseAdmin: () => void;
+  /** Recarrega os dados do app depois de ações que mudam o banco (ex.: remover usuário) */
+  onDataChanged?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -76,8 +81,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateListingStatus,
   onEditListing,
   onCloseAdmin,
+  onDataChanged,
 }) => {
-  const [activeTab, setActiveTab] = useState<'config' | 'categories' | 'dragdrop' | 'listings' | 'metrics'>('config');
+  const [activeTab, setActiveTab] = useState<'config' | 'categories' | 'dragdrop' | 'listings' | 'metrics' | 'users'>('metrics');
 
   // Form de Configurações
   const [formConfig, setFormConfig] = useState<SiteConfig>(() => ({ ...config }));
@@ -262,7 +268,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Configurações completas da plataforma, gestão de categorias com CRUD e movimentação por arrastar e soltar (drag & drop).
+              Números da plataforma, usuários, anúncios, categorias e configurações. Acesso restrito aos administradores.
             </p>
           </div>
         </div>
@@ -278,6 +284,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Navegação de Abas do Admin */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto text-xs font-bold">
+        <button
+          onClick={() => setActiveTab('metrics')}
+          className={`px-4 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'metrics'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Visão geral</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'users'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Usuários</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('config')}
           className={`px-4 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2 whitespace-nowrap ${
@@ -332,17 +362,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('metrics')}
-          className={`px-4 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'metrics'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          <span>Métricas</span>
-        </button>
       </div>
 
       {/* ABA 1: CONFIGURAÇÕES GERAIS */}
@@ -1205,43 +1224,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* ABA 5: MÉTRICAS */}
-      {activeTab === 'metrics' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Procuras Registradas
-            </span>
-            <div className="text-3xl font-black text-emerald-600 mt-2">{totalWanted}</div>
-            <p className="text-[11px] text-slate-500 mt-1">{activeWanted} ativas no momento</p>
-          </div>
+      {/* ABA: VISÃO GERAL (números do banco) */}
+      {activeTab === 'metrics' && <AdminOverview listings={listings} categories={categories} />}
 
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Produtos à Venda
-            </span>
-            <div className="text-3xl font-black text-amber-600 mt-2">{totalSale}</div>
-            <p className="text-[11px] text-slate-500 mt-1">{activeSale} ativos no momento</p>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Total de Categorias
-            </span>
-            <div className="text-3xl font-black text-slate-900 mt-2">{categories.length}</div>
-            <p className="text-[11px] text-slate-500 mt-1">Configuradas e ativas</p>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Taxa de Atendimento
-            </span>
-            <div className="text-3xl font-black text-teal-600 mt-2">
-              {totalWanted > 0 ? `${Math.round((activeSale / totalWanted) * 100)}%` : '100%'}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">Relação oferta / procura</p>
-          </div>
-        </div>
+      {/* ABA: USUÁRIOS */}
+      {activeTab === 'users' && (
+        <AdminUsers currentUserId={currentUser?.id} onDataChanged={onDataChanged} />
       )}
     </div>
   );
