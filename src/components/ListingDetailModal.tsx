@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Avatar } from './Avatar';
 import {
   X,
   Tag,
@@ -15,6 +16,7 @@ import {
 import { Listing, Match, UserProfile } from '../types/marketplace';
 import { TradeSection } from './TradeSection';
 import { storeDisplayName } from '../services/storeService';
+import { PremiumBadge } from './PremiumBadge';
 
 interface ListingDetailModalProps {
   listing: Listing | null;
@@ -203,14 +205,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           {/* Autor / Morador Info (Sem endereço residencial, por privacidade) */}
           <div className="p-4 bg-white rounded-2xl border border-slate-200 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <img
-                src={
-                  listing.user?.avatar_url ||
-                  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'
-                }
-                alt={listing.user?.nome || 'Morador'}
-                className="w-12 h-12 rounded-2xl object-cover border border-slate-200"
-              />
+              <Avatar src={listing.user?.avatar_url} name={listing.user?.nome || 'Morador'} className="h-12 w-12 text-lg" />
               <div>
                 {listing.user?.is_premium && onOpenStore ? (
                   // Vendedor premium: o nome leva para a loja dele
@@ -223,7 +218,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                     className="flex cursor-pointer items-center gap-1.5 text-left text-sm font-bold text-slate-900 underline decoration-emerald-500 decoration-2 underline-offset-2 transition hover:text-emerald-700"
                     title="Ver a loja deste vendedor"
                   >
-                    <span aria-hidden="true">🏪</span>
+                    <PremiumBadge className="h-4 w-4" />
                     <span>{storeDisplayName(listing.user)}</span>
                   </button>
                 ) : (

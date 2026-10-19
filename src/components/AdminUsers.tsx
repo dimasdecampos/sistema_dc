@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Avatar } from './Avatar';
 import { AlertTriangle, BadgeCheck, Loader2, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { AdminUser, deleteUserData, fetchAdminUsers } from '../services/adminService';
 import { fetchPremiumUserIds, setUserPremium } from '../services/storeService';
@@ -153,13 +154,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ currentUserId, onDataCha
                 <tr key={u.id} className="hover:bg-slate-50/60">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      {u.avatar_url ? (
-                        <img src={u.avatar_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
-                      ) : (
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-500">
-                          {u.nome.charAt(0).toUpperCase()}
-                        </span>
-                      )}
+                      <Avatar src={u.avatar_url} name={u.nome} className="h-9 w-9 text-sm" />
                       <div className="min-w-0">
                         <p className="flex items-center gap-1.5 truncate font-semibold text-slate-900">
                           {u.nome}

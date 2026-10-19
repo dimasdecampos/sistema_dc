@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Avatar } from './Avatar';
 import {
   MessageSquare,
   Send,
@@ -406,14 +407,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 }`}
               >
                 <div className="relative shrink-0">
-                  <img
-                    src={
-                      partner?.avatar_url ||
-                      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'
-                    }
-                    alt={partner?.nome || 'Usuário'}
-                    className="w-11 h-11 rounded-2xl object-cover border border-slate-200"
-                  />
+                  <Avatar src={partner?.avatar_url} name={partner?.nome || 'Usuário'} className="h-11 w-11 text-base" />
                   <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
                 </div>
 
@@ -475,14 +469,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 <ArrowLeft className="w-5 h-5" />
               </button>
 
-              <img
-                src={
-                  otherUser?.avatar_url ||
-                  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'
-                }
-                alt=""
-                className="w-10 h-10 rounded-2xl object-cover border border-slate-200 shrink-0"
-              />
+              <Avatar src={otherUser?.avatar_url} name={otherUser?.nome || 'Morador'} className="h-10 w-10 text-base" />
 
               <div className="min-w-0">
                 <h3 className="font-bold text-sm text-slate-900 truncate">

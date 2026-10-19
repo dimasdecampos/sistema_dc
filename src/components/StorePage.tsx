@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Avatar } from './Avatar';
 import { ArrowLeft, BadgeCheck, MapPin, Package, Pencil, ShoppingBag, Store } from 'lucide-react';
 import { Category, Listing } from '../types/marketplace';
 import { SellerProfile, fetchSellerProfile, storeDisplayName } from '../services/storeService';
+import { PremiumBadge } from './PremiumBadge';
 import { readableTextColor, resolveStoreColor, shadeColor, withAlpha } from '../utils/storeTheme';
 import { ListingCard } from './ListingCard';
 
@@ -150,21 +152,11 @@ export const StorePage: React.FC<StorePageProps> = ({
 
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt=""
-                className="h-16 w-16 shrink-0 rounded-2xl border-2 object-cover sm:h-20 sm:w-20"
-                style={{ borderColor: withAlpha(textOnColor, 0.6) }}
-              />
-            ) : (
-              <span
-                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-2xl font-black sm:h-20 sm:w-20"
-                style={{ background: withAlpha(textOnColor, 0.2) }}
-              >
-                {name.charAt(0).toUpperCase()}
-              </span>
-            )}
+            <Avatar
+              src={profile.avatar_url}
+              name={name}
+              className="h-16 w-16 border-2 border-white/70 text-2xl sm:h-20 sm:w-20"
+            />
             <div className="min-w-0">
               <span
                 className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold"
@@ -173,7 +165,10 @@ export const StorePage: React.FC<StorePageProps> = ({
                 <BadgeCheck className="h-3.5 w-3.5" />
                 Loja Premium
               </span>
-              <h1 className="mt-1.5 break-words text-2xl font-extrabold leading-tight sm:text-3xl">{name}</h1>
+              <h1 className="mt-1.5 flex items-center gap-2 break-words text-2xl font-extrabold leading-tight sm:text-3xl">
+                <span className="min-w-0 break-words">{name}</span>
+                <PremiumBadge className="h-6 w-6 sm:h-7 sm:w-7" />
+              </h1>
               <p className="mt-0.5 flex items-center gap-1.5 text-sm" style={{ opacity: 0.85 }}>
                 <MapPin className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">
