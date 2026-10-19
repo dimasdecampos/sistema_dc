@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Avatar } from './Avatar';
-import { ArrowLeft, BadgeCheck, MapPin, Package, Pencil, ShoppingBag, Store } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, MapPin, Package, Pencil, Store } from 'lucide-react';
 import { Category, Listing } from '../types/marketplace';
 import { SellerProfile, fetchSellerProfile, storeDisplayName } from '../services/storeService';
 import { PremiumBadge } from './PremiumBadge';
@@ -59,8 +59,6 @@ export const StorePage: React.FC<StorePageProps> = ({
     [listings, sellerId]
   );
   const activeProducts = useMemo(() => sellerSales.filter((l) => l.status === 'ACTIVE'), [sellerSales]);
-  // "Vendas feitas" = anúncios de venda deste vendedor que foram concluídos
-  const soldCount = useMemo(() => sellerSales.filter((l) => l.status === 'COMPLETED').length, [sellerSales]);
 
   // Só categorias em que o vendedor tem produto, da que tem mais para a que tem menos
   const categoryChips = useMemo(() => {
@@ -129,8 +127,6 @@ export const StorePage: React.FC<StorePageProps> = ({
 
   const stats = [
     { icon: Package, label: 'Produtos à venda', value: activeProducts.length },
-    { icon: ShoppingBag, label: 'Vendas concluídas', value: soldCount },
-    { icon: Store, label: 'Categorias', value: categoryChips.length },
   ];
 
   return (
