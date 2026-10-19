@@ -22,8 +22,11 @@ const CONVERSATION_SELECT = `
   listing:listings(*, category:categories(*), user:profiles(*), listing_images(image_url)),
   buyer:profiles!conversations_buyer_id_fkey(*),
   seller:profiles!conversations_seller_id_fkey(*),
-  messages(text, created_at, sender_id, read)
+  messages(id, conversation_id, text, created_at, sender_id, read, trade_proposal_id)
 `;
+
+/** Quantas mensagens recentes de cada conversa vêm junto com a lista (o resto é buscado ao abrir) */
+const MESSAGES_PREVIEW_LIMIT = 50;
 
 function requireSupabase() {
   const supabase = getSupabase();
@@ -43,17 +46,13 @@ function mapListing(row: Record<string, any>): Listing {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapConversation(row: Record<string, any>, myId?: string): Conversation {
   const { messages, listing, ...rest } = row;
-  const sorted = ((messages || []) as {
-    text: string;
-    created_at: string;
-    sender_id: string;
-    read: boolean | null;
-  }[])
+  const sorted = ((messages || []) as Message[])
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
   return {
     ...rest,
     listing: listing ? mapListing(listing) : undefined,
+    messages: sorted,
     last_message: sorted.length > 0 ? sorted[sorted.length - 1].text : undefined,
     // Não lidas = mensagens da outra pessoa que ainda não foram abertas
     unread_count: myId ? sorted.filter((m) => m.sender_id !== myId && !m.read).length : 0,
@@ -322,7 +321,10 @@ export async function fetchConversations(userId?: string): Promise<Conversation[
     .from('conversations')
     .select(CONVERSATION_SELECT)
     .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false })
+    // Só as mais recentes de cada conversa: a lista abre rápido mesmo com histórico grande
+    .order('created_at', { referencedTable: 'messages', ascending: false })
+    .limit(MESSAGES_PREVIEW_LIMIT, { referencedTable: 'messages' });
 
   if (error) {
     throw new Error(error.message);

@@ -87,6 +87,8 @@ export interface Conversation {
   seller?: UserProfile;
   last_message?: string;
   unread_count?: number;
+  /** Últimas mensagens já carregadas junto com a lista (abre o chat sem esperar a rede) */
+  messages?: Message[];
 }
 
 export interface CreateWantedInput {

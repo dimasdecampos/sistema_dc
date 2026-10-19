@@ -58,6 +58,8 @@ interface ConversationsViewProps {
   onMessagesRead?: () => void;
   /** Chamado depois de excluir uma conversa, para atualizar a lista */
   onConversationDeleted?: (conversationId: string) => void;
+  /** Propostas de troca já carregadas junto com a lista (o cartão aparece sem esperar a rede) */
+  proposalsCache?: Record<string, TradeProposal>;
   onViewListing?: (listing: Listing) => void;
   onOpenGoogleLogin?: () => void;
 }
@@ -71,6 +73,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
   onTradeAccepted,
   onMessagesRead,
   onConversationDeleted,
+  proposalsCache,
   onViewListing,
   onOpenGoogleLogin,
 }) => {
@@ -165,11 +168,16 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
     // Respostas que chegam depois de trocar de conversa (ou sair da tela) são descartadas
     let cancelled = false;
 
-    // Trocou de conversa: limpa o que era da anterior e mostra "carregando"
-    setMessages([]);
+    // Trocou de conversa: mostra na hora as mensagens recentes que já vieram com a lista
+    // (e só cai no "carregando" se não houver nada); o histórico completo chega logo em seguida
+    const preview = selectedConv?.messages ?? [];
+    setMessages(preview);
     setProposals({});
     setMessagesError(false);
-    setIsLoadingMessages(true);
+    setIsLoadingMessages(preview.length === 0);
+    if (preview.length > 0) {
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ block: 'end' }), 0);
+    }
 
     fetchConversationMessages(conversationId)
       .then((msgs) => {
@@ -559,7 +567,9 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                   (userEmail && m.sender_id === userEmail);
 
                 // Mensagem de proposta de troca: mostra o cartão no lugar da bolha
-                const proposal = m.trade_proposal_id ? proposals[m.trade_proposal_id] : undefined;
+                const proposal = m.trade_proposal_id
+                  ? proposals[m.trade_proposal_id] ?? proposalsCache?.[m.trade_proposal_id]
+                  : undefined;
                 if (proposal) {
                   return (
                     <div key={m.id}>

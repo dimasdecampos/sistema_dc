@@ -19,8 +19,9 @@ import {
   SiteConfig,
   WantedInterest,
   WantedRankItem,
+  TradeProposal,
 } from './types/marketplace';
-import { proposeTrade } from './services/tradeService';
+import { proposeTrade, fetchTradeProposals } from './services/tradeService';
 import { getSupabase } from './lib/supabase';
 import {
   disablePush,
@@ -119,6 +120,8 @@ export default function App() {
   // Sininhos do ranking "mais procurados"
   const [interestCounts, setInterestCounts] = useState<Record<string, number>>({});
   const [myInterests, setMyInterests] = useState<WantedInterest[]>([]);
+  // Propostas de troca de todas as conversas, carregadas junto com a lista (cartões aparecem na hora)
+  const [tradeProposals, setTradeProposals] = useState<Record<string, TradeProposal>>({});
   const myInterestKeys = React.useMemo(() => new Set(myInterests.map((i) => i.term_key)), [myInterests]);
   const lastMatchCountRef = useRef<number | null>(null);
   // Total de mensagens não lidas na última carga (para avisar só quando sobe)
@@ -318,6 +321,7 @@ export default function App() {
     setCurrentUser((prev) => (prev.id ? createGuestUser() : prev));
     setUserMatches([]);
     setMyInterests([]);
+    setTradeProposals({});
     lastMatchCountRef.current = null;
     lastUnreadRef.current = null;
     setConversations([]);
@@ -384,8 +388,21 @@ export default function App() {
     const targetUser = userToQuery || currentUserRef.current;
     if (!silent) setIsLoading(true);
     try {
-      const res = await fetchListings();
-      setListings(res.listings);
+      // Tudo sai em paralelo: nenhuma consulta depende do resultado de outra.
+      // (Antes era uma fila: anúncios -> sininhos -> matches -> conversas, e o chat esperava tudo isso.)
+      const listingsPromise = fetchListings();
+      const interestsPromise = Promise.all([
+        fetchInterestCounts().catch(() => ({} as Record<string, number>)),
+        fetchMyInterests(targetUser.id).catch(() => [] as WantedInterest[]),
+      ]);
+      const conversationsPromise = fetchConversations(targetUser.id);
+      const proposalsPromise: Promise<Record<string, TradeProposal>> = targetUser.id
+        ? fetchTradeProposals().catch(() => ({} as Record<string, TradeProposal>))
+        : Promise.resolve({});
+
+      // Falha de uma consulta enquanto aguardamos outra não pode virar erro solto
+      listingsPromise.catch(() => {});
+      conversationsPromise.catch(() => {});
 
       // Premium/loja do próprio usuário (o admin pode ter concedido o premium desde o último acesso)
       if (targetUser.id) {
@@ -404,11 +421,42 @@ export default function App() {
           .catch(() => {});
       }
 
+      // 1) Conversas primeiro: o chat (com o histórico recente) aparece sem esperar os anúncios
+      try {
+        const convs = await conversationsPromise;
+        setConversations(convs);
+        void proposalsPromise.then(setTradeProposals);
+
+        // Mensagem nova: avisa quando o total de não lidas sobe (na tela, ou pelo sistema com a aba escondida)
+        const unread = convs.reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
+        if (silent && lastUnreadRef.current !== null && unread > lastUnreadRef.current) {
+          const latest = convs
+            .filter((c) => (c.unread_count ?? 0) > 0)
+            .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
+          const viewingChats = currentTabRef.current === 'conversations' && !document.hidden;
+
+          if (latest && !viewingChats) {
+            const partner = latest.buyer_id === targetUser.id ? latest.seller : latest.buyer;
+            const title = partner?.nome ? `Mensagem de ${partner.nome}` : 'Nova mensagem';
+            const body = latest.last_message || 'Você recebeu uma mensagem nova.';
+            if (document.hidden) {
+              void showLocalNotification({ title, body, conversationId: latest.id });
+            } else {
+              showToast(title, body, 'info');
+            }
+          }
+        }
+        lastUnreadRef.current = unread;
+      } catch (e) {
+        console.warn('Erro ao carregar conversas:', e);
+      }
+
+      // 2) Anúncios, sininhos e matches
+      const res = await listingsPromise;
+      setListings(res.listings);
+
       // Sininhos: contadores públicos e os do usuário (falha aqui não deve derrubar o resto)
-      const [counts, mine] = await Promise.all([
-        fetchInterestCounts().catch(() => ({} as Record<string, number>)),
-        fetchMyInterests(targetUser.id).catch(() => [] as WantedInterest[]),
-      ]);
+      const [counts, mine] = await interestsPromise;
       setInterestCounts(counts);
       setMyInterests(mine);
 
@@ -424,30 +472,6 @@ export default function App() {
         );
       }
       lastMatchCountRef.current = matches.length;
-
-      const convs = await fetchConversations(targetUser.id);
-      setConversations(convs);
-
-      // Mensagem nova: avisa quando o total de não lidas sobe (na tela, ou pelo sistema com a aba escondida)
-      const unread = convs.reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
-      if (silent && lastUnreadRef.current !== null && unread > lastUnreadRef.current) {
-        const latest = convs
-          .filter((c) => (c.unread_count ?? 0) > 0)
-          .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
-        const viewingChats = currentTabRef.current === 'conversations' && !document.hidden;
-
-        if (latest && !viewingChats) {
-          const partner = latest.buyer_id === targetUser.id ? latest.seller : latest.buyer;
-          const title = partner?.nome ? `Mensagem de ${partner.nome}` : 'Nova mensagem';
-          const body = latest.last_message || 'Você recebeu uma mensagem nova.';
-          if (document.hidden) {
-            void showLocalNotification({ title, body, conversationId: latest.id });
-          } else {
-            showToast(title, body, 'info');
-          }
-        }
-      }
-      lastUnreadRef.current = unread;
     } catch (e) {
       console.warn('Erro ao carregar dados do Supabase:', e);
     } finally {
@@ -1209,6 +1233,7 @@ export default function App() {
               onRefreshConversations={() => loadData(undefined, true)}
               onTradeAccepted={() => loadData(undefined, true)}
               onMessagesRead={() => loadData(undefined, true)}
+              proposalsCache={tradeProposals}
               onConversationDeleted={(id) => {
                 // Some da lista na hora e esquece a conversa aberta; depois confirma com o banco
                 setConversations((prev) => prev.filter((c) => c.id !== id));

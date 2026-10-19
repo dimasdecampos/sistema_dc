@@ -161,17 +161,21 @@ function toBrief(row: any): TradeProposalListing | undefined {
   };
 }
 
-/** Propostas de troca de uma conversa, indexadas pelo id (para ligar com as mensagens) */
-export async function fetchTradeProposals(conversationId: string): Promise<Record<string, TradeProposal>> {
+/**
+ * Propostas de troca indexadas pelo id (para ligar com as mensagens).
+ * Sem `conversationId`, traz todas as do usuário (a regra do banco só devolve as das conversas dele).
+ */
+export async function fetchTradeProposals(conversationId?: string): Promise<Record<string, TradeProposal>> {
   const supabase = requireSupabase();
-  const { data, error } = await supabase
+  let query = supabase
     .from('trade_proposals')
     .select(
       `*,
        offered:listings!trade_proposals_offered_listing_id_fkey(${LISTING_BRIEF}),
        target:listings!trade_proposals_target_listing_id_fkey(${LISTING_BRIEF})`
-    )
-    .eq('conversation_id', conversationId);
+    );
+  if (conversationId) query = query.eq('conversation_id', conversationId);
+  const { data, error } = await query;
 
   if (error) throw new Error(error.message);
 
