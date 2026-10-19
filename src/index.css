@@ -5,8 +5,8 @@
   --breakpoint-xs: 30rem;
 }
 
-/* Nunca deixa a página rolar para os lados em telas estreitas */
-html,
-body {
+/* Evita rolagem lateral sem mexer no scroll da página (html/body ficam livres, o que
+   mantém barras fixas e o cabeçalho estável nos navegadores de celular) */
+#root {
   overflow-x: clip;
 }

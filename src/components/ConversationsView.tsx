@@ -96,7 +96,6 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 120);
       }).catch((e) => console.warn('Erro ao carregar mensagens:', e));
-      setShowMobileList(false);
 
       // Propostas de troca da conversa (cartões com o botão "Aceitar troca")
       const refreshProposals = () =>
@@ -198,7 +197,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
       ];
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden flex flex-col md:flex-row h-[75vh] min-h-[520px]">
+    <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden flex flex-col md:flex-row h-[75dvh] min-h-[520px]">
       {/* Sidebar: Lista de Conversas (Esconde no mobile quando o chat estiver ativo) */}
       <div
         className={`w-full md:w-80 border-r border-slate-200/80 flex flex-col bg-slate-50/60 shrink-0 ${

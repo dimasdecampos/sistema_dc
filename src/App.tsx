@@ -131,6 +131,11 @@ export default function App() {
     tab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin'
   ) => {
     setCurrentTab(tab);
+    // Ao entrar em Conversas pelo menu, começa pela lista (sem reabrir a última conversa).
+    // Quem abre uma conversa de propósito (iniciar chat, propor troca) usa setActiveConvId direto.
+    if (tab === 'conversations') {
+      setActiveConvId(undefined);
+    }
     if (tab === 'admin') {
       window.location.hash = 'admin';
     } else if (window.location.hash === '#admin') {
@@ -758,7 +763,7 @@ export default function App() {
     : [];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-emerald-500 selection:text-white pb-16 md:pb-0">
+    <div className="min-h-dvh bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-emerald-500 selection:text-white pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       {/* Navbar Global */}
       <Navbar
         currentTab={currentTab}
