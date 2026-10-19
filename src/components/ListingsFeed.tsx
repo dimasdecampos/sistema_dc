@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, Tag, Filter, PlusCircle, Sparkles } from 'lucide-react';
 import { Listing, Category } from '../types/marketplace';
 import { ListingCard } from './ListingCard';
+import { WantedRow } from './WantedRow';
 import { getStoredCategories } from '../services/categoryService';
 
 interface ListingsFeedProps {
@@ -163,6 +164,17 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
               + Anunciar para venda
             </button>
           </div>
+        </div>
+      ) : activeType === 'WANTED' ? (
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+          {filtered.map((item) => (
+            <WantedRow
+              key={item.id}
+              listing={item}
+              category={categories.find((c) => c.id === item.category_id)}
+              onClick={onListingClick}
+            />
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

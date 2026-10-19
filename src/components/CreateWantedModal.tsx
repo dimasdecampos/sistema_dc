@@ -1,19 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  X,
-  Search,
-  Tag,
-  Sparkles,
-  Camera,
-  Upload,
-  CheckCircle2,
-  Loader2,
-  DollarSign,
-  Cloud,
-} from 'lucide-react';
-import { CreateWantedInput, ListingCondition, UserProfile } from '../types/marketplace';
+import React, { useState, useEffect } from 'react';
+import { X, Search, Loader2 } from 'lucide-react';
+import { CreateWantedInput, UserProfile } from '../types/marketplace';
 import { getStoredCategories } from '../services/categoryService';
-import { uploadImageToSupabase } from '../services/storageService';
 
 interface CreateWantedModalProps {
   isOpen: boolean;
@@ -28,19 +16,11 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
   onClose,
   onSubmit,
   initialQuery = '',
-  currentUser,
 }) => {
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState('cat-veiculos');
-  const [condition, setCondition] = useState<ListingCondition>('USED');
   const [price, setPrice] = useState<string>('');
-  const [description, setDescription] = useState('');
-  const [photoUrl, setPhotoUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialQuery) {
@@ -61,25 +41,6 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingPhoto(true);
-    try {
-      // Upload para pasta 'img/' no bucket 'img' do Supabase
-      const res = await uploadImageToSupabase(file, { folder: 'img' });
-      setPhotoUrl(res.url);
-    } catch (err) {
-      console.error('Erro no upload da foto de referência:', err);
-    } finally {
-      setIsUploadingPhoto(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -89,16 +50,13 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
       await onSubmit({
         title: title.trim(),
         category_id: categoryId,
-        condition,
+        condition: 'ANY',
         price: price ? parseFloat(price.replace(',', '.')) : null,
-        description: description.trim(),
-        images: photoUrl ? [photoUrl] : [],
+        description: '',
+        images: [],
       });
-      // Reset
       setTitle('');
       setPrice('');
-      setDescription('');
-      setPhotoUrl('');
       onClose();
     } finally {
       setIsLoading(false);
@@ -107,21 +65,13 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-500/10 via-white to-white shrink-0">
+      <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-500/10 via-white to-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-600/30">
               <Search className="w-5 h-5 stroke-[2.5]" />
             </div>
-            <div>
-              <h2 className="font-extrabold text-lg sm:text-xl text-slate-900 leading-tight">
-                O que você está procurando?
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Publique sua intenção. Encontraremos vendedores compatíveis!
-              </p>
-            </div>
+            <h2 className="font-extrabold text-lg text-slate-900 leading-tight">O que você está procurando?</h2>
           </div>
           <button
             onClick={onClose}
@@ -131,65 +81,24 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
           </button>
         </div>
 
-        {/* Hidden File Input */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          accept="image/*"
-          className="hidden"
-        />
-        {/* Câmera direta no celular (capture abre a câmera traseira) */}
-        <input
-          type="file"
-          ref={cameraInputRef}
-          onChange={handleFileUpload}
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-        />
-
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
-          {currentUser && (
-            <div className="flex items-center gap-3 p-3 bg-emerald-50/70 border border-emerald-200/70 rounded-2xl">
-              <img
-                src={currentUser.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'}
-                alt={currentUser.nome}
-                className="w-8 h-8 rounded-full object-cover border border-emerald-300 shrink-0"
-              />
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-slate-800 truncate">
-                  Comprador: {currentUser.nome}
-                </p>
-                <p className="text-[10px] text-slate-500 truncate">
-                  {currentUser.email || currentUser.cidade || 'Conta Google conectada'}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Campo: O que você procura? */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              O que você procura? <span className="text-emerald-600">*</span>
+              Título <span className="text-emerald-600">*</span>
             </label>
             <input
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex.: Quero comprar um martelo usado, bicicleta aro 26..."
+              placeholder="Ex.: Bicicleta aro 26"
               className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900 font-medium transition"
               autoFocus
             />
           </div>
 
-          {/* Categoria */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Categoria
-            </label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Categoria</label>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -203,166 +112,33 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
             </select>
           </div>
 
-          {/* Preço máximo opcional & Condição */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* Preço máximo */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Preço máximo desejado <span className="text-slate-400 font-normal">(opcional)</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                  R$
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="Ex: 50.00"
-                  className="w-full pl-10 pr-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
-                />
-              </div>
-            </div>
-
-            {/* Condição */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Condição
-              </label>
-              <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200/80">
-                <button
-                  type="button"
-                  onClick={() => setCondition('USED')}
-                  className={`py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
-                    condition === 'USED'
-                      ? 'bg-white text-emerald-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Usado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCondition('NEW')}
-                  className={`py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
-                    condition === 'NEW'
-                      ? 'bg-white text-emerald-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Novo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCondition('ANY')}
-                  className={`py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
-                    condition === 'ANY'
-                      ? 'bg-white text-emerald-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Tanto faz
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Observações opcionais */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Detalhes ou observações <span className="text-slate-400 font-normal">(opcional)</span>
+              Preço máximo <span className="text-slate-400 font-normal">(opcional)</span>
             </label>
-            <textarea
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ex: Preciso para o fim de semana, posso retirar no centro..."
-              className="w-full px-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium resize-none"
-            />
-          </div>
-
-          {/* Foto opcional de exemplo */}
-          <div className="pt-1">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <span>Foto de referência <span className="text-slate-400 font-normal">(opcional)</span></span>
-                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                  <Cloud className="w-3 h-3" />
-                  <span>Bucket: img/</span>
-                </span>
-              </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="Ex: 50.00"
+                className="w-full pl-10 pr-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
+              />
             </div>
-
-            {isUploadingPhoto && (
-              <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800 animate-in fade-in">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
-                <span>Otimizando e carregando foto de referência...</span>
-              </div>
-            )}
-
-            {!photoUrl && !isUploadingPhoto && (
-              <div className="mt-2 flex gap-2">
-                {/* Câmera: só em celular/tablet; abre a câmera traseira direto */}
-                <button
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="md:hidden w-20 h-20 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/50 flex flex-col items-center justify-center text-emerald-700 transition cursor-pointer"
-                >
-                  <Camera className="w-5 h-5 mb-1" />
-                  <span className="text-[10px] font-semibold">Tirar foto</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-20 h-20 rounded-2xl border-2 border-dashed border-slate-200 hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50/50 flex flex-col items-center justify-center text-slate-400 hover:text-emerald-700 transition cursor-pointer"
-                >
-                  <Upload className="w-5 h-5 mb-1" />
-                  <span className="text-[10px] font-semibold">Galeria</span>
-                </button>
-              </div>
-            )}
-
-            {photoUrl && !isUploadingPhoto && (
-              <div className="mt-2 relative w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 group shadow-2xs">
-                <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
-                <span
-                  title="Foto de referência anexada"
-                  className="absolute bottom-1 left-1 bg-emerald-600/90 text-white px-1.5 py-0.5 rounded-md text-[9px] font-bold shadow-xs flex items-center gap-0.5"
-                >
-                  <Sparkles className="w-2.5 h-2.5" />
-                  <span>Foto</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPhotoUrl('')}
-                  className="absolute top-1 right-1 p-0.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Dica do algoritmo de match */}
-          <div className="p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-start gap-2.5 text-xs text-emerald-900">
-            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-            <p className="text-[11px] leading-relaxed">
-              Assim que você publicar, nosso sistema verifica se algum vizinho já colocou esse item à venda e mostrará no seu painel!
-            </p>
-          </div>
-
-          {/* Botão de envio */}
           <button
             type="submit"
             disabled={isLoading || !title.trim()}
-            className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-bold rounded-2xl shadow-md shadow-emerald-600/25 flex items-center justify-center gap-2 transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+            className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-bold rounded-2xl shadow-md shadow-emerald-600/25 flex items-center justify-center gap-2 transition disabled:opacity-50 cursor-pointer"
           >
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Publicando procura...</span>
+                <span>Publicando...</span>
               </>
             ) : (
               <>
