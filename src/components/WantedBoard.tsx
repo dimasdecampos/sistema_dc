@@ -125,7 +125,7 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
         </div>
       </section>
 
-      <div className="mx-auto max-w-4xl space-y-5 px-4 pb-16 pt-5 sm:px-6 sm:pt-6">
+      <div className="mx-auto max-w-7xl space-y-5 px-4 pb-16 pt-5 sm:px-6 sm:pt-6 lg:px-8">
         {matchesCount > 0 && (
           <button
             type="button"
@@ -205,7 +205,7 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
             </div>
           ) : (
             <>
-              <ul className="space-y-2">
+              <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {paged.visible.map((item) => {
                   const cat = categoryById.get(item.category_id) ?? item.category;
                   const photo = item.images?.[0];
@@ -221,11 +221,11 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
                   const iAlsoSearch = isFollowing || (rank ? Boolean(currentUserId) && rank.seeker_user_ids.includes(currentUserId!) : false);
 
                   return (
-                    <li key={item.id} className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs transition hover:border-brand-300">
+                    <li key={item.id} className="flex flex-col rounded-2xl border border-slate-200/90 bg-white shadow-2xs transition hover:border-brand-300">
                       <button
                         type="button"
                         onClick={() => onOpenListing(item)}
-                        className="flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-t-2xl p-3 text-left active:bg-slate-50 sm:gap-4 sm:p-4"
+                        className="flex w-full min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-t-2xl p-3 text-left active:bg-slate-50 sm:gap-4 sm:p-4"
                       >
                         {/* Foto pequena (ou o ícone da categoria) */}
                         <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-brand-50 text-2xl sm:h-16 sm:w-16">
