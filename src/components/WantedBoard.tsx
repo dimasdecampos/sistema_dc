@@ -86,16 +86,19 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
             <p className="text-sm text-slate-600">Veja o que os moradores querem comprar e ofereça o que você tem.</p>
           </div>
 
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-teal-200 bg-white px-3.5 shadow-md shadow-teal-900/5 transition focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-400/20">
-              <Search className="h-5 w-5 shrink-0 text-teal-500" />
+          <div className="mt-4 flex items-center gap-2">
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-teal-200 bg-white p-1.5 shadow-md shadow-teal-900/5 transition focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-400/20"
+            >
+              <Search className="ml-3 h-5 w-5 shrink-0 text-teal-500" />
               <input
-                type="search"
+                type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Buscar entre as procuras: celular, bicicleta, sofá..."
+                placeholder="Celular, bicicleta, sofá..."
                 aria-label="Buscar entre as procuras"
-                className="min-w-0 flex-1 bg-transparent py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden sm:text-base [&::-webkit-search-cancel-button]:hidden"
+                className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden sm:text-base"
               />
               {searchQuery && (
                 <button
@@ -107,14 +110,16 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
                   <X className="h-4 w-4" />
                 </button>
               )}
-            </label>
+            </form>
+
             <button
               type="button"
               onClick={onCreateSearch}
-              className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-cyan-600 px-5 text-sm font-extrabold text-white shadow-sm shadow-cyan-600/25 transition hover:bg-cyan-700 active:scale-[0.98]"
+              aria-label="Cadastrar uma busca"
+              className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-cyan-600 px-3.5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-cyan-700 active:scale-[0.98] sm:px-4"
             >
-              <PlusCircle className="h-5 w-5" />
-              Cadastrar uma busca
+              <PlusCircle className="h-4 w-4" />
+              Busca
             </button>
           </div>
         </div>
@@ -290,7 +295,7 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
                               title={iAlsoSearch ? 'Toque para deixar de acompanhar' : 'Também procuro isso. Me avise quando anunciarem'}
                               className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition active:scale-95 ${
                                 iAlsoSearch
-                                  ? 'border-brand-600 bg-brand-600 text-white'
+                                  ? 'border-cyan-600 bg-cyan-600 text-white'
                                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                               }`}
                             >
