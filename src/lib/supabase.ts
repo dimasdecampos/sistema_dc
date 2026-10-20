@@ -42,6 +42,10 @@ export function getSupabase(): SupabaseClient | null {
     return client;
   }
 
-  client = createClient(url, anonKey);
+  // Nunca reaproveita resposta guardada pelo navegador: um erro passageiro da API
+  // (ex.: anúncios fora do ar por alguns minutos) não pode ficar preso no celular de ninguém.
+  client = createClient(url, anonKey, {
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
+  });
   return client;
 }
