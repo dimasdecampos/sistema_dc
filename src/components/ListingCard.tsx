@@ -198,21 +198,21 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
       {/* Conteúdo */}
       <div className="flex flex-1 flex-col p-3.5 sm:p-4">
         <div className="flex items-start justify-between gap-2">
-          <p className="min-w-0 text-lg font-extrabold leading-tight tracking-tight text-slate-900 sm:text-xl">
+          <p className="min-w-0 whitespace-nowrap text-base font-extrabold leading-tight tracking-tight text-slate-900 sm:text-xl">
             {hasPrice ? (
               <>
                 {isWanted && <span className="mr-1 text-xs font-semibold text-slate-500">até</span>}
                 {formatMoney(listing.price as number)}
               </>
             ) : isWanted ? (
-              <span className="text-base text-slate-500">A combinar</span>
+              <span className="text-sm text-slate-500 sm:text-base">A combinar</span>
             ) : (
-              <span className="text-base text-emerald-700">Doação</span>
+              <span className="text-sm text-emerald-700 sm:text-base">Doação</span>
             )}
           </p>
           {conditionLabel && (
             <span
-              className={`mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+              className={`mt-0.5 shrink-0 rounded-md px-1 py-0.5 text-[9px] sm:px-1.5 sm:text-[10px] font-bold uppercase tracking-wide ${
                 listing.condition === 'NEW' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
               }`}
             >
