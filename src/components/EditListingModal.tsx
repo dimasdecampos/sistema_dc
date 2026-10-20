@@ -13,10 +13,12 @@ import {
   Cloud,
   DollarSign,
   Sparkles,
+  Crop,
 } from 'lucide-react';
 import { Listing, Category, ListingCondition, ListingStatus } from '../types/marketplace';
 import { uploadImageToSupabase, deleteImageFromSupabase } from '../services/storageService';
 import { TradeToggle } from './TradeToggle';
+import { useImageCropper } from './ImageCropper';
 
 interface EditListingModalProps {
   isOpen: boolean;
@@ -49,6 +51,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const { requestCrop, cropperElement } = useImageCropper();
 
   useEffect(() => {
     if (listing && isOpen) {
@@ -83,7 +86,13 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
     try {
       const fileList = Array.from(files);
       let anyError: string | null = null;
-      for (const file of fileList) {
+      for (let file of fileList) {
+        // Deixa o usuário recortar antes de enviar
+        const crop = await requestCrop(file);
+        if (crop.status === 'cancelled') continue;
+        if (crop.status === 'cropped') {
+          file = new File([crop.blob], file.name.replace(/\.[^/.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+        }
         const res = await uploadImageToSupabase(file);
         setImages((prev) => [...prev, res.url]);
         if (!res.isSupabase && res.error) {
@@ -104,6 +113,24 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    }
+  };
+
+  const handleEditCrop = async (index: number) => {
+    const current = images[index];
+    if (!current) return;
+    const crop = await requestCrop(current, false);
+    if (crop.status !== 'cropped') return;
+    setIsUploadingPhoto(true);
+    try {
+      const res = await uploadImageToSupabase(crop.blob);
+      setImages((prev) => prev.map((img, i) => (i === index ? res.url : img)));
+      deleteImageFromSupabase(current).catch(() => {});
+    } catch (err) {
+      console.error('Erro ao enviar foto recortada:', err);
+      setErrorMsg('Falha ao salvar o recorte da foto.');
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -156,6 +183,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
   };
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
@@ -321,6 +349,16 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
                   <img src={img} alt="Foto" className="w-full h-full object-cover" />
                   <button
                     type="button"
+                    onClick={() => handleEditCrop(index)}
+                    disabled={isUploadingPhoto}
+                    className="absolute top-1 left-1 p-1 bg-slate-900/80 hover:bg-slate-900 text-white rounded-lg opacity-90 group-hover:opacity-100 transition shadow-xs cursor-pointer disabled:opacity-50"
+                    title="Editar recorte"
+                    aria-label="Editar recorte"
+                  >
+                    <Crop className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleRemovePhoto(index)}
                     className="absolute top-1 right-1 p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg opacity-90 group-hover:opacity-100 transition shadow-xs cursor-pointer"
                     title="Remover foto"
@@ -411,5 +449,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
         </form>
       </div>
     </div>
+    {cropperElement}
+    </>
   );
 };

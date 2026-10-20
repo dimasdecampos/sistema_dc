@@ -8,14 +8,17 @@ import {
   DollarSign,
   AlertCircle,
   Sparkles,
+  Crop,
 } from 'lucide-react';
 import { CreateSaleInput, UserProfile } from '../types/marketplace';
 import { getStoredCategories } from '../services/categoryService';
 import { TradeToggle } from './TradeToggle';
 import {
   uploadImageToSupabase,
+  deleteImageFromSupabase,
   MAX_PHOTOS_PER_PRODUCT,
 } from '../services/storageService';
+import { useImageCropper } from './ImageCropper';
 
 interface CreateSaleModalProps {
   isOpen: boolean;
@@ -44,6 +47,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const { requestCrop, cropperElement } = useImageCropper();
 
   if (!isOpen) return null;
 
@@ -76,7 +80,16 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
     const newUrls: string[] = [];
 
     for (let i = 0; i < filesToProcess.length; i++) {
-      const file = filesToProcess[i];
+      let file: File = filesToProcess[i];
+      // Deixa o usuário recortar antes de enviar
+      const crop = await requestCrop(file);
+      if (crop.status === 'cancelled') {
+        setUploadProgress({ current: i + 1, total: filesToProcess.length });
+        continue;
+      }
+      if (crop.status === 'cropped') {
+        file = new File([crop.blob], file.name.replace(/\.[^/.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+      }
       try {
         const res = await uploadImageToSupabase(file, {
           folder: 'img',
@@ -97,6 +110,28 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
     setUploadProgress(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleEditCrop = async (index: number) => {
+    const current = photos[index];
+    if (!current) return;
+    const crop = await requestCrop(current, false);
+    if (crop.status !== 'cropped') return;
+    setIsUploadingPhotos(true);
+    try {
+      const res = await uploadImageToSupabase(crop.blob, {
+        folder: 'img',
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.82,
+      });
+      setPhotos((prev) => prev.map((p, i) => (i === index ? res.url : p)));
+      deleteImageFromSupabase(current).catch(() => {});
+    } catch (err) {
+      console.error('Falha ao enviar foto recortada:', err);
+    } finally {
+      setIsUploadingPhotos(false);
     }
   };
 
@@ -135,6 +170,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
   };
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
@@ -352,6 +388,16 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
                   <img src={p} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
                   <button
                     type="button"
+                    onClick={() => handleEditCrop(idx)}
+                    disabled={isUploadingPhotos}
+                    title="Editar recorte"
+                    aria-label="Editar recorte"
+                    className="absolute top-1 left-1 p-1 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Crop className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleRemovePhoto(idx)}
                     className="absolute top-1 right-1 p-0.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition cursor-pointer"
                   >
@@ -420,5 +466,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
         </form>
       </div>
     </div>
+    {cropperElement}
+    </>
   );
 };
