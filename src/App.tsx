@@ -906,7 +906,7 @@ export default function App() {
               onOpenSaleModal={handleRequestOpenSale}
             />
 
-            <div className="mx-auto max-w-7xl space-y-6 px-4 pb-16 pt-5 sm:px-6 sm:pt-6 lg:px-8">
+            <div className="mx-auto max-w-7xl space-y-6 px-2.5 pb-16 pt-5 sm:px-6 sm:pt-6 lg:px-8">
               {/* Aviso discreto de matches para o usuário */}
               {userMatches.length > 0 && (
                 <button
@@ -1028,7 +1028,7 @@ export default function App() {
 
         {/* TAB 4: CONVERSAS */}
         {currentTab === 'conversations' && (
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="max-w-6xl mx-auto px-2.5 sm:px-6 lg:px-8 py-6 sm:py-8">
             <ErrorBoundary resetKey={currentUser.id}>
             <ConversationsView
               conversations={conversations}
@@ -1072,7 +1072,7 @@ export default function App() {
 
         {/* TAB 5: MEU PAINEL (DASHBOARD) */}
         {currentTab === 'dashboard' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-6 sm:py-8">
             <div className="mb-6">
               <StoreSettings
                 user={currentUser}
@@ -1104,7 +1104,7 @@ export default function App() {
 
         {/* TAB 6: PAINEL DE ADMINISTRAÇÃO /admin */}
         {currentTab === 'admin' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-6 sm:py-8">
             {!authReady || !configReady ? (
               <div className="py-24 text-center text-sm text-slate-400">Verificando acesso...</div>
             ) : isAdmin ? (
@@ -1159,7 +1159,7 @@ export default function App() {
 
       {/* Footer Limpo e Objetivo */}
       <footer className="border-t border-slate-200/90 bg-white py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-extrabold text-slate-900">{siteConfig.siteName}</span>
             <span>•</span>

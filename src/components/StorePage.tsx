@@ -88,7 +88,7 @@ export const StorePage: React.FC<StorePageProps> = ({
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-2.5 py-6 sm:px-6 lg:px-8">
         {backButton}
         <div className="animate-pulse space-y-4">
           <div className="h-44 rounded-3xl bg-slate-200/70" />
@@ -105,7 +105,7 @@ export const StorePage: React.FC<StorePageProps> = ({
   // Loja só existe para vendedor premium
   if (loadError || !profile || !profile.is_premium) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-2.5 py-6 sm:px-6 lg:px-8">
         {backButton}
         <div className="mx-auto max-w-md rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
           <Store className="mx-auto h-10 w-10 text-slate-300" />
@@ -130,12 +130,12 @@ export const StorePage: React.FC<StorePageProps> = ({
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-2.5 py-6 sm:px-6 lg:px-8">
       {backButton}
 
       {/* Faixa da loja na cor escolhida pelo vendedor */}
       <section
-        className="relative overflow-hidden rounded-2xl p-4 shadow-sm sm:p-5"
+        className="relative overflow-hidden rounded-2xl p-2.5 shadow-sm sm:p-5"
         style={{
           background: `linear-gradient(135deg, ${color}, ${shadeColor(color, -30)})`,
           color: textOnColor,

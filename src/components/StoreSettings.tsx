@@ -33,7 +33,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({ user, onSaved, onO
 
   if (!user.is_premium) {
     return (
-      <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-5">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
           <Lock className="h-5 w-5" />
         </span>
@@ -71,7 +71,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({ user, onSaved, onO
   return (
     <form
       onSubmit={handleSave}
-      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs sm:p-5"
+      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-900">

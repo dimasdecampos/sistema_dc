@@ -183,7 +183,7 @@ const ListingCardBase: React.FC<ListingCardProps> = ({ listing, onClick, matchSc
       </div>
 
       {/* Conteúdo */}
-      <div className="flex flex-1 flex-col p-3.5 sm:p-4">
+      <div className="flex flex-1 flex-col p-2.5 sm:p-4">
         <div className="flex items-start justify-between gap-2">
           <p className="min-w-0 whitespace-nowrap text-base font-extrabold leading-tight tracking-tight text-slate-900 sm:text-xl">
             {hasPrice ? (
