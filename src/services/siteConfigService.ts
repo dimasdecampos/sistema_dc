@@ -14,6 +14,8 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   contactEmail: 'contato@temaquislp.com.br',
   autoMatchThreshold: 35,
   currencySymbol: 'R$',
+  cardsPerPage: 16,
+  loadMoreMode: 'button',
   adminEmails: [],
 };
 

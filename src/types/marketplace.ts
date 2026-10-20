@@ -123,6 +123,10 @@ export interface SiteConfig {
   contactEmail: string;
   autoMatchThreshold: number;
   currencySymbol: string;
+  /** Quantos cards aparecem por vez nas listas (padrão 16) */
+  cardsPerPage?: number;
+  /** "button" = botão Ver mais; "infinite" = carrega ao rolar */
+  loadMoreMode?: 'button' | 'infinite';
   adminEmails?: string[];
 }
 

@@ -596,6 +596,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 Pontuação mínima (0-100) para cruzar Procura e Oferta.
               </p>
             </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Cards por vez nas listas
+              </label>
+              <input
+                type="number"
+                min={4}
+                max={100}
+                value={formConfig.cardsPerPage ?? 16}
+                onChange={(e) =>
+                  handleConfigFieldChange(
+                    'cardsPerPage',
+                    Math.min(100, Math.max(4, Math.round(Number(e.target.value)) || 16))
+                  )
+                }
+                className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-emerald-500"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">Padrão: 16.</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Carregar mais anúncios
+              </label>
+              <select
+                value={formConfig.loadMoreMode || 'button'}
+                onChange={(e) =>
+                  handleConfigFieldChange('loadMoreMode', e.target.value as 'button' | 'infinite')
+                }
+                className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-emerald-500"
+              >
+                <option value="button">Botão "Ver mais" no fim da página</option>
+                <option value="infinite">Rolagem infinita</option>
+              </select>
+            </div>
           </div>
 
           {/* Seção Supabase Storage: Bucket 'img' */}

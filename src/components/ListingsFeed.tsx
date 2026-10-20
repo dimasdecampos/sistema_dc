@@ -1,6 +1,8 @@
 import React from 'react';
 import { Search, Tag, Filter, PlusCircle, Sparkles } from 'lucide-react';
-import { Listing, Category } from '../types/marketplace';
+import { Listing, Category, SiteConfig } from '../types/marketplace';
+import { DEFAULT_SITE_CONFIG } from '../services/siteConfigService';
+import { usePagedList, LoadMoreFooter } from './LoadMore';
 import { ListingCard } from './ListingCard';
 import { WantedRow } from './WantedRow';
 import { getStoredCategories } from '../services/categoryService';
@@ -11,6 +13,7 @@ interface ListingsFeedProps {
   selectedCategory: string;
   searchQuery: string;
   categories?: Category[];
+  config?: SiteConfig;
   onSelectType: (type: 'ALL' | 'WANTED' | 'SALE') => void;
   onSelectCategory: (catId: string) => void;
   onSearchChange: (search: string) => void;
@@ -27,6 +30,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
   selectedCategory,
   searchQuery,
   categories = getStoredCategories(),
+  config = DEFAULT_SITE_CONFIG,
   onSelectType,
   onSelectCategory,
   onSearchChange,
@@ -48,6 +52,12 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
     }
     return true;
   });
+
+  const paged = usePagedList(
+    filtered,
+    config,
+    `${activeType}|${selectedCategory}|${searchQuery}`
+  );
 
   const wantedCount = listings.filter((l) => l.type === 'WANTED').length;
   const saleCount = listings.filter((l) => l.type === 'SALE').length;
@@ -167,7 +177,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
         </div>
       ) : activeType === 'WANTED' ? (
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          {filtered.map((item) => (
+          {paged.visible.map((item) => (
             <WantedRow
               key={item.id}
               listing={item}
@@ -178,7 +188,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((item) => (
+          {paged.visible.map((item) => (
             <ListingCard
               key={item.id}
               listing={item}
@@ -189,6 +199,13 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
           ))}
         </div>
       )}
+
+      <LoadMoreFooter
+        hasMore={paged.hasMore}
+        mode={paged.mode}
+        remaining={paged.remaining}
+        onLoadMore={paged.loadMore}
+      />
     </div>
   );
 };

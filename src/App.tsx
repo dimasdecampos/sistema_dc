@@ -69,6 +69,7 @@ import { StorePage } from './components/StorePage';
 import { StoreSettings } from './components/StoreSettings';
 import { fetchSellerProfile, SellerProfile } from './services/storeService';
 import { ListingCard } from './components/ListingCard';
+import { usePagedList, LoadMoreFooter } from './components/LoadMore';
 import { getBuyersInterestedInSale } from './services/matchingService';
 import {
   DEFAULT_SITE_CONFIG,
@@ -950,6 +951,12 @@ export default function App() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
+  const homePaged = usePagedList(
+    homeFilteredListings,
+    siteConfig,
+    `${feedTypeFilter}|${homeCategory}|${searchQuery}|${homeSort}`
+  );
+
   // Matches para o anúncio selecionado se for aberto em modal
   const relatedMatchesForSelected = selectedListing
     ? selectedListing.type === 'SALE'
@@ -1110,17 +1117,25 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-                  {homeFilteredListings.map((item) => (
-                    <ListingCard
-                      key={item.id}
-                      listing={item}
-                      onClick={handleViewListing}
-                      currentUserId={currentUser.id}
-                      currentUserEmail={currentUser.email}
-                      onOpenStore={handleOpenStore}
-                    />
-                  ))}
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+                    {homePaged.visible.map((item) => (
+                      <ListingCard
+                        key={item.id}
+                        listing={item}
+                        onClick={handleViewListing}
+                        currentUserId={currentUser.id}
+                        currentUserEmail={currentUser.email}
+                        onOpenStore={handleOpenStore}
+                      />
+                    ))}
+                  </div>
+                  <LoadMoreFooter
+                    hasMore={homePaged.hasMore}
+                    mode={homePaged.mode}
+                    remaining={homePaged.remaining}
+                    onLoadMore={homePaged.loadMore}
+                  />
                 </div>
               )}
 
@@ -1165,6 +1180,7 @@ export default function App() {
             <ListingsFeed
               listings={listings}
               activeType="WANTED"
+              config={siteConfig}
               categories={categories}
               selectedCategory={selectedCategory}
               searchQuery={searchQuery}
@@ -1206,6 +1222,7 @@ export default function App() {
             <ListingsFeed
               listings={listings}
               activeType="SALE"
+              config={siteConfig}
               categories={categories}
               selectedCategory={selectedCategory}
               searchQuery={searchQuery}
