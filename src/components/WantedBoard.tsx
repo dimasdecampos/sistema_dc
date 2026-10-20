@@ -257,22 +257,22 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
                             onClick={() => onToggleInterest(rank)}
                             aria-pressed={isFollowing}
                             title={isFollowing ? 'Toque para deixar de acompanhar' : 'Também procuro isso. Me avise quando anunciarem'}
-                            className={`inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-sm font-bold transition active:scale-95 ${
+                            className={`inline-flex min-h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-2 py-1.5 text-center text-[13px] leading-tight sm:px-3 sm:text-sm font-bold transition active:scale-95 ${
                               isFollowing
                                 ? 'border-cyan-600 bg-cyan-600 text-white'
                                 : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                             }`}
                           >
-                            <ThumbsUp className={`h-4 w-4 ${isFollowing ? 'fill-current' : ''}`} />
+                            <ThumbsUp className={`h-4 w-4 shrink-0 ${isFollowing ? 'fill-current' : ''}`} />
                             {isFollowing ? 'Você também procura' : 'Também procuro'}
                           </button>
                         )}
                         <button
                           type="button"
                           onClick={onOpenSale}
-                          className="inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-amber-500 px-3 text-sm font-extrabold text-slate-950 transition hover:bg-amber-400 active:scale-95"
+                          className="inline-flex min-h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-2 py-1.5 text-center text-[13px] leading-tight sm:px-3 sm:text-sm font-extrabold text-slate-950 transition hover:bg-amber-400 active:scale-95"
                         >
-                          <Tag className="h-4 w-4" />
+                          <Tag className="h-4 w-4 shrink-0" />
                           Tenho isso pra vender
                         </button>
                       </div>
