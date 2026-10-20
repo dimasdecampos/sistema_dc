@@ -1,10 +1,8 @@
 import React, { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search,
-  Tag,
   Sparkles,
   ArrowRight,
-  PlusCircle,
   ShieldCheck,
   ArrowUpDown,
 } from 'lucide-react';
@@ -47,7 +45,6 @@ import { initSupabaseAuth, logoutSupabase, RETURN_HASH_KEY } from './services/su
 import { Usuario } from './types/auth';
 import { Navbar } from './components/Navbar';
 import { HomeHero } from './components/HomeHero';
-import { ListingsFeed } from './components/ListingsFeed';
 import { ToastContainer } from './components/Toast';
 import { useToasts } from './hooks/useToasts';
 import { useFavorites } from './hooks/useFavorites';
@@ -60,8 +57,8 @@ import { usePagedList, LoadMoreFooter } from './components/LoadMore';
 import { getBuyersInterestedInSale } from './services/matchingService';
 import { isUserAdmin } from './services/siteConfigService';
 import { moveListingToCategory } from './services/categoryService';
-import { computeWantedRanking } from './services/rankingService';
-import { MostWantedRanking } from './components/MostWantedRanking';
+import { computeWantedRanking, wantedTermKey } from './services/rankingService';
+import { FeedTypeSwitch } from './components/FeedTypeSwitch';
 
 // Telas e modais pesados só são baixados quando necessários
 const GoogleLoginModal = lazy(() => import('./components/GoogleLoginModal').then((m) => ({ default: m.GoogleLoginModal })));
@@ -73,6 +70,7 @@ const ListingDetailModal = lazy(() => import('./components/ListingDetailModal').
 const EditListingModal = lazy(() => import('./components/EditListingModal').then((m) => ({ default: m.EditListingModal })));
 const StorePage = lazy(() => import('./components/StorePage').then((m) => ({ default: m.StorePage })));
 const StoreSettings = lazy(() => import('./components/StoreSettings').then((m) => ({ default: m.StoreSettings })));
+const WantedBoard = lazy(() => import('./components/WantedBoard').then((m) => ({ default: m.WantedBoard })));
 const AdminPanel = lazy(() => import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
 
 const createGuestUser = (): UserProfile => ({
@@ -98,6 +96,8 @@ export default function App() {
   // Home Page Product Category & Sort State
   const [homeCategory, setHomeCategory] = useState<string>('all');
   const [homeSort, setHomeSort] = useState<'recent' | 'price-asc' | 'price-desc'>('recent');
+  // Quadro "Procurando": por padrão, as procuras com mais gente atrás aparecem primeiro
+  const [wantedSort, setWantedSort] = useState<'popular' | 'recent' | 'price-asc' | 'price-desc'>('popular');
 
   // Sininhos do ranking "mais procurados"
   const [interestCounts, setInterestCounts] = useState<Record<string, number>>({});
@@ -111,11 +111,11 @@ export default function App() {
 
   // Loja do vendedor (recurso premium): qual vendedor está aberto e de onde a pessoa veio
   const [storeSellerId, setStoreSellerId] = useState<string | null>(null);
-  const storeBackTabRef = useRef<'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store'>('home');
+  const storeBackTabRef = useRef<'home' | 'conversations' | 'dashboard' | 'admin' | 'store'>('home');
 
   // Navigation tab
   const [currentTab, setCurrentTab] = useState<
-    'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store'
+    'home' | 'conversations' | 'dashboard' | 'admin' | 'store'
   >(() => (typeof window !== 'undefined' && window.location.hash === '#admin' ? 'admin' : 'home'));
 
   // Listen for hash changes for /#admin
@@ -130,7 +130,7 @@ export default function App() {
   }, []);
 
   const handleSelectTab = (
-    tab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store'
+    tab: 'home' | 'conversations' | 'dashboard' | 'admin' | 'store'
   ) => {
     setCurrentTab(tab);
     // Ao entrar em Conversas pelo menu, começa pela lista (sem reabrir a última conversa).
@@ -145,6 +145,12 @@ export default function App() {
     }
   };
 
+  // Atalhos da barra inferior do celular: abrem o feed da home já em "À venda" ou "Procurando"
+  const handleSelectFeedType = (type: 'WANTED' | 'SALE') => {
+    setFeedTypeFilter(type);
+    handleSelectTab('home');
+  };
+
   // Listings & Matches State
   const [listings, setListings] = useState<Listing[]>([]);
   const [userMatches, setUserMatches] = useState<Match[]>([]);
@@ -153,8 +159,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Filters for feed
-  const [feedTypeFilter, setFeedTypeFilter] = useState<'ALL' | 'WANTED' | 'SALE'>('SALE');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [feedTypeFilter, setFeedTypeFilter] = useState<'WANTED' | 'SALE'>('SALE');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Modals
@@ -783,13 +788,13 @@ export default function App() {
   );
 
   // Ranking calculado para a categoria selecionada
-  const rankingItems = computeWantedRanking(listings, 'all', interestCounts);
+  // Quantas pessoas procuram cada coisa (procuras publicadas + "também procuro"), indexado pelo termo
+  const rankItemsByKey = new Map(computeWantedRanking(listings, 'all', interestCounts).map((item) => [item.id, item]));
 
   // Anúncios filtrados para a Home com base na busca em tempo real, abas e categorias
   const homeFilteredListings = listings
     .filter((l) => l.status === 'ACTIVE')
     .filter((l) => {
-      if (feedTypeFilter === 'ALL') return true;
       return l.type === feedTypeFilter;
     })
     .filter((l) => (homeCategory === 'all' ? true : l.category_id === homeCategory))
@@ -810,6 +815,17 @@ export default function App() {
       }
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
+
+  // Quadro "Procurando": mesma filtragem da home, com a ordenação própria (mais procuradas por padrão)
+  const wantedBoardListings = [...homeFilteredListings].sort((a, b) => {
+    if (wantedSort === 'popular') {
+      const seekers = (l: Listing) => rankItemsByKey.get(wantedTermKey(l.title, l.category_id))?.total_seekers ?? 1;
+      return seekers(b) - seekers(a) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
+    if (wantedSort === 'price-asc') return (a.price || 0) - (b.price || 0);
+    if (wantedSort === 'price-desc') return (b.price || 0) - (a.price || 0);
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   const homePaged = usePagedList(
     homeFilteredListings,
@@ -837,6 +853,8 @@ export default function App() {
         categories={categories}
         selectedCategory={homeCategory}
         onSelectCategory={setHomeCategory}
+        feedType={feedTypeFilter}
+        onSelectFeedType={handleSelectFeedType}
         onOpenGoogleLogin={handleOpenGoogleLogin}
         onLogoutGoogle={handleLogoutGoogle}
         onUpdateCity={handleUpdateCity}
@@ -851,7 +869,33 @@ export default function App() {
       <main className="flex-1">
         <Suspense fallback={<div className="py-24 text-center text-sm text-slate-400">Carregando...</div>}>
         {/* TAB 1: INÍCIO */}
-        {currentTab === 'home' && (
+        {currentTab === 'home' && feedTypeFilter === 'WANTED' && (
+          <WantedBoard
+            listings={wantedBoardListings}
+            categories={categories}
+            selectedCategory={homeCategory}
+            onClearCategory={() => setHomeCategory('all')}
+            config={siteConfig}
+            isLoading={isLoading}
+            feedType={feedTypeFilter}
+            onChangeFeedType={setFeedTypeFilter}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sort={wantedSort}
+            onSortChange={setWantedSort}
+            rankItemsByKey={rankItemsByKey}
+            myInterestKeys={myInterestKeys}
+            onToggleInterest={handleToggleInterest}
+            currentUserId={currentUser.id}
+            matchesCount={userMatches.length}
+            onOpenMatches={() => handleSelectTab('dashboard')}
+            onCreateSearch={() => handleRequestOpenWanted(searchQuery)}
+            onOpenSale={handleRequestOpenSale}
+            onOpenListing={handleViewListing}
+          />
+        )}
+
+        {currentTab === 'home' && feedTypeFilter === 'SALE' && (
           <div>
             <HomeHero
               searchQuery={searchQuery}
@@ -885,28 +929,7 @@ export default function App() {
 
               {/* Barra de filtros */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex w-fit items-center gap-1 rounded-xl bg-slate-100 p-1">
-                  {(
-                    [
-                      { id: 'SALE', label: 'À venda' },
-                      { id: 'WANTED', label: 'Procurando' },
-                      { id: 'ALL', label: 'Tudo' },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setFeedTypeFilter(opt.id)}
-                      className={`cursor-pointer whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition ${
-                        feedTypeFilter === opt.id
-                          ? 'bg-white text-slate-900 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+                <FeedTypeSwitch value={feedTypeFilter} onChange={setFeedTypeFilter} />
 
                 <div className="flex flex-wrap items-center gap-3">
                   {homeCategory !== 'all' && (
@@ -963,9 +986,7 @@ export default function App() {
                   <Search className="mx-auto h-9 w-9 text-slate-300" />
                   <h3 className="mt-3 text-base font-bold text-slate-800">Nenhum anúncio por aqui ainda</h3>
                   <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                    {feedTypeFilter === 'WANTED'
-                      ? 'Ninguém publicou uma procura nesta busca ou categoria ainda.'
-                      : 'Tente outra busca ou categoria, ou seja o primeiro a anunciar.'}
+                    Tente outra busca ou categoria, ou seja o primeiro a anunciar.
                   </p>
                   <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
                     <button
@@ -999,103 +1020,7 @@ export default function App() {
                   />
                 </div>
               )}
-
-              {/* Ranking das coisas mais procuradas */}
-              <div className="pt-10">
-                <MostWantedRanking
-                  ranking={rankingItems}
-                  currentUserId={currentUser.id}
-                  myInterestKeys={myInterestKeys}
-                  onToggleInterest={handleToggleInterest}
-                  onOpenWanted={() => handleRequestOpenWanted(searchQuery)}
-                  onOpenSaleWithTerm={() => handleRequestOpenSale()}
-                />
-              </div>
             </div>
-          </div>
-        )}
-
-        {/* TAB 2: QUEM PROCURA (WANTED) */}
-        {currentTab === 'wanted' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
-                  <Search className="w-7 h-7 text-brand-600" />
-                  <span>O que as pessoas estão procurando</span>
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                  Tem algum desses itens parado em casa? Inicie uma conversa com o comprador!
-                </p>
-              </div>
-
-              <button
-                onClick={() => handleRequestOpenWanted('')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md hover:bg-brand-700 transition cursor-pointer self-start sm:self-auto"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>+ Quero procurar algo</span>
-              </button>
-            </div>
-
-            <ListingsFeed
-              listings={listings}
-              activeType="WANTED"
-              config={siteConfig}
-              categories={categories}
-              selectedCategory={selectedCategory}
-              searchQuery={searchQuery}
-              onSelectType={(t) => setFeedTypeFilter(t)}
-              onSelectCategory={setSelectedCategory}
-              onSearchChange={setSearchQuery}
-              onListingClick={handleViewListing}
-              onOpenWantedModal={() => handleRequestOpenWanted('')}
-              onOpenSaleModal={handleRequestOpenSale}
-              currentUserId={currentUser.id}
-              currentUserEmail={currentUser.email}
-            />
-          </div>
-        )}
-
-        {/* TAB 3: À VENDA (SALE) */}
-        {currentTab === 'sales' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
-                  <Tag className="w-7 h-7 text-amber-600" />
-                  <span>Produtos à venda na cidade</span>
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                  Ofertas anunciadas diretamente pelos moradores locais.
-                </p>
-              </div>
-
-              <button
-                onClick={handleRequestOpenSale}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-slate-950 rounded-2xl text-xs sm:text-sm font-extrabold shadow-md hover:bg-amber-600 transition cursor-pointer self-start sm:self-auto"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>+ Quero vender algo</span>
-              </button>
-            </div>
-
-            <ListingsFeed
-              listings={listings}
-              activeType="SALE"
-              config={siteConfig}
-              categories={categories}
-              selectedCategory={selectedCategory}
-              searchQuery={searchQuery}
-              onSelectType={(t) => setFeedTypeFilter(t)}
-              onSelectCategory={setSelectedCategory}
-              onSearchChange={setSearchQuery}
-              onListingClick={handleViewListing}
-              onOpenWantedModal={() => handleRequestOpenWanted('')}
-              onOpenSaleModal={handleRequestOpenSale}
-              currentUserId={currentUser.id}
-              currentUserEmail={currentUser.email}
-            />
           </div>
         )}
 

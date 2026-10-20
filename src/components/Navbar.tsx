@@ -19,8 +19,8 @@ import { CategoryMenu } from './CategoryMenu';
 import { isUserAdmin } from '../services/siteConfigService';
 
 interface NavbarProps {
-  currentTab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store';
-  onSelectTab: (tab: 'home' | 'wanted' | 'sales' | 'conversations' | 'dashboard' | 'admin' | 'store') => void;
+  currentTab: 'home' | 'conversations' | 'dashboard' | 'admin' | 'store';
+  onSelectTab: (tab: 'home' | 'conversations' | 'dashboard' | 'admin' | 'store') => void;
   user: UserProfile;
   googleUser: Usuario | null;
   config?: SiteConfig;
@@ -36,6 +36,9 @@ interface NavbarProps {
   categories: Category[];
   selectedCategory: string;
   onSelectCategory: (categoryId: string) => void;
+  /** Tipo de anúncio do feed da home (barra inferior do celular: Início = venda, Procurar = procuro) */
+  feedType: 'WANTED' | 'SALE';
+  onSelectFeedType: (type: 'WANTED' | 'SALE') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -48,6 +51,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   categories,
   selectedCategory,
   onSelectCategory,
+  feedType,
+  onSelectFeedType,
   onOpenGoogleLogin,
   onLogoutGoogle,
   onUpdateCity,
@@ -235,9 +240,9 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-around">
           <button
-            onClick={() => onSelectTab('home')}
+            onClick={() => onSelectFeedType('SALE')}
             className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition ${
-              currentTab === 'home' ? 'text-brand-600 font-bold' : 'text-slate-500'
+              currentTab === 'home' && feedType === 'SALE' ? 'text-brand-600 font-bold' : 'text-slate-500'
             }`}
           >
             <Home className="w-5 h-5" />
@@ -245,9 +250,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
-            onClick={() => onSelectTab('wanted')}
+            onClick={() => onSelectFeedType('WANTED')}
             className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition ${
-              currentTab === 'wanted' ? 'text-brand-600 font-bold' : 'text-slate-500'
+              currentTab === 'home' && feedType === 'WANTED' ? 'text-brand-600 font-bold' : 'text-slate-500'
             }`}
           >
             <Search className="w-5 h-5" />

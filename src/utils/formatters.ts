@@ -56,3 +56,18 @@ export function getAvatarColor(name: string): string {
   const index = Math.abs(hash) % AVATAR_COLORS.length;
   return AVATAR_COLORS[index];
 }
+
+/** "agora", "há 3 h", "ontem", "há 4 dias" e, depois de uma semana, "19 de out." */
+export function relativeDate(iso: string): string {
+  const date = new Date(iso);
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'agora';
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'ontem';
+  if (days < 7) return `há ${days} dias`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}

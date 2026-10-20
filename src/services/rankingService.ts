@@ -19,6 +19,11 @@ function extractCoreTerm(title: string): string {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
+/** Chave que agrupa procuras iguais: "<categoria>__<termo em minúsculas>" (a mesma de wanted_interests.term_key) */
+export function wantedTermKey(title: string, categoryId: string): string {
+  return `${categoryId}__${extractCoreTerm(title).toLowerCase()}`;
+}
+
 /**
  * Ranking do que mais procuram. O contador de cada item soma as procuras publicadas
  * com os sininhos ("também procuro"), vindos de `interestCounts` (term_key -> total).

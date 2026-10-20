@@ -23,7 +23,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
       <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
           <h1 className="text-[clamp(1.25rem,1rem+1.6vw,1.875rem)] font-extrabold leading-tight tracking-tight text-slate-900">
-            O que você procura em{' '}
+            O que você quer vender em{' '}
             <span className="bg-gradient-to-r from-brand-600 to-teal-500 bg-clip-text text-transparent">
               {simpleCity}
             </span>
