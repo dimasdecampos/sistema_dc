@@ -816,6 +816,8 @@ export default function App() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
+  const wantedSuggestions = Array.from(rankItemsByKey.values());
+
   // Quadro "Procurando": mesma filtragem da home, com a ordenação própria (mais procuradas por padrão)
   const wantedBoardListings = [...homeFilteredListings].sort((a, b) => {
     if (wantedSort === 'popular') {
@@ -1195,6 +1197,7 @@ export default function App() {
         onSubmit={handleCreateWanted}
         initialQuery={initialWantedQuery}
         currentUser={currentUser}
+        suggestions={wantedSuggestions}
       />
 
       <CreateSaleModal

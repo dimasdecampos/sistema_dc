@@ -1,11 +1,9 @@
 import React from 'react';
-import { ArrowRight, ArrowUpDown, PlusCircle, Search, Sparkles, Tag, ThumbsUp, Users, X } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, PlusCircle, Search, Sparkles, Tag, ThumbsUp, X } from 'lucide-react';
 import { Category, Listing, SiteConfig, WantedRankItem } from '../types/marketplace';
-import { Avatar } from './Avatar';
 import { FeedTypeSwitch, FeedType } from './FeedTypeSwitch';
 import { LoadMoreFooter, usePagedList } from './LoadMore';
 import { wantedTermKey } from '../services/rankingService';
-import { relativeDate } from '../utils/formatters';
 
 export type BoardSort = 'popular' | 'recent' | 'price-asc' | 'price-desc';
 
@@ -66,7 +64,6 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
 }) => {
   const paged = usePagedList(listings, config, `${selectedCategory}|${searchQuery}|${sort}`);
   const category = categories.find((c) => c.id === selectedCategory);
-  const categoryById = new Map(categories.map((c) => [c.id, c]));
   const simpleCity = (config.cityName || 'sua cidade').split('-')[0].trim();
   const countLabel = `${listings.length} ${listings.length === 1 ? 'procura' : 'procuras'}`;
 
@@ -207,111 +204,77 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
             <>
               <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {paged.visible.map((item) => {
-                  const cat = categoryById.get(item.category_id) ?? item.category;
-                  const photo = item.images?.[0];
                   const hasBudget = item.price != null && item.price > 0;
                   const isMine = Boolean(currentUserId) && item.user_id === currentUserId;
-                  const name = item.user?.nome || 'Morador';
 
-                  // Quantas outras pessoas procuram a mesma coisa (sem contar quem publicou este pedido)
+                  // Quantas pessoas procuram a mesma coisa (quem publicou + quem marcou "também procuro")
                   const rank = rankItemsByKey.get(wantedTermKey(item.title, item.category_id));
+                  const seekers = Math.max(1, rank?.total_seekers ?? 1);
                   const isFollowing = rank ? myInterestKeys.has(rank.id) : false;
-                  // Não conta quem publicou este pedido, nem a própria pessoa se ela já marcou "também procuro"
-                  const others = Math.max(0, (rank?.total_seekers ?? 1) - 1 - (isFollowing && !isMine ? 1 : 0));
-                  const iAlsoSearch = isFollowing || (rank ? Boolean(currentUserId) && rank.seeker_user_ids.includes(currentUserId!) : false);
 
                   return (
-                    <li key={item.id} className="flex flex-col rounded-2xl border border-slate-200/90 bg-white shadow-2xs transition hover:border-brand-300">
+                    <li
+                      key={item.id}
+                      className="flex flex-col rounded-2xl border border-slate-200/90 bg-white shadow-2xs transition hover:border-teal-300"
+                    >
                       <button
                         type="button"
                         onClick={() => onOpenListing(item)}
-                        className="flex w-full min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-t-2xl p-3 text-left active:bg-slate-50 sm:gap-4 sm:p-4"
+                        className="flex w-full min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-t-2xl p-4 text-left active:bg-slate-50"
                       >
-                        {/* Foto pequena (ou o ícone da categoria) */}
-                        <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-brand-50 text-2xl sm:h-16 sm:w-16">
-                          {photo ? (
-                            <img src={photo} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
-                          ) : (
-                            <span aria-hidden="true">{cat?.icon || '🔎'}</span>
-                          )}
+                        {/* Quantas pessoas procuram: o número é o destaque */}
+                        <span
+                          className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl bg-teal-50 text-teal-700"
+                          aria-label={`${seekers} ${seekers === 1 ? 'pessoa procura' : 'pessoas procuram'}`}
+                        >
+                          <span className="text-2xl font-black leading-none tabular-nums">{seekers}</span>
+                          <span className="mt-1 text-[10px] font-bold uppercase leading-none tracking-wide">
+                            {seekers === 1 ? 'procura' : 'procuram'}
+                          </span>
                         </span>
 
-                        {/* O que a pessoa procura: protagonista */}
                         <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-2">
-                            <span className="line-clamp-2 text-base font-extrabold leading-snug text-slate-900 sm:text-lg">
+                          <span className="flex items-start gap-2">
+                            <span className="line-clamp-2 text-lg font-extrabold leading-snug text-slate-900">
                               {item.title}
                             </span>
                             {isMine && (
-                              <span className="shrink-0 rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-700">
+                              <span className="mt-1 shrink-0 rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-700">
                                 Sua busca
                               </span>
                             )}
                           </span>
-                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                            <span
-                              className={`rounded-full px-2 py-0.5 font-bold ${
-                                hasBudget ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-500'
-                              }`}
-                            >
-                              {hasBudget ? `Até ${formatMoney(item.price as number)}` : 'Orçamento a combinar'}
-                            </span>
-                            {cat && (
-                              <span>
-                                {cat.icon} {cat.name}
-                              </span>
-                            )}
-                          </span>
-                          <span className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-400">
-                            <Avatar src={item.user?.avatar_url} name={name} className="h-4 w-4 text-[9px]" />
-                            <span className="truncate">{name}</span>
-                            <span aria-hidden="true">·</span>
-                            <span className="shrink-0">{relativeDate(item.created_at)}</span>
+                          <span className="mt-0.5 block text-sm font-semibold text-slate-500">
+                            {hasBudget ? `até ${formatMoney(item.price as number)}` : 'orçamento a combinar'}
                           </span>
                         </span>
                       </button>
 
-                      {/* Rodapé do card: quantos mais procuram + curtir + oferecer */}
-                      <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-3 py-2.5 sm:px-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
-                            others > 0 ? 'text-slate-700' : 'text-slate-400'
-                          }`}
-                        >
-                          <Users className="h-4 w-4" />
-                          {others === 0
-                            ? 'Ninguém mais procura isso ainda'
-                            : others === 1
-                            ? '1 outra pessoa também procura'
-                            : `${others} outras pessoas também procuram`}
-                        </span>
-
-                        <div className="ml-auto flex items-center gap-2">
-                          {rank && !isMine && (
-                            <button
-                              type="button"
-                              onClick={() => onToggleInterest(rank)}
-                              aria-pressed={iAlsoSearch}
-                              title={iAlsoSearch ? 'Toque para deixar de acompanhar' : 'Também procuro isso. Me avise quando anunciarem'}
-                              className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition active:scale-95 ${
-                                iAlsoSearch
-                                  ? 'border-cyan-600 bg-cyan-600 text-white'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              <ThumbsUp className={`h-4 w-4 ${iAlsoSearch ? 'fill-current' : ''}`} />
-                              {iAlsoSearch ? 'Você também procura' : 'Também procuro'}
-                            </button>
-                          )}
+                      <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-3">
+                        {rank && !isMine && (
                           <button
                             type="button"
-                            onClick={onOpenSale}
-                            className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-500 px-3.5 text-xs font-extrabold text-slate-950 transition hover:bg-amber-400 active:scale-95"
+                            onClick={() => onToggleInterest(rank)}
+                            aria-pressed={isFollowing}
+                            title={isFollowing ? 'Toque para deixar de acompanhar' : 'Também procuro isso. Me avise quando anunciarem'}
+                            className={`inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-sm font-bold transition active:scale-95 ${
+                              isFollowing
+                                ? 'border-cyan-600 bg-cyan-600 text-white'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
                           >
-                            <Tag className="h-4 w-4" />
-                            Tenho isso pra vender
+                            <ThumbsUp className={`h-4 w-4 ${isFollowing ? 'fill-current' : ''}`} />
+                            {isFollowing ? 'Você também procura' : 'Também procuro'}
                           </button>
-                        </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={onOpenSale}
+                          className="inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-amber-500 px-3 text-sm font-extrabold text-slate-950 transition hover:bg-amber-400 active:scale-95"
+                        >
+                          <Tag className="h-4 w-4" />
+                          Tenho isso pra vender
+                        </button>
                       </div>
                     </li>
                   );

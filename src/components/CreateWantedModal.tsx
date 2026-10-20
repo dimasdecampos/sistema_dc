@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X, Search, Loader2 } from 'lucide-react';
-import { CreateWantedInput, UserProfile } from '../types/marketplace';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Search, Loader2, Users } from 'lucide-react';
+import { CreateWantedInput, UserProfile, WantedRankItem } from '../types/marketplace';
+import { normalizeText } from '../services/matchingService';
 import { getStoredCategories } from '../services/categoryService';
 import { useModalBehavior } from '../hooks/useModalBehavior';
 
@@ -10,6 +11,8 @@ interface CreateWantedModalProps {
   onSubmit: (input: CreateWantedInput) => Promise<void>;
   initialQuery?: string;
   currentUser?: UserProfile;
+  /** Procuras que já existem na cidade (agrupadas por termo), para sugerir e evitar duplicar */
+  suggestions?: WantedRankItem[];
 }
 
 export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
@@ -17,12 +20,15 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
   onClose,
   onSubmit,
   initialQuery = '',
+  suggestions = [],
 }) => {
   useModalBehavior(isOpen, onClose);
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState('cat-veiculos');
   const [price, setPrice] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  // Depois de escolher uma sugestão, a lista some até a pessoa mexer no título
+  const [pickedTerm, setPickedTerm] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialQuery) {
@@ -41,7 +47,28 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
     }
   }, [initialQuery, isOpen]);
 
+  const matches = useMemo(() => {
+    const typed = normalizeText(title);
+    const base = typed
+      ? suggestions.filter((item) => {
+          const term = normalizeText(item.term);
+          return term.includes(typed) || typed.includes(term);
+        })
+      : suggestions;
+    return [...base].sort((a, b) => b.total_seekers - a.total_seekers).slice(0, 5);
+  }, [suggestions, title]);
+
   if (!isOpen) return null;
+
+  const showSuggestions = matches.length > 0 && pickedTerm !== title;
+
+  // Escolher uma procura que já existe preenche título, categoria e valor
+  const pickSuggestion = (item: WantedRankItem) => {
+    setTitle(item.term);
+    setCategoryId(item.category_id);
+    setPrice(item.avg_budget ? String(item.avg_budget) : '');
+    setPickedTerm(item.term);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,9 +121,41 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex.: Bicicleta aro 26"
+              autoComplete="off"
               className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-slate-900 font-medium transition"
               autoFocus
             />
+
+            {showSuggestions && (
+              <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white" role="listbox" aria-label="Procuras que já existem">
+                <p className="bg-slate-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  {title.trim() ? 'Já procuram algo parecido. Toque para usar' : 'Mais procuradas na cidade'}
+                </p>
+                <ul className="divide-y divide-slate-100">
+                  {matches.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={false}
+                        onClick={() => pickSuggestion(item)}
+                        className="flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition hover:bg-brand-50 active:bg-brand-100"
+                      >
+                        <span className="text-lg" aria-hidden="true">{item.category_icon}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold text-slate-900">{item.term}</span>
+                          <span className="flex items-center gap-1 text-xs text-slate-500">
+                            <Users className="h-3.5 w-3.5" />
+                            {item.total_seekers} {item.total_seekers === 1 ? 'pessoa procura' : 'pessoas procuram'}
+                            {item.avg_budget ? ` · até R$ ${item.avg_budget.toLocaleString('pt-BR')}` : ''}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           <div>
