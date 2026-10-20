@@ -29,6 +29,7 @@ import {
   showLocalNotification,
   syncPushSubscription,
 } from './services/notificationService';
+import { fetchFavoriteIds, addFavorite, removeFavorite } from './services/favoriteService';
 import {
   fetchInterestCounts,
   fetchMyInterests,
@@ -121,6 +122,7 @@ export default function App() {
   // Sininhos do ranking "mais procurados"
   const [interestCounts, setInterestCounts] = useState<Record<string, number>>({});
   const [myInterests, setMyInterests] = useState<WantedInterest[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   // Propostas de troca de todas as conversas, carregadas junto com a lista (cartões aparecem na hora)
   const [tradeProposals, setTradeProposals] = useState<Record<string, TradeProposal>>({});
   const myInterestKeys = React.useMemo(() => new Set(myInterests.map((i) => i.term_key)), [myInterests]);
@@ -849,6 +851,34 @@ export default function App() {
     }
   };
 
+  // Favoritos: carrega ao logar, alterna de forma otimista
+  useEffect(() => {
+    if (!googleUser || !currentUser.id) {
+      setFavoriteIds([]);
+      return;
+    }
+    fetchFavoriteIds(currentUser.id)
+      .then(setFavoriteIds)
+      .catch(() => setFavoriteIds([]));
+  }, [googleUser, currentUser.id]);
+
+  const handleToggleFavorite = async (listing: Listing) => {
+    if (!googleUser || !currentUser.id) {
+      setIsGoogleModalOpen(true);
+      showToast('Login com Google necessário', 'Entre com sua conta para favoritar anúncios.', 'info');
+      return;
+    }
+    const isFav = favoriteIds.includes(listing.id);
+    setFavoriteIds((prev) => (isFav ? prev.filter((id) => id !== listing.id) : [listing.id, ...prev]));
+    try {
+      if (isFav) await removeFavorite(currentUser.id, listing.id);
+      else await addFavorite(currentUser.id, listing.id);
+    } catch (e) {
+      setFavoriteIds((prev) => (isFav ? [listing.id, ...prev] : prev.filter((id) => id !== listing.id)));
+      showToast('Não foi possível atualizar os favoritos', String(e), 'error');
+    }
+  };
+
   // Sininho do ranking: "também procuro, me avise quando anunciarem"
   const handleToggleInterest = async (item: WantedRankItem) => {
     if (!googleUser || !currentUser.id) {
@@ -1300,6 +1330,8 @@ export default function App() {
               userWanted={userWantedListings}
               userSales={userSaleListings}
               matches={userMatches}
+              favorites={listings.filter((l) => favoriteIds.includes(l.id))}
+              onToggleFavorite={handleToggleFavorite}
               onOpenWantedModal={() => handleRequestOpenWanted('')}
               onOpenSaleModal={handleRequestOpenSale}
               onViewListing={handleViewListing}
@@ -1426,6 +1458,8 @@ export default function App() {
         allListings={listings}
         onProposeTrade={handleProposeTrade}
         onOpenStore={handleOpenStore}
+        isFavorite={selectedListing ? favoriteIds.includes(selectedListing.id) : false}
+        onToggleFavorite={handleToggleFavorite}
       />
 
       <EditListingModal

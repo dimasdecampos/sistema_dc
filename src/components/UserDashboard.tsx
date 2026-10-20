@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Settings,
   CheckCircle2,
+  Heart,
 } from 'lucide-react';
 import { Listing, Match, UserProfile } from '../types/marketplace';
 import { Usuario } from '../types/auth';
@@ -29,6 +30,8 @@ interface UserDashboardProps {
   userWanted: Listing[];
   userSales: Listing[];
   matches: Match[];
+  favorites?: Listing[];
+  onToggleFavorite?: (listing: Listing) => void;
   onOpenWantedModal: () => void;
   onOpenSaleModal: () => void;
   onViewListing: (listing: Listing) => void;
@@ -48,6 +51,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   userWanted,
   userSales,
   matches,
+  favorites = [],
+  onToggleFavorite,
   onOpenWantedModal,
   onOpenSaleModal,
   onViewListing,
@@ -440,6 +445,74 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 </div>
               );
             })}
+          </div>
+        )}
+      </section>
+
+      {/* Favoritos */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center">
+              <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+            </div>
+            <div>
+              <h2 className="font-extrabold text-xl text-slate-900 leading-tight">Meus favoritos</h2>
+              <p className="text-xs text-slate-500">Anúncios que você guardou para ver depois</p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+            {favorites.length}
+          </span>
+        </div>
+
+        {favorites.length === 0 ? (
+          <div className="p-6 bg-white rounded-3xl border border-dashed border-slate-300 text-center text-xs text-slate-500">
+            Nenhum favorito ainda. Abra um anúncio e toque em "Adicionar aos favoritos".
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {favorites.map((fav) => (
+              <div
+                key={fav.id}
+                className="bg-white rounded-2xl p-3 border border-slate-200 flex items-center gap-3"
+              >
+                <img
+                  src={fav.images?.[0] || 'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=200'}
+                  alt={fav.title}
+                  className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{fav.title}</h4>
+                  <p className="text-sm font-black text-slate-900 mt-0.5">
+                    {fav.price != null && fav.price > 0
+                      ? `R$ ${fav.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                      : fav.type === 'WANTED'
+                      ? 'A combinar'
+                      : 'Doação'}
+                  </p>
+                  {fav.status !== 'ACTIVE' && (
+                    <span className="text-[10px] font-bold text-slate-500">Anúncio encerrado</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1 shrink-0">
+                  <button
+                    onClick={() => onViewListing(fav)}
+                    className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer"
+                  >
+                    Ver
+                  </button>
+                  {onToggleFavorite && (
+                    <button
+                      onClick={() => onToggleFavorite(fav)}
+                      className="px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>

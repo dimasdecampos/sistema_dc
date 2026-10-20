@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Share2,
   Edit2,
+  Heart,
 } from 'lucide-react';
 import { Listing, Match, UserProfile } from '../types/marketplace';
 import { TradeSection } from './TradeSection';
@@ -32,6 +33,8 @@ interface ListingDetailModalProps {
   onProposeTrade?: (offered: Listing, target: Listing) => Promise<void>;
   /** Abre a loja do vendedor (só vendedores premium têm loja) */
   onOpenStore?: (sellerId: string) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (listing: Listing) => void;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -46,6 +49,8 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   allListings = [],
   onProposeTrade,
   onOpenStore,
+  isFavorite = false,
+  onToggleFavorite,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
 
@@ -189,6 +194,23 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Favoritar (fica só aqui, para não poluir os cards) */}
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={() => onToggleFavorite(listing)}
+              aria-pressed={isFavorite}
+              className={`w-full py-2.5 px-4 rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+                isFavorite
+                  ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-slate-400'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
+              <span>{isFavorite ? 'Nos seus favoritos (remover)' : 'Adicionar aos favoritos'}</span>
+            </button>
+          )}
 
           {/* Description */}
           {listing.description && (
