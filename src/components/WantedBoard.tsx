@@ -72,7 +72,7 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
       {/* Topo: busca das procuras (tom âmbar para diferenciar da busca de anúncios à venda) */}
       <section className="relative overflow-hidden border-b border-teal-200/60 bg-gradient-to-b from-teal-100/70 to-teal-50/30">
         <div className="pointer-events-none absolute -top-24 left-1/2 h-56 w-[60rem] -translate-x-1/2 rounded-full bg-teal-300/30 blur-3xl" />
-        <div className="relative mx-auto max-w-7xl px-2.5 py-5 sm:px-6 sm:py-7 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
             <h1 className="text-[clamp(1.25rem,1rem+1.6vw,1.875rem)] font-extrabold leading-tight tracking-tight text-slate-900">
               Quem procura em{' '}
@@ -122,7 +122,7 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl space-y-5 px-2.5 pb-16 pt-5 sm:px-6 sm:pt-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-5 px-4 pb-16 pt-5 sm:px-6 sm:pt-6 lg:px-8">
         {matchesCount > 0 && (
           <button
             type="button"

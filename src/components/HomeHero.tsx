@@ -20,7 +20,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
     <section className="relative overflow-hidden border-b border-slate-200/70 bg-gradient-to-b from-brand-50 to-white">
       <div className="pointer-events-none absolute -top-24 left-1/2 h-56 w-[60rem] -translate-x-1/2 rounded-full bg-brand-200/40 blur-3xl" />
 
-      <div className="relative mx-auto max-w-7xl px-2.5 py-5 sm:px-6 sm:py-7 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
           <h1 className="text-[clamp(1.25rem,1rem+1.6vw,1.875rem)] font-extrabold leading-tight tracking-tight text-slate-900">
             O que você quer vender em{' '}
