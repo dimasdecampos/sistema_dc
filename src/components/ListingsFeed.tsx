@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Tag, Filter, PlusCircle, Sparkles } from 'lucide-react';
+import { Search, Tag } from 'lucide-react';
 import { Listing, Category, SiteConfig } from '../types/marketplace';
 import { DEFAULT_SITE_CONFIG } from '../services/siteConfigService';
 import { usePagedList, LoadMoreFooter } from './LoadMore';
@@ -84,8 +84,8 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
               onClick={() => onSelectType('WANTED')}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeType === 'WANTED'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-emerald-700 hover:bg-emerald-50'
+                  ? 'bg-brand-600 text-white shadow-xs'
+                  : 'text-brand-700 hover:bg-brand-50'
               }`}
             >
               <Search className="w-3.5 h-3.5" />
@@ -113,7 +113,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Filtrar por palavra..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 transition"
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-brand-500 text-slate-900 transition"
             />
           </div>
         </div>
@@ -137,7 +137,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
               onClick={() => onSelectCategory(cat.id)}
               className={`px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
                 selectedCategory === cat.id
-                  ? 'bg-emerald-600 text-white shadow-xs'
+                  ? 'bg-brand-600 text-white shadow-xs'
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
               }`}
             >
@@ -163,7 +163,7 @@ export const ListingsFeed: React.FC<ListingsFeedProps> = ({
           <div className="flex items-center justify-center gap-2 pt-2">
             <button
               onClick={onOpenWantedModal}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition cursor-pointer"
+              className="px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold hover:bg-brand-700 transition cursor-pointer"
             >
               + Publicar o que procuro
             </button>

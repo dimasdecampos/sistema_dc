@@ -75,7 +75,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({ user, onSaved, onO
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
-          <Store className="h-4 w-4 text-emerald-600" />
+          <Store className="h-4 w-4 text-brand-600" />
           Minha loja
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
             <BadgeCheck className="h-3 w-3" />
@@ -85,7 +85,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({ user, onSaved, onO
         <button
           type="button"
           onClick={onOpenStore}
-          className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-bold text-emerald-700 transition hover:text-emerald-800"
+          className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-bold text-brand-700 transition hover:text-brand-800"
         >
           Ver minha loja
           <ExternalLink className="h-3.5 w-3.5" />
@@ -104,7 +104,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({ user, onSaved, onO
               maxLength={40}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex.: Brechó da Ana"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-900 transition focus:border-emerald-500 focus:bg-white focus:outline-hidden"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-900 transition focus:border-brand-500 focus:bg-white focus:outline-hidden"
             />
             <span className="mt-1 block text-right text-[11px] text-slate-400">{name.length}/40</span>
           </label>
@@ -172,7 +172,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({ user, onSaved, onO
           Salvar loja
         </button>
         {message && (
-          <span className={`text-xs font-semibold ${message.kind === 'ok' ? 'text-emerald-700' : 'text-rose-600'}`}>
+          <span className={`text-xs font-semibold ${message.kind === 'ok' ? 'text-brand-700' : 'text-rose-600'}`}>
             {message.text}
           </span>
         )}

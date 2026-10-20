@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Loader2, ShieldCheck, AlertCircle, ArrowRight } from 'lucide-react';
 import { signInWithSupabaseGoogle } from '../services/supabaseAuth';
+import { useModalBehavior } from '../hooks/useModalBehavior';
 
 interface GoogleLoginModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
   title = 'Entrar com o Google',
   subtitle = 'Acesse sua conta para publicar anúncios, registrar o que procura e conversar com os moradores da cidade.',
 }) => {
+  useModalBehavior(isOpen, onClose);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -40,7 +42,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
       <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col my-auto">
         <div className="p-5 sm:p-6 pb-4 border-b border-slate-100 flex items-start justify-between bg-slate-50/80 shrink-0">
           <div className="flex items-center gap-3">
@@ -94,7 +96,7 @@ export const GoogleLoginModal: React.FC<GoogleLoginModalProps> = ({
 
           <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
             <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <ShieldCheck className="w-4 h-4 text-brand-600" />
               <span>Login seguro com sua conta Google</span>
             </div>
             <p className="text-[11px] text-slate-500 mt-1">

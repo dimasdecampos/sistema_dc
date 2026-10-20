@@ -5,8 +5,6 @@ import {
   Camera,
   Upload,
   Loader2,
-  DollarSign,
-  AlertCircle,
   Sparkles,
   Crop,
 } from 'lucide-react';
@@ -19,6 +17,7 @@ import {
   MAX_PHOTOS_PER_PRODUCT,
 } from '../services/storageService';
 import { useImageCropper } from './ImageCropper';
+import { useModalBehavior } from '../hooks/useModalBehavior';
 
 interface CreateSaleModalProps {
   isOpen: boolean;
@@ -33,6 +32,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
   onSubmit,
   currentUser,
 }) => {
+  useModalBehavior(isOpen, onClose);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('cat-veiculos');
@@ -171,7 +171,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-white to-white shrink-0">
@@ -371,8 +371,8 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
 
             {/* Upload Progress Banner */}
             {isUploadingPhotos && uploadProgress && (
-              <div className="mb-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800 animate-in fade-in">
-                <Loader2 className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
+              <div className="mb-2 p-2.5 bg-brand-50 border border-brand-200 rounded-xl flex items-center gap-2.5 text-xs text-brand-800 animate-in fade-in">
+                <Loader2 className="w-4 h-4 animate-spin text-brand-600 shrink-0" />
                 <span>
                   Otimizando imagem: foto {uploadProgress.current} de {uploadProgress.total}...
                 </span>
@@ -412,10 +412,10 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
                   type="button"
                   disabled={isUploadingPhotos}
                   onClick={() => cameraInputRef.current?.click()}
-                  className="md:hidden w-20 h-20 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/50 flex flex-col items-center justify-center text-emerald-700 transition cursor-pointer disabled:opacity-50"
+                  className="md:hidden w-20 h-20 rounded-2xl border-2 border-dashed border-brand-300 hover:border-brand-500 bg-brand-50/50 flex flex-col items-center justify-center text-brand-700 transition cursor-pointer disabled:opacity-50"
                 >
                   {isUploadingPhotos ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-emerald-600 mb-1" />
+                    <Loader2 className="w-5 h-5 animate-spin text-brand-600 mb-1" />
                   ) : (
                     <Camera className="w-5 h-5 mb-1" />
                   )}
@@ -440,7 +440,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
             </div>
 
             <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+              <Sparkles className="w-3 h-3 text-brand-600 shrink-0" />
               <span>Fotos otimizadas automaticamente em alta qualidade para carregamento rápido.</span>
             </p>
           </div>

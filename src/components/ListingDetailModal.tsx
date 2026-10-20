@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Avatar } from './Avatar';
 import {
   X,
@@ -9,8 +9,6 @@ import {
   MapPin,
   Clock,
   ShieldCheck,
-  CheckCircle2,
-  Share2,
   Edit2,
   Heart,
 } from 'lucide-react';
@@ -18,6 +16,7 @@ import { Listing, Match, UserProfile } from '../types/marketplace';
 import { TradeSection } from './TradeSection';
 import { storeDisplayName } from '../services/storeService';
 import { PremiumBadge } from './PremiumBadge';
+import { useModalBehavior } from '../hooks/useModalBehavior';
 
 interface ListingDetailModalProps {
   listing: Listing | null;
@@ -52,6 +51,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   isFavorite = false,
   onToggleFavorite,
 }) => {
+  useModalBehavior(isOpen, onClose);
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
 
   if (!isOpen || !listing) return null;
@@ -62,6 +62,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   const isOwner =
     (Boolean(currentUser.id) && currentUser.id === listing.user_id) ||
     (Boolean(userEmail) && Boolean(listingEmail) && userEmail === listingEmail);
+  const canStartChat = !isOwner && listing.status === 'ACTIVE';
 
   const formattedPrice =
     listing.price != null && listing.price > 0
@@ -79,14 +80,14 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   const safeIndex = activeImageIndex >= images.length ? 0 : activeImageIndex;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header bar */}
         <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
           <div className="flex items-center gap-2">
             {isWanted ? (
-              <span className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1.5">
-                <Search className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="px-3 py-1 rounded-xl text-xs font-bold bg-brand-100 text-brand-800 flex items-center gap-1.5">
+                <Search className="w-3.5 h-3.5 text-brand-600" />
                 <span>Quero Comprar / Procura</span>
               </span>
             ) : (
@@ -136,7 +137,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                     onClick={() => setActiveImageIndex(idx)}
                     className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 transition cursor-pointer shrink-0 ${
                       safeIndex === idx
-                        ? 'border-emerald-600 ring-2 ring-emerald-500/30 scale-102'
+                        ? 'border-brand-600 ring-2 ring-brand-500/30 scale-102'
                         : 'border-slate-200 opacity-70 hover:opacity-100'
                     }`}
                   >
@@ -187,7 +188,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               </span>
               <span
                 className={`text-2xl sm:text-3xl font-black ${
-                  isWanted ? 'text-emerald-700' : 'text-slate-900'
+                  isWanted ? 'text-brand-700' : 'text-slate-900'
                 }`}
               >
                 {formattedPrice}
@@ -195,21 +196,43 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Favoritar (fica só aqui, para não poluir os cards) */}
-          {onToggleFavorite && (
-            <button
-              type="button"
-              onClick={() => onToggleFavorite(listing)}
-              aria-pressed={isFavorite}
-              className={`w-full py-2.5 px-4 rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-                isFavorite
-                  ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
-                  : 'bg-white border-slate-200 text-slate-700 hover:border-slate-400'
-              }`}
-            >
-              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
-              <span>{isFavorite ? 'Nos seus favoritos (remover)' : 'Adicionar aos favoritos'}</span>
-            </button>
+          {/* Ações principais: interesse (esquerda) e favoritar (direita), com o mesmo tamanho */}
+          {(canStartChat || onToggleFavorite) && (
+            <div className="flex gap-2">
+              {canStartChat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onStartChat(listing);
+                    onClose();
+                  }}
+                  className="flex-1 min-w-0 py-3 px-3 sm:px-4 text-center bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md shadow-brand-600/25 flex items-center justify-center gap-2 transition active:scale-[0.99] cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4 shrink-0" />
+                  <span className="leading-tight">
+                    {isWanted
+                      ? 'Tenho o que você procura (Iniciar conversa)'
+                      : 'Tenho interesse (Iniciar conversa com vendedor)'}
+                  </span>
+                </button>
+              )}
+              {onToggleFavorite && (
+                <button
+                  type="button"
+                  onClick={() => onToggleFavorite(listing)}
+                  aria-pressed={isFavorite}
+                  aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                  className={`shrink-0 py-3 px-3.5 sm:px-4 rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+                    isFavorite
+                      ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                      : 'bg-white border-slate-200 text-slate-700 hover:border-slate-400'
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 shrink-0 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
+                  <span className="hidden sm:inline">{isFavorite ? 'Favoritado' : 'Favoritar'}</span>
+                </button>
+              )}
+            </div>
           )}
 
           {/* Description */}
@@ -237,7 +260,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                       onClose();
                       onOpenStore(listing.user_id);
                     }}
-                    className="flex cursor-pointer items-center gap-1.5 text-left text-sm font-bold text-slate-900 underline decoration-emerald-500 decoration-2 underline-offset-2 transition hover:text-emerald-700"
+                    className="flex cursor-pointer items-center gap-1.5 text-left text-sm font-bold text-slate-900 underline decoration-brand-500 decoration-2 underline-offset-2 transition hover:text-brand-700"
                     title="Ver a loja deste vendedor"
                   >
                     <PremiumBadge className="h-4 w-4" />
@@ -249,14 +272,14 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                   </h4>
                 )}
                 <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                  <MapPin className="w-3.5 h-3.5 text-brand-600" />
                   <span>{listing.user?.cidade || 'São Luis do Paraitinga - SP'}</span>
                 </p>
               </div>
             </div>
 
             <div className="text-right text-[11px] text-slate-400">
-              <span className="flex items-center gap-1 justify-end text-emerald-700 font-semibold">
+              <span className="flex items-center gap-1 justify-end text-brand-700 font-semibold">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Privacidade protegida</span>
               </span>
@@ -288,37 +311,22 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 }}
                 className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
               >
-                <Edit2 className="w-4 h-4 text-emerald-400" />
+                <Edit2 className="w-4 h-4 text-brand-400" />
                 <span>Editar Anúncio {isAdmin && !isOwner ? '(Painel Admin)' : ''}</span>
               </button>
             </div>
           )}
 
-          {/* Ação Principal: Botão para Iniciar Conversa */}
+          {/* Avisos quando não dá para conversar */}
           {!isOwner && listing.status !== 'ACTIVE' ? (
             <div className="p-3 bg-slate-100 rounded-2xl text-center text-xs text-slate-500 font-semibold">
               Este anúncio já foi concluído e não recebe novas conversas nem propostas.
             </div>
-          ) : !isOwner ? (
-            <button
-              onClick={() => {
-                onStartChat(listing);
-                onClose();
-              }}
-              className="w-full py-4 px-6 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-sm sm:text-base rounded-2xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2.5 transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-            >
-              <MessageSquare className="w-5 h-5" />
-              <span>
-                {isWanted
-                  ? 'Tenho o que você procura (Iniciar conversa)'
-                  : 'Tenho interesse (Iniciar conversa com vendedor)'}
-              </span>
-            </button>
-          ) : (
+          ) : isOwner ? (
             <div className="p-3 bg-slate-100 rounded-2xl text-center text-xs text-slate-500 font-semibold">
               Este é o seu próprio anúncio. Você pode editá-lo pelo botão acima ou em seu Painel.
             </div>
-          )}
+          ) : null}
 
           {/* Seção de Matches Reversos */}
           {relatedMatches.length > 0 && (
@@ -339,7 +347,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                   return (
                     <div
                       key={m.id}
-                      className="p-3 bg-slate-50 hover:bg-emerald-50/50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
+                      className="p-3 bg-slate-50 hover:bg-brand-50/50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
                     >
                       <div className="min-w-0">
                         <p className="font-bold text-slate-900 truncate">
@@ -349,7 +357,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                           {target.user?.nome} • {m.score}% de compatibilidade
                         </p>
                       </div>
-                      <span className="font-extrabold text-emerald-700 shrink-0">
+                      <span className="font-extrabold text-brand-700 shrink-0">
                         {target.price ? `R$ ${target.price}` : 'A combinar'}
                       </span>
                     </div>

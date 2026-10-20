@@ -65,9 +65,9 @@ export const TradeSection: React.FC<TradeSectionProps> = ({
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+    <div className="space-y-3 rounded-2xl border border-brand-200 bg-brand-50/50 p-4">
       <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white">
           <ArrowLeftRight className="h-4 w-4" />
         </span>
         <div className="min-w-0">
@@ -94,10 +94,10 @@ export const TradeSection: React.FC<TradeSectionProps> = ({
                 onClick={() => setMargin(option)}
                 aria-pressed={selected}
                 className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  selected ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                  selected ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                {percent(option)} <span className={selected ? 'text-emerald-100' : 'text-slate-400'}>({count})</span>
+                {percent(option)} <span className={selected ? 'text-brand-100' : 'text-slate-400'}>({count})</span>
               </button>
             );
           })}
@@ -141,7 +141,7 @@ export const TradeSection: React.FC<TradeSectionProps> = ({
                   type="button"
                   disabled={busyId !== null}
                   onClick={() => handleTrade(c)}
-                  className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-700 disabled:opacity-60"
                 >
                   {busyId === c.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

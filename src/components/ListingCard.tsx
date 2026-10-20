@@ -35,7 +35,7 @@ function relativeDate(iso: string): string {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
-export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matchScore, onOpenStore }) => {
+const ListingCardBase: React.FC<ListingCardProps> = ({ listing, onClick, matchScore, onOpenStore }) => {
   const isWanted = listing.type === 'WANTED';
   const hasPrice = listing.price != null && listing.price > 0;
   const images = listing.images ?? [];
@@ -94,7 +94,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
         }
       }}
       aria-label={`${listing.title}${hasPrice ? `, ${formatMoney(listing.price as number)}` : ''}`}
-      className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-900/[0.03] outline-none transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/[0.07] focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-900/[0.03] outline-none transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/[0.07] focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
     >
       {/* Foto */}
       <div
@@ -108,6 +108,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
             src={imageSrc}
             alt=""
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
@@ -151,7 +152,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
         <div className="absolute left-2.5 right-2.5 top-2.5 flex items-start justify-between gap-2">
           <div className="flex flex-wrap gap-1.5">
             {isWanted && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
                 <Search className="h-3 w-3" />
                 Procura-se
               </span>
@@ -159,7 +160,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
             {!isWanted && listing.accepts_trade && (
               <span
                 aria-label="Aceita troca"
-                className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2 py-1 text-[11px] font-bold text-emerald-800 shadow-sm backdrop-blur-md sm:px-2.5"
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2 py-1 text-[11px] font-bold text-brand-800 shadow-sm backdrop-blur-md sm:px-2.5"
               >
                 <ArrowLeftRight className="h-3 w-3 shrink-0" />
                 <span className="sm:hidden">Troca</span>
@@ -187,7 +188,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
             {listing.category?.icon} {listing.category?.name || 'Geral'}
           </span>
           {matchScore != null && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
               <Sparkles className="h-3 w-3 text-amber-300" />
               {matchScore}%
             </span>
@@ -207,13 +208,13 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
             ) : isWanted ? (
               <span className="text-sm text-slate-500 sm:text-base">A combinar</span>
             ) : (
-              <span className="text-sm text-emerald-700 sm:text-base">Doação</span>
+              <span className="text-sm text-brand-700 sm:text-base">Doação</span>
             )}
           </p>
           {conditionLabel && (
             <span
               className={`mt-0.5 shrink-0 rounded-md px-1 py-0.5 text-[9px] sm:px-1.5 sm:text-[10px] font-bold uppercase tracking-wide ${
-                listing.condition === 'NEW' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                listing.condition === 'NEW' ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-slate-500'
               }`}
             >
               {conditionLabel}
@@ -264,3 +265,6 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, onClick, matc
     </article>
   );
 };
+
+// Evita re-renderizar todos os cards quando só o estado de outra parte da tela muda
+export const ListingCard = React.memo(ListingCardBase);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search,
   Tag,
@@ -9,27 +9,18 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import {
-  Category,
   Listing,
   Match,
   Conversation,
   UserProfile,
   CreateWantedInput,
   CreateSaleInput,
-  SiteConfig,
   WantedInterest,
   WantedRankItem,
   TradeProposal,
 } from './types/marketplace';
 import { proposeTrade, fetchTradeProposals } from './services/tradeService';
-import { getSupabase } from './lib/supabase';
-import {
-  disablePush,
-  registerServiceWorker,
-  showLocalNotification,
-  syncPushSubscription,
-} from './services/notificationService';
-import { fetchFavoriteIds, addFavorite, removeFavorite } from './services/favoriteService';
+import { disablePush, showLocalNotification } from './services/notificationService';
 import {
   fetchInterestCounts,
   fetchMyInterests,
@@ -54,41 +45,35 @@ import {
 } from './services/authService';
 import { initSupabaseAuth, logoutSupabase, RETURN_HASH_KEY } from './services/supabaseAuth';
 import { Usuario } from './types/auth';
-import { GoogleLoginModal } from './components/GoogleLoginModal';
 import { Navbar } from './components/Navbar';
 import { HomeHero } from './components/HomeHero';
 import { ListingsFeed } from './components/ListingsFeed';
-import { UserDashboard } from './components/UserDashboard';
-import { ConversationsView } from './components/ConversationsView';
-import { CreateWantedModal } from './components/CreateWantedModal';
-import { CreateSaleModal } from './components/CreateSaleModal';
-import { ListingDetailModal } from './components/ListingDetailModal';
-import { EditListingModal } from './components/EditListingModal';
-import { ToastContainer, ToastMessage } from './components/Toast';
+import { ToastContainer } from './components/Toast';
+import { useToasts } from './hooks/useToasts';
+import { useFavorites } from './hooks/useFavorites';
+import { useSiteAdmin } from './hooks/useSiteAdmin';
+import { useChatNotifications } from './hooks/useChatNotifications';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { StorePage } from './components/StorePage';
-import { StoreSettings } from './components/StoreSettings';
 import { fetchSellerProfile, SellerProfile } from './services/storeService';
 import { ListingCard } from './components/ListingCard';
 import { usePagedList, LoadMoreFooter } from './components/LoadMore';
 import { getBuyersInterestedInSale } from './services/matchingService';
-import {
-  DEFAULT_SITE_CONFIG,
-  fetchSiteConfig,
-  saveSiteConfig,
-  resetSiteConfig,
-  isUserAdmin,
-} from './services/siteConfigService';
-import {
-  loadCategories,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  moveListingToCategory,
-} from './services/categoryService';
+import { isUserAdmin } from './services/siteConfigService';
+import { moveListingToCategory } from './services/categoryService';
 import { computeWantedRanking } from './services/rankingService';
 import { MostWantedRanking } from './components/MostWantedRanking';
-import { AdminPanel } from './components/AdminPanel';
+
+// Telas e modais pesados só são baixados quando necessários
+const GoogleLoginModal = lazy(() => import('./components/GoogleLoginModal').then((m) => ({ default: m.GoogleLoginModal })));
+const UserDashboard = lazy(() => import('./components/UserDashboard').then((m) => ({ default: m.UserDashboard })));
+const ConversationsView = lazy(() => import('./components/ConversationsView').then((m) => ({ default: m.ConversationsView })));
+const CreateWantedModal = lazy(() => import('./components/CreateWantedModal').then((m) => ({ default: m.CreateWantedModal })));
+const CreateSaleModal = lazy(() => import('./components/CreateSaleModal').then((m) => ({ default: m.CreateSaleModal })));
+const ListingDetailModal = lazy(() => import('./components/ListingDetailModal').then((m) => ({ default: m.ListingDetailModal })));
+const EditListingModal = lazy(() => import('./components/EditListingModal').then((m) => ({ default: m.EditListingModal })));
+const StorePage = lazy(() => import('./components/StorePage').then((m) => ({ default: m.StorePage })));
+const StoreSettings = lazy(() => import('./components/StoreSettings').then((m) => ({ default: m.StoreSettings })));
+const AdminPanel = lazy(() => import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
 
 const createGuestUser = (): UserProfile => ({
   id: '',
@@ -106,14 +91,9 @@ export default function App() {
   const [isLoggingIn] = useState(false);
   // Evita mostrar "acesso restrito" enquanto a sessão e a configuração ainda estão carregando
   const [authReady, setAuthReady] = useState(false);
-  const [configReady, setConfigReady] = useState(false);
 
   // Usuário ativo no marketplace (visitante até o Supabase confirmar a sessão)
   const [currentUser, setCurrentUser] = useState<UserProfile>(createGuestUser);
-
-  // Site Configuration & Categories (carregados do Supabase)
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_SITE_CONFIG);
-  const [categories, setCategories] = useState<Category[]>([]);
 
   // Home Page Product Category & Sort State
   const [homeCategory, setHomeCategory] = useState<string>('all');
@@ -122,7 +102,6 @@ export default function App() {
   // Sininhos do ranking "mais procurados"
   const [interestCounts, setInterestCounts] = useState<Record<string, number>>({});
   const [myInterests, setMyInterests] = useState<WantedInterest[]>([]);
-  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   // Propostas de troca de todas as conversas, carregadas junto com a lista (cartões aparecem na hora)
   const [tradeProposals, setTradeProposals] = useState<Record<string, TradeProposal>>({});
   const myInterestKeys = React.useMemo(() => new Set(myInterests.map((i) => i.term_key)), [myInterests]);
@@ -191,9 +170,6 @@ export default function App() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedListingForEdit, setSelectedListingForEdit] = useState<Listing | null>(null);
 
-  // Verificação de privilégio Admin (dimasrafting@gmail.com ou administradores configurados)
-  const isAdmin = isUserAdmin(googleUser?.email || currentUser.email, siteConfig);
-
   const handleOpenEditListing = (listing: Listing) => {
     setSelectedListingForEdit(listing);
     setIsEditModalOpen(true);
@@ -207,20 +183,7 @@ export default function App() {
     }
   };
 
-  // Toasts
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  const showToast = useCallback(
-    (title: string, message?: string, type: 'success' | 'error' | 'info' = 'info') => {
-      const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      setToasts((prev) => [...prev, { id, title, message, type }]);
-    },
-    []
-  );
-
-  const dismissToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  const { toasts, showToast, dismissToast } = useToasts();
 
   const pendingActionRef = useRef<{ type: 'wanted'; query?: string } | { type: 'sale' } | null>(null);
 
@@ -330,16 +293,10 @@ export default function App() {
     setConversations([]);
   }, []);
 
-  // Só admins (lista em site_config) recebem a configuração do site no perfil
-  useEffect(() => {
-    const cfg = isAdmin ? siteConfig : undefined;
-    setCurrentUser((prev) => (prev.adminConfig === cfg ? prev : { ...prev, adminConfig: cfg }));
-  }, [isAdmin, siteConfig]);
-
   // Abertura do modal de login padrão
-  const handleOpenGoogleLogin = () => {
+  const handleOpenGoogleLogin = useCallback(() => {
     setIsGoogleModalOpen(true);
-  };
+  }, []);
 
   // Logout Supabase
   const handleLogoutGoogle = async () => {
@@ -493,79 +450,53 @@ export default function App() {
     loadData(currentUser);
   }, [currentUser.id, loadData]);
 
+  const reloadSilently = useCallback(() => loadData(undefined, true), [loadData]);
+  const reloadAll = useCallback(() => loadData(), [loadData]);
+
+  const {
+    siteConfig,
+    categories,
+    configReady,
+    handleConfigChange,
+    handleSaveConfig,
+    handleResetConfig,
+    handleCreateCategory,
+    handleUpdateCategory,
+    handleDeleteCategory,
+  } = useSiteAdmin({ showToast, reload: reloadAll });
+
+  // Verificação de privilégio Admin (dimasrafting@gmail.com ou administradores configurados)
+  const isAdmin = isUserAdmin(googleUser?.email || currentUser.email, siteConfig);
+
+  // Só admins (lista em site_config) recebem a configuração do site no perfil
+  useEffect(() => {
+    const cfg = isAdmin ? siteConfig : undefined;
+    setCurrentUser((prev) => (prev.adminConfig === cfg ? prev : { ...prev, adminConfig: cfg }));
+  }, [isAdmin, siteConfig]);
+
+  const { favoriteIds, toggleFavorite: handleToggleFavorite } = useFavorites({
+    userId: currentUser.id,
+    isLoggedIn: Boolean(googleUser),
+    openLogin: handleOpenGoogleLogin,
+    showToast,
+  });
+
   // Total de mensagens não lidas (selo do menu e contador no título da aba)
   const totalUnread = React.useMemo(
     () => conversations.reduce((sum, c) => sum + (c.unread_count ?? 0), 0),
     [conversations]
   );
 
-  useEffect(() => {
-    const baseTitle = 'TemAqui - Marketplace de Procura e Oferta';
-    document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
-  }, [totalUnread]);
-
-  // Mensagens novas em tempo real (depende do Realtime ligado para a tabela messages;
-  // sem ele, a atualização periódica abaixo cobre em até 15 segundos)
-  useEffect(() => {
-    const supabase = getSupabase();
-    if (!supabase || !currentUser.id) return;
-
-    // Várias mensagens em sequência viram uma única recarga
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const channel = supabase
-      .channel(`messages-${currentUser.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => loadData(undefined, true), 400);
-      })
-      .subscribe();
-
-    return () => {
-      if (timer) clearTimeout(timer);
-      void supabase.removeChannel(channel);
-    };
-  }, [currentUser.id, loadData]);
-
-  // Service worker (avisos com o site fechado) e inscrição de push deste aparelho
-  useEffect(() => {
-    void registerServiceWorker();
-  }, []);
-
-  useEffect(() => {
-    if (currentUser.id) void syncPushSubscription();
-  }, [currentUser.id]);
-
-  // Tocar numa notificação abre a conversa (site já aberto: mensagem do service worker;
-  // site fechado: link /?chat=ID)
+  // Tocar numa notificação abre a conversa
   const openChat = useCallback((conversationId?: string | null) => {
     if (conversationId) setActiveConvId(conversationId);
     setCurrentTab('conversations');
   }, []);
 
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-    const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'open-chat') openChat(event.data.conversationId);
-    };
-    navigator.serviceWorker.addEventListener('message', onMessage);
-    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
-  }, [openChat]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has('chat')) return;
-    openChat(params.get('chat'));
-    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
-  }, [openChat]);
+  useChatNotifications({ userId: currentUser.id, totalUnread, reload: reloadSilently, openChat });
 
   // Inicialização (apenas uma vez no carregamento)
   useEffect(() => {
-    fetchSiteConfig()
-      .then(setSiteConfig)
-      .catch(() => {})
-      .finally(() => setConfigReady(true));
-    loadCategories().then(setCategories).catch((e) => console.warn('Erro ao carregar categorias:', e));
-
     // Sessão do Supabase Auth (inclui o retorno do login com Google)
     const unsubAuth = initSupabaseAuth((sbUser) => {
       if (sbUser) {
@@ -577,27 +508,27 @@ export default function App() {
     });
 
     // Atualização periódica para anúncios, matches e conversas de outros usuários
+    // (continua com a aba escondida: é daqui que saem os avisos de mensagem nova; ao voltar, atualiza na hora)
     const pollInterval = setInterval(() => {
       loadData(undefined, true);
-    }, 15000);
+    }, 20000);
 
     const handleWindowFocus = () => {
       loadData(undefined, true);
     };
+    const handleVisibility = () => {
+      if (!document.hidden) loadData(undefined, true);
+    };
     window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       clearInterval(pollInterval);
       window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
       unsubAuth();
     };
   }, [loadData, handleUserAuthenticated, resetToGuest]);
-
-  // Abertura com pesquisa vinda do Hero da Home
-  const handleSearchOrStartWanted = (queryText: string) => {
-    setInitialWantedQuery(queryText);
-    setIsWantedModalOpen(true);
-  };
 
   // Envio do formulário de Procura (WANTED)
   const handleCreateWanted = async (input: CreateWantedInput) => {
@@ -743,76 +674,6 @@ export default function App() {
     setIsDetailModalOpen(true);
   };
 
-  // Admin: configuração do site (tabela site_config; só admins passam pela RLS)
-  const configSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Edição campo a campo: atualiza a tela na hora e grava no banco após uma breve pausa
-  const handleConfigChange = useCallback((newCfg: SiteConfig) => {
-    setSiteConfig(newCfg);
-    if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current);
-    configSaveTimerRef.current = setTimeout(() => {
-      saveSiteConfig(newCfg).catch((e) => showToast('Erro ao salvar configurações', String(e), 'error'));
-    }, 800);
-  }, [showToast]);
-
-  const handleSaveConfig = useCallback(async (newCfg: SiteConfig) => {
-    if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current);
-    try {
-      const saved = await saveSiteConfig(newCfg);
-      setSiteConfig(saved);
-      showToast('Configurações salvas!', 'Os ajustes foram gravados no banco de dados.', 'success');
-    } catch (e) {
-      showToast('Erro ao salvar configurações', String(e), 'error');
-    }
-  }, [showToast]);
-
-  const handleResetConfig = useCallback(async () => {
-    if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current);
-    try {
-      const def = await resetSiteConfig(siteConfig);
-      setSiteConfig(def);
-      showToast('Configurações restauradas', 'Os parâmetros padrão foram redefinidos.', 'info');
-    } catch (e) {
-      showToast('Erro ao restaurar configurações', String(e), 'error');
-    }
-  }, [siteConfig, showToast]);
-
-  const handleCreateCategory = async (input: { name: string; slug?: string; icon: string }) => {
-    try {
-      const created = await createCategory(input);
-      setCategories(await loadCategories());
-      showToast('Categoria criada!', `A categoria "${created.name}" foi adicionada com sucesso.`, 'success');
-    } catch (e) {
-      showToast('Erro ao criar categoria', String(e), 'error');
-    }
-  };
-
-  const handleUpdateCategory = async (id: string, updates: Partial<Category>) => {
-    try {
-      const updatedCat = await updateCategory(id, updates);
-      setCategories(await loadCategories());
-      loadData();
-      showToast('Categoria atualizada!', `A categoria "${updatedCat.name}" foi atualizada.`, 'success');
-    } catch (e) {
-      showToast('Erro ao atualizar categoria', String(e), 'error');
-    }
-  };
-
-  const handleDeleteCategory = async (id: string) => {
-    try {
-      const res = await deleteCategory(id);
-      setCategories(await loadCategories());
-      loadData();
-      showToast(
-        'Categoria excluída!',
-        `Categoria removida. ${res.movedCount} produto(s) foram movidos para a categoria alternativa.`,
-        'success'
-      );
-    } catch (e) {
-      showToast('Erro ao excluir', String(e), 'error');
-    }
-  };
-
   const handleMoveListingCategory = async (listingId: string, targetCategoryId: string) => {
     try {
       const moved = await moveListingToCategory(listingId, targetCategoryId);
@@ -848,34 +709,6 @@ export default function App() {
       showToast('Publicação removida', 'O item foi excluído do catálogo.', 'info');
     } catch (e) {
       showToast('Erro ao excluir publicação', String(e), 'error');
-    }
-  };
-
-  // Favoritos: carrega ao logar, alterna de forma otimista
-  useEffect(() => {
-    if (!googleUser || !currentUser.id) {
-      setFavoriteIds([]);
-      return;
-    }
-    fetchFavoriteIds(currentUser.id)
-      .then(setFavoriteIds)
-      .catch(() => setFavoriteIds([]));
-  }, [googleUser, currentUser.id]);
-
-  const handleToggleFavorite = async (listing: Listing) => {
-    if (!googleUser || !currentUser.id) {
-      setIsGoogleModalOpen(true);
-      showToast('Login com Google necessário', 'Entre com sua conta para favoritar anúncios.', 'info');
-      return;
-    }
-    const isFav = favoriteIds.includes(listing.id);
-    setFavoriteIds((prev) => (isFav ? prev.filter((id) => id !== listing.id) : [listing.id, ...prev]));
-    try {
-      if (isFav) await removeFavorite(currentUser.id, listing.id);
-      else await addFavorite(currentUser.id, listing.id);
-    } catch (e) {
-      setFavoriteIds((prev) => (isFav ? [listing.id, ...prev] : prev.filter((id) => id !== listing.id)));
-      showToast('Não foi possível atualizar os favoritos', String(e), 'error');
     }
   };
 
@@ -949,9 +782,6 @@ export default function App() {
     (l) => isUserOwner(l) && l.type === 'SALE'
   );
 
-  // Anúncios recentes de procura para a Home
-  const recentWanted = listings.filter((l) => l.type === 'WANTED').slice(0, 3);
-
   // Ranking calculado para a categoria selecionada
   const rankingItems = computeWantedRanking(listings, 'all', interestCounts);
 
@@ -995,7 +825,7 @@ export default function App() {
     : [];
 
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-emerald-500 selection:text-white pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="min-h-dvh bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       {/* Navbar Global */}
       <Navbar
         currentTab={currentTab}
@@ -1019,6 +849,7 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1">
+        <Suspense fallback={<div className="py-24 text-center text-sm text-slate-400">Carregando...</div>}>
         {/* TAB 1: INÍCIO */}
         {currentTab === 'home' && (
           <div>
@@ -1035,17 +866,17 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => handleSelectTab('dashboard')}
-                  className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left transition hover:bg-emerald-100/70"
+                  className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-left transition hover:bg-brand-100/70"
                 >
                   <span className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white">
                       <Sparkles className="h-4 w-4" />
                     </span>
-                    <span className="text-sm font-semibold text-emerald-900">
+                    <span className="text-sm font-semibold text-brand-900">
                       {userMatches.length} oferta(s) compatível(is) com o que você procura
                     </span>
                   </span>
-                  <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-emerald-700">
+                  <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-brand-700">
                     Ver
                     <ArrowRight className="h-4 w-4" />
                   </span>
@@ -1082,12 +913,12 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setHomeCategory('all')}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-emerald-50 py-1.5 pl-3 pr-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-brand-50 py-1.5 pl-3 pr-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100"
                       title="Remover filtro de categoria"
                     >
                       {categories.find((c) => c.id === homeCategory)?.icon}{' '}
                       {categories.find((c) => c.id === homeCategory)?.name || 'Categoria'}
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-200/70 text-xs leading-none">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-200/70 text-xs leading-none">
                         ✕
                       </span>
                     </button>
@@ -1190,7 +1021,7 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
-                  <Search className="w-7 h-7 text-emerald-600" />
+                  <Search className="w-7 h-7 text-brand-600" />
                   <span>O que as pessoas estão procurando</span>
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -1200,7 +1031,7 @@ export default function App() {
 
               <button
                 onClick={() => handleRequestOpenWanted('')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md hover:bg-emerald-700 transition cursor-pointer self-start sm:self-auto"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md hover:bg-brand-700 transition cursor-pointer self-start sm:self-auto"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>+ Quero procurar algo</span>
@@ -1396,6 +1227,7 @@ export default function App() {
             )}
           </div>
         )}
+        </Suspense>
       </main>
 
       {/* Footer Limpo e Objetivo */}
@@ -1414,10 +1246,10 @@ export default function App() {
             {isAdmin && (
               <button
                 onClick={() => handleSelectTab('admin')}
-                className="text-slate-600 hover:text-emerald-700 font-semibold transition cursor-pointer flex items-center gap-1"
+                className="text-slate-600 hover:text-brand-700 font-semibold transition cursor-pointer flex items-center gap-1"
                 title="Acessar painel administrativo"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <ShieldCheck className="w-3.5 h-3.5 text-brand-600" />
                 <span>Admin</span>
               </button>
             )}
@@ -1426,6 +1258,7 @@ export default function App() {
       </footer>
 
       {/* MODALS */}
+      <Suspense fallback={null}>
       <GoogleLoginModal
         isOpen={isGoogleModalOpen}
         onClose={() => setIsGoogleModalOpen(false)}
@@ -1470,6 +1303,8 @@ export default function App() {
         onSave={handleSaveEditListing}
         onShowToast={showToast}
       />
+
+      </Suspense>
 
       {/* Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

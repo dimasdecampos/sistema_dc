@@ -46,16 +46,16 @@ export const NotificationPrompt: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center gap-3 border-b border-emerald-100 bg-emerald-50 px-4 py-3">
-      <BellRing className="h-4 w-4 shrink-0 text-emerald-600" />
-      <p className="min-w-0 flex-1 text-xs leading-snug text-emerald-900">
+    <div className="flex items-center gap-3 border-b border-brand-100 bg-brand-50 px-4 py-3">
+      <BellRing className="h-4 w-4 shrink-0 text-brand-600" />
+      <p className="min-w-0 flex-1 text-xs leading-snug text-brand-900">
         Quer ser avisado quando chegar mensagem nova?
       </p>
       <button
         type="button"
         onClick={handleEnable}
         disabled={isLoading}
-        className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+        className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-700 disabled:opacity-60"
       >
         {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
         Ativar avisos

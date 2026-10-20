@@ -38,7 +38,7 @@ export const MostWantedRanking: React.FC<MostWantedRankingProps> = ({
             Mais procurados na cidade
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Procura isso também? Toque no <BellRing className="inline h-3.5 w-3.5 -translate-y-px text-emerald-600" />{' '}
+            Procura isso também? Toque no <BellRing className="inline h-3.5 w-3.5 -translate-y-px text-brand-600" />{' '}
             e avisamos quando alguém anunciar.
           </p>
         </div>
@@ -56,7 +56,7 @@ export const MostWantedRanking: React.FC<MostWantedRankingProps> = ({
           <button
             type="button"
             onClick={onOpenWanted}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 active:scale-[0.98]"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700 active:scale-[0.98]"
           >
             <PlusCircle className="h-4 w-4" />
             Estou procurando algo
@@ -129,7 +129,7 @@ export const MostWantedRanking: React.FC<MostWantedRankingProps> = ({
                   title={bellLabel}
                   className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-bold transition active:scale-95 ${
                     active
-                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      ? 'border-brand-600 bg-brand-600 text-white'
                       : 'cursor-pointer border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                   } ${isOwn ? 'cursor-default' : 'cursor-pointer'}`}
                 >

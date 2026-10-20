@@ -25,7 +25,7 @@ const ProductTile: React.FC<{ label: string; item?: TradeProposalListing }> = ({
       )}
       <div className="min-w-0">
         <p className="truncate text-xs font-bold text-slate-900">{item?.title || 'Anúncio removido'}</p>
-        <p className="text-xs font-extrabold text-emerald-700">{money(item?.price ?? null)}</p>
+        <p className="text-xs font-extrabold text-brand-700">{money(item?.price ?? null)}</p>
       </div>
     </div>
   </div>
@@ -60,20 +60,20 @@ export const TradeProposalCard: React.FC<TradeProposalCardProps> = ({ proposal, 
   };
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3.5">
-      <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-800">
+    <div className="mx-auto w-full max-w-md space-y-3 rounded-2xl border border-brand-200 bg-brand-50/60 p-3.5">
+      <div className="flex items-center gap-2 text-xs font-extrabold text-brand-800">
         <ArrowLeftRight className="h-4 w-4" />
         Proposta de troca
       </div>
 
       <div className="flex items-center gap-2">
         <ProductTile label={`Oferecido por ${proposerName}`} item={proposal.offered} />
-        <ArrowLeftRight className="h-4 w-4 shrink-0 text-emerald-600" />
+        <ArrowLeftRight className="h-4 w-4 shrink-0 text-brand-600" />
         <ProductTile label="Desejado" item={proposal.target} />
       </div>
 
       {proposal.status === 'ACCEPTED' ? (
-        <p className="flex items-start gap-2 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white">
+        <p className="flex items-start gap-2 rounded-xl bg-brand-600 px-3 py-2.5 text-xs font-bold text-white">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           Troca aceita. Os dois anúncios foram concluídos.
         </p>
@@ -88,7 +88,7 @@ export const TradeProposalCard: React.FC<TradeProposalCardProps> = ({ proposal, 
             type="button"
             onClick={handleAccept}
             disabled={isAccepting}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-60"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-brand-700 active:scale-[0.99] disabled:opacity-60"
           >
             {isAccepting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
             Aceitar troca

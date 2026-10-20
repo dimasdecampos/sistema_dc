@@ -6,16 +6,11 @@ import {
   PlusCircle,
   MessageSquare,
   Eye,
-  CheckCircle,
-  ArrowRight,
-  ExternalLink,
   MapPin,
-  Clock,
   Trash2,
   Edit2,
   ShieldCheck,
   Settings,
-  CheckCircle2,
   Heart,
 } from 'lucide-react';
 import { Listing, Match, UserProfile } from '../types/marketplace';
@@ -70,7 +65,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   if (!googleUser || !user.email) {
     return (
       <div className="max-w-xl mx-auto py-16 px-4 text-center space-y-6">
-        <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs border border-emerald-100">
+        <div className="w-16 h-16 rounded-3xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto shadow-2xs border border-brand-100">
           <ShieldCheck className="w-8 h-8" />
         </div>
         <div className="space-y-2">
@@ -98,7 +93,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   return (
     <div className="space-y-8 sm:space-y-10">
       {/* User Header Profile Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-brand-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <img
@@ -109,12 +104,12 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black">{user.nome}</h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-500/20 text-brand-300 border border-brand-500/30">
                   Morador Verificado
                 </span>
               </div>
               <div className="text-xs text-slate-300 flex flex-wrap items-center gap-1.5 mt-1">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-brand-400 shrink-0" />
                 <span className="font-medium">{user.cidade || 'São Luis do Paraitinga - SP'}</span>
                 {onUpdateCity && !isEditingCity && (
                   <button
@@ -122,7 +117,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       setCityInput(user.cidade || 'São Luis do Paraitinga - SP');
                       setIsEditingCity(true);
                     }}
-                    className="ml-1 text-[11px] text-emerald-300 hover:text-emerald-200 underline font-semibold cursor-pointer"
+                    className="ml-1 text-[11px] text-brand-300 hover:text-brand-200 underline font-semibold cursor-pointer"
                   >
                     Alterar cidade
                   </button>
@@ -136,7 +131,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     value={cityInput}
                     onChange={(e) => setCityInput(e.target.value)}
                     placeholder="Ex: São Luis do Paraitinga - SP"
-                    className="px-2.5 py-1 text-xs rounded-lg bg-white/20 text-white placeholder-slate-400 border border-white/30 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    className="px-2.5 py-1 text-xs rounded-lg bg-white/20 text-white placeholder-slate-400 border border-white/30 focus:outline-none focus:ring-1 focus:ring-brand-400"
                   />
                   <button
                     onClick={async () => {
@@ -148,7 +143,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       }
                     }}
                     disabled={isSavingCity}
-                    className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-lg cursor-pointer"
+                    className="px-2.5 py-1 bg-brand-500 hover:bg-brand-600 text-slate-950 font-bold text-xs rounded-lg cursor-pointer"
                   >
                     {isSavingCity ? 'Salvando...' : 'Salvar'}
                   </button>
@@ -170,7 +165,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           {/* Quick Metrics */}
           <div className="flex items-center gap-3 sm:gap-4 bg-white/10 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-white/10">
             <div className="text-center px-3 border-r border-white/10">
-              <span className="block text-xl sm:text-2xl font-black text-emerald-400">
+              <span className="block text-xl sm:text-2xl font-black text-brand-400">
                 {userWanted.length}
               </span>
               <span className="text-[10px] uppercase font-bold text-slate-300 tracking-wider">
@@ -189,7 +184,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               <span className="block text-xl sm:text-2xl font-black text-white">
                 {matches.length}
               </span>
-              <span className="text-[10px] uppercase font-bold text-emerald-300 tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-brand-300 tracking-wider">
                 Matches
               </span>
             </div>
@@ -245,18 +240,18 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
       {/* CARD: Configurações de Administrador Salvas no Perfil */}
       {(isUserAdmin(googleUser?.email || user.email, user.adminConfig) || user.adminConfig) && (
-        <div className="bg-white rounded-3xl border border-emerald-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="bg-white rounded-3xl border border-brand-200/80 p-5 sm:p-6 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shadow-2xs shrink-0">
-                <ShieldCheck className="w-5 h-5 text-emerald-700" />
+              <div className="w-10 h-10 rounded-2xl bg-brand-100 text-brand-800 flex items-center justify-center font-bold shadow-2xs shrink-0">
+                <ShieldCheck className="w-5 h-5 text-brand-700" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-extrabold text-base text-slate-900">
                     Configurações do Admin Salvas no Seu Perfil
                   </h3>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-brand-100 text-brand-800 border border-brand-200">
                     Sincronizado
                   </span>
                 </div>
@@ -298,7 +293,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Limiar de Match
               </span>
-              <span className="font-extrabold text-emerald-700 mt-0.5 block">
+              <span className="font-extrabold text-brand-700 mt-0.5 block">
                 {user.adminConfig?.autoMatchThreshold || 35}%
               </span>
             </div>
@@ -332,7 +327,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             </div>
           </div>
 
-          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-brand-100 text-brand-800">
             {matches.length} recomendação{matches.length !== 1 ? 'ões' : ''}
           </span>
         </div>
@@ -348,7 +343,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             </p>
             <button
               onClick={onOpenWantedModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold hover:bg-brand-700 transition cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Cadastrar nova procura</span>
@@ -364,13 +359,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               return (
                 <div
                   key={m.id}
-                  className="bg-white rounded-3xl p-5 border-2 border-emerald-500/30 hover:border-emerald-500 shadow-md shadow-emerald-500/5 transition-all flex flex-col justify-between"
+                  className="bg-white rounded-3xl p-5 border-2 border-brand-500/30 hover:border-brand-500 shadow-md shadow-brand-500/5 transition-all flex flex-col justify-between"
                 >
                   <div className="space-y-3">
                     {/* Alerta de correspondência */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200/80">
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-brand-800 bg-brand-50 px-2.5 py-1 rounded-xl border border-brand-200/80">
+                        <Sparkles className="w-3.5 h-3.5 text-brand-600" />
                         <span>{m.score}% de Compatibilidade</span>
                       </div>
                       <span className="text-[11px] text-slate-400">
@@ -436,7 +431,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     </button>
                     <button
                       onClick={() => onStartChatWithSeller(sale)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition cursor-pointer hover:scale-[1.02]"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs transition cursor-pointer hover:scale-[1.02]"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>Iniciar conversa</span>
@@ -523,7 +518,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
         <section className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center">
                 <Search className="w-4 h-4 stroke-[2.5]" />
               </div>
               <div>
@@ -534,7 +529,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
             <button
               onClick={onOpenWantedModal}
-              className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 px-3 py-1.5 rounded-xl border border-emerald-200 transition cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100/80 px-3 py-1.5 rounded-xl border border-brand-200 transition cursor-pointer"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>+ Quero procurar algo</span>
@@ -550,7 +545,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               {userWanted.map((item) => (
                 <div
                   key={item.id}
-                  className="p-3.5 rounded-2xl border border-slate-200/80 hover:border-emerald-300 hover:bg-emerald-50/20 transition flex items-center justify-between gap-3"
+                  className="p-3.5 rounded-2xl border border-slate-200/80 hover:border-brand-300 hover:bg-brand-50/20 transition flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -587,7 +582,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       <button
                         onClick={() => onEditListing(item)}
                         title="Editar procura"
-                        className="p-1.5 text-slate-400 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-brand-700 rounded-lg hover:bg-brand-50 cursor-pointer"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>

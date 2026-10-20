@@ -76,7 +76,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({ listings, categori
             label="Usuários"
             value={stats.users_total}
             hint={`${stats.users_last_7d} novos nos últimos 7 dias`}
-            accent="text-emerald-600"
+            accent="text-brand-600"
           />
           <StatCard
             label="Anúncios"
@@ -84,7 +84,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({ listings, categori
             hint={`${stats.listings_active} ativos · ${stats.listings_last_7d} novos em 7 dias`}
           />
           <StatCard label="À venda" value={stats.listings_sale} accent="text-amber-600" />
-          <StatCard label="Procurando" value={stats.listings_wanted} accent="text-emerald-600" />
+          <StatCard label="Procurando" value={stats.listings_wanted} accent="text-brand-600" />
           <StatCard label="Resolvidos" value={stats.listings_completed} hint="Marcados como concluídos" />
           <StatCard label="Cancelados" value={stats.listings_cancelled} />
           <StatCard
@@ -110,7 +110,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({ listings, categori
               </span>
               <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full bg-emerald-500"
+                  className="h-full rounded-full bg-brand-500"
                   style={{ width: `${(count / maxCount) * 100}%` }}
                 />
               </div>

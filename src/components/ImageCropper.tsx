@@ -165,7 +165,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ src, onConfirm, onSk
     'absolute w-6 h-6 bg-white border-2 border-amber-500 rounded-full shadow-md touch-none';
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-slate-950/85 backdrop-blur-xs">
+    <div role="dialog" aria-modal="true" data-nested-modal className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-slate-950/85 backdrop-blur-xs">
       <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
         <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
@@ -262,7 +262,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ src, onConfirm, onSk
               disabled={!size}
               className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
             >
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <Check className="w-3.5 h-3.5 text-brand-400" />
               Aplicar recorte
             </button>
           </div>

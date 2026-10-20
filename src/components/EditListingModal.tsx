@@ -6,12 +6,8 @@ import {
   Upload,
   Camera,
   Loader2,
-  Trash2,
   AlertCircle,
-  Plus,
   Check,
-  Cloud,
-  DollarSign,
   Sparkles,
   Crop,
 } from 'lucide-react';
@@ -19,6 +15,7 @@ import { Listing, Category, ListingCondition, ListingStatus } from '../types/mar
 import { uploadImageToSupabase, deleteImageFromSupabase } from '../services/storageService';
 import { TradeToggle } from './TradeToggle';
 import { useImageCropper } from './ImageCropper';
+import { useModalBehavior } from '../hooks/useModalBehavior';
 
 interface EditListingModalProps {
   isOpen: boolean;
@@ -37,6 +34,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
   onSave,
   onShowToast,
 }) => {
+  useModalBehavior(isOpen, onClose);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -184,14 +182,14 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-xs ${
-                isWanted ? 'bg-emerald-600' : 'bg-amber-600'
+                isWanted ? 'bg-brand-600' : 'bg-amber-600'
               }`}
             >
               {isWanted ? <Search className="w-5 h-5" /> : <Tag className="w-5 h-5" />}
@@ -234,7 +232,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Caiaque inflável para corredeiras..."
-              className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
+              className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-brand-500 text-slate-900 font-medium"
             />
           </div>
 
@@ -247,7 +245,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
+                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-brand-500 text-slate-900 font-medium"
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -264,7 +262,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
               <select
                 value={condition}
                 onChange={(e) => setCondition(e.target.value as ListingCondition)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
+                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-brand-500 text-slate-900 font-medium"
               >
                 <option value="USED">Usado</option>
                 <option value="NEW">Novo / Na Caixa</option>
@@ -290,7 +288,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="0,00 (deixe em branco se a combinar)"
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-brand-500 text-slate-900 font-medium"
                 />
               </div>
             </div>
@@ -302,7 +300,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as ListingStatus)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
+                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-brand-500 text-slate-900 font-medium"
               >
                 <option value="ACTIVE">Ativo (Visível na busca)</option>
                 <option value="COMPLETED">Concluído / Negociado</option>
@@ -321,7 +319,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Descreva detalhes, estado de conservação, acessórios inclusos..."
-              className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-slate-900 font-medium"
+              className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-brand-500 text-slate-900 font-medium"
             />
           </div>
 
@@ -335,7 +333,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
                 Fotos ({images.length}/5)
               </label>
               <span className="text-[10px] text-slate-500 flex items-center gap-1 font-semibold">
-                <Sparkles className="w-3 h-3 text-emerald-600" />
+                <Sparkles className="w-3 h-3 text-brand-600" />
                 <span>Alta qualidade</span>
               </span>
             </div>
@@ -373,10 +371,10 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
                   type="button"
                   disabled={isUploadingPhoto}
                   onClick={() => fileInputRef.current?.click()}
-                  className="aspect-square rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/40 text-slate-500 hover:text-emerald-700 flex flex-col items-center justify-center gap-1 transition cursor-pointer disabled:opacity-50"
+                  className="aspect-square rounded-xl border-2 border-dashed border-slate-300 hover:border-brand-500 bg-slate-50 hover:bg-brand-50/40 text-slate-500 hover:text-brand-700 flex flex-col items-center justify-center gap-1 transition cursor-pointer disabled:opacity-50"
                 >
                   {isUploadingPhoto ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+                    <Loader2 className="w-5 h-5 animate-spin text-brand-600" />
                   ) : (
                     <>
                       <Upload className="w-5 h-5" />
@@ -391,7 +389,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
                   type="button"
                   disabled={isUploadingPhoto}
                   onClick={() => cameraInputRef.current?.click()}
-                  className="md:hidden aspect-square rounded-xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 text-emerald-700 flex flex-col items-center justify-center gap-1 transition cursor-pointer disabled:opacity-50"
+                  className="md:hidden aspect-square rounded-xl border-2 border-dashed border-brand-300 hover:border-brand-500 bg-brand-50/40 text-brand-700 flex flex-col items-center justify-center gap-1 transition cursor-pointer disabled:opacity-50"
                 >
                   <Camera className="w-5 h-5" />
                   <span className="text-[10px] font-bold">Câmera</span>
@@ -435,12 +433,12 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
                   <span>Salvando...</span>
                 </>
               ) : (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <Check className="w-3.5 h-3.5 text-brand-400" />
                   <span>Salvar Alterações</span>
                 </>
               )}

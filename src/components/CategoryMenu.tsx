@@ -49,7 +49,7 @@ export const CategoryMenu: React.FC<CategoryMenuProps> = ({
         aria-expanded={open}
         className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
           open || selected
-            ? 'bg-emerald-50 text-emerald-700'
+            ? 'bg-brand-50 text-brand-700'
             : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
         }`}
       >
@@ -86,7 +86,7 @@ export const CategoryMenu: React.FC<CategoryMenuProps> = ({
                 onClick={() => choose(cat.id)}
                 className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
                   selectedCategory === cat.id
-                    ? 'bg-emerald-50 font-semibold text-emerald-700'
+                    ? 'bg-brand-50 font-semibold text-brand-700'
                     : 'font-medium text-slate-700 hover:bg-slate-100'
                 }`}
               >

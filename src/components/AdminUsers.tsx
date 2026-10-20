@@ -164,7 +164,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ currentUserId, onDataCha
                             </span>
                           )}
                           {isSelf && (
-                            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                            <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
                               você
                             </span>
                           )}
