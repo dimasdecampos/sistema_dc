@@ -48,14 +48,16 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
   }, [initialQuery, isOpen]);
 
   const matches = useMemo(() => {
+    // Só sugere enquanto a pessoa digita (a lista completa pode ser grande)
     const typed = normalizeText(title);
-    const base = typed
-      ? suggestions.filter((item) => {
-          const term = normalizeText(item.term);
-          return term.includes(typed) || typed.includes(term);
-        })
-      : suggestions;
-    return [...base].sort((a, b) => b.total_seekers - a.total_seekers).slice(0, 5);
+    if (typed.length < 2) return [];
+    return suggestions
+      .filter((item) => {
+        const term = normalizeText(item.term);
+        return term.includes(typed) || typed.includes(term);
+      })
+      .sort((a, b) => b.total_seekers - a.total_seekers)
+      .slice(0, 5);
   }, [suggestions, title]);
 
   if (!isOpen) return null;
@@ -129,7 +131,7 @@ export const CreateWantedModal: React.FC<CreateWantedModalProps> = ({
             {showSuggestions && (
               <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white" role="listbox" aria-label="Procuras que já existem">
                 <p className="bg-slate-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                  {title.trim() ? 'Já procuram algo parecido. Toque para usar' : 'Mais procuradas na cidade'}
+                  Já procuram algo parecido. Toque para usar
                 </p>
                 <ul className="divide-y divide-slate-100">
                   {matches.map((item) => (
