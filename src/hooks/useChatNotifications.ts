@@ -43,6 +43,23 @@ export function useChatNotifications({ userId, totalUnread, reload, openChat }: 
     };
   }, [userId, reload]);
 
+  // Batimento de presença: o servidor só manda e-mail de aviso a quem não está online
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase || !userId) return;
+
+    const beat = () => {
+      if (document.visibilityState === 'visible') void supabase.rpc('touch_presence');
+    };
+    beat();
+    const interval = setInterval(beat, 60_000);
+    document.addEventListener('visibilitychange', beat);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', beat);
+    };
+  }, [userId]);
+
   useEffect(() => {
     void registerServiceWorker();
   }, []);
