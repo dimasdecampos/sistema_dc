@@ -80,10 +80,10 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   const safeIndex = activeImageIndex >= images.length ? 0 : activeImageIndex;
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header bar */}
-        <div className="p-2.5 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
           <div className="flex items-center gap-2">
             {isWanted ? (
               <span className="px-3 py-1 rounded-xl text-xs font-bold bg-brand-100 text-brand-800 flex items-center gap-1.5">
@@ -110,7 +110,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-2.5 sm:p-6 space-y-6 overflow-y-auto">
+        <div className="p-5 sm:p-6 space-y-6 overflow-y-auto">
           {/* Main Photo Gallery */}
           <div className="space-y-2">
             <div className="relative rounded-2xl overflow-hidden aspect-16/9 bg-slate-100 border border-slate-200 shadow-2xs">
@@ -237,7 +237,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
           {/* Description */}
           {listing.description && (
-            <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200/80">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                 Descrição e detalhes
               </h4>
@@ -248,7 +248,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           )}
 
           {/* Autor / Morador Info (Sem endereço residencial, por privacidade) */}
-          <div className="p-2.5 bg-white rounded-2xl border border-slate-200 flex items-center justify-between gap-4">
+          <div className="p-4 bg-white rounded-2xl border border-slate-200 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Avatar src={listing.user?.avatar_url} name={listing.user?.nome || 'Morador'} className="h-12 w-12 text-lg" />
               <div>

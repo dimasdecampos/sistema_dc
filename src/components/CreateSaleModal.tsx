@@ -171,10 +171,10 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
 
   return (
     <>
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="p-2.5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-white to-white shrink-0">
+        <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-white to-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-sm shadow-amber-500/30">
               <Tag className="w-5 h-5 stroke-[2.5]" />
@@ -216,7 +216,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
         />
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-2.5 sm:p-6 space-y-4 overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
           {currentUser && (
             <div className="flex items-center gap-3 p-3 bg-amber-50/70 border border-amber-200/70 rounded-2xl">
               <img
