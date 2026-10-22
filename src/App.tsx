@@ -865,6 +865,7 @@ export default function App() {
         matchesCount={userMatches.length}
         unreadCount={totalUnread}
         onOpenSaleModal={handleRequestOpenSale}
+        onOpenWantedModal={() => handleRequestOpenWanted(searchQuery)}
       />
 
       {/* Main Container */}
@@ -903,7 +904,6 @@ export default function App() {
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               cityName={siteConfig.cityName}
-              onOpenSaleModal={handleRequestOpenSale}
             />
 
             <div className="mx-auto max-w-7xl space-y-6 px-4 pb-16 pt-5 sm:px-6 sm:pt-6 lg:px-8">

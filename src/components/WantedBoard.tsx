@@ -108,16 +108,6 @@ export const WantedBoard: React.FC<WantedBoardProps> = ({
                 </button>
               )}
             </form>
-
-            <button
-              type="button"
-              onClick={onCreateSearch}
-              aria-label="Cadastrar uma busca"
-              className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-cyan-600 px-3.5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-cyan-700 active:scale-[0.98] sm:px-4"
-            >
-              <PlusCircle className="h-4 w-4" />
-              Busca
-            </button>
           </div>
         </div>
       </section>

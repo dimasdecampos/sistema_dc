@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Menu,
+  X,
   Home,
   Search,
   Tag,
@@ -32,6 +34,7 @@ interface NavbarProps {
   matchesCount: number;
   unreadCount: number;
   onOpenSaleModal: () => void;
+  onOpenWantedModal: () => void;
   isAdmin?: boolean;
   categories: Category[];
   selectedCategory: string;
@@ -61,13 +64,49 @@ export const Navbar: React.FC<NavbarProps> = ({
   matchesCount,
   unreadCount,
   onOpenSaleModal,
+  onOpenWantedModal,
 }) => {
+  const isWantedFeed = currentTab === 'home' && feedType === 'WANTED';
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
+
+  const chooseCategory = (id: string) => {
+    onSelectCategory(id);
+    onSelectTab('home');
+    closeMenu();
+  };
+
+  // Trava o scroll da página e fecha com Esc enquanto o menu está aberto
+  useEffect(() => {
+    if (!menuOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
+
   return (
     <>
       {/* Top Navbar Desktop & Mobile */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-15 sm:h-18 gap-2 sm:gap-3 lg:gap-6">
+            {/* Botão hambúrguer (celular) */}
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Abrir menu"
+              className="md:hidden -ml-1 p-2 rounded-xl text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer shrink-0"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
             {/* Logo Brand */}
             <div
               onClick={() => onSelectTab('home')}
@@ -89,15 +128,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* Menu de categorias */}
-            <CategoryMenu
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onSelectCategory={(id) => {
-                onSelectCategory(id);
-                onSelectTab('home');
-              }}
-            />
+            {/* Menu de categorias (desktop); no celular ficam no menu hambúrguer */}
+            <div className="hidden md:block">
+              <CategoryMenu
+                categories={categories}
+                selectedCategory={selectedCategory}
+                onSelectCategory={(id) => {
+                  onSelectCategory(id);
+                  onSelectTab('home');
+                }}
+              />
+            </div>
 
             {/* Desktop Navigation Links - Limpo e Organizado */}
             <nav className="hidden md:flex items-center gap-1.5">
@@ -172,17 +213,30 @@ export const Navbar: React.FC<NavbarProps> = ({
             </nav>
 
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
-              {/* Botão Anunciar Venda */}
-              <button
-                type="button"
-                onClick={onOpenSaleModal}
-                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-xs hover:shadow-md transition-all cursor-pointer"
-                title="Publicar anúncio de venda / desapego"
-                aria-label="Anunciar"
-              >
-                <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
-                <span className="hidden sm:inline">Anunciar</span>
-              </button>
+              {/* Botão principal: Anunciar (feed de venda) ou Cadastrar busca (feed Procurando) */}
+              {isWantedFeed ? (
+                <button
+                  type="button"
+                  onClick={onOpenWantedModal}
+                  className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 sm:py-2 bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 text-white font-black text-sm rounded-xl sm:rounded-2xl shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap"
+                  title="Cadastrar o que você procura"
+                  aria-label="Cadastrar busca"
+                >
+                  <PlusCircle className="w-4 h-4 stroke-[2.5]" />
+                  <span>Cadastrar busca</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onOpenSaleModal}
+                  className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 sm:py-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-sm rounded-xl sm:rounded-2xl shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap"
+                  title="Publicar anúncio de venda / desapego"
+                  aria-label="Anunciar"
+                >
+                  <Tag className="w-4 h-4 stroke-[2.5]" />
+                  <span>Anunciar</span>
+                </button>
+              )}
 
               {/* Google Login or UserProfileMenu */}
               {googleUser ? (
@@ -236,6 +290,142 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
+      {/* Menu lateral (hambúrguer) - celular */}
+      {menuOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-[1px]"
+            onClick={closeMenu}
+            aria-hidden="true"
+          />
+          <aside
+            role="dialog"
+            aria-label="Menu"
+            className="absolute left-0 top-0 bottom-0 w-[82%] max-w-xs bg-white shadow-2xl flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 h-15 border-b border-slate-200 shrink-0">
+              <span className="font-extrabold text-lg text-slate-900 truncate">
+                {config?.siteName || 'TemAqui'}
+              </span>
+              <button
+                type="button"
+                onClick={closeMenu}
+                aria-label="Fechar menu"
+                className="p-2 -mr-2 rounded-xl text-slate-500 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3">
+              <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Páginas
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {[
+                  {
+                    label: 'Início',
+                    icon: <Home className="w-5 h-5" />,
+                    active: currentTab === 'home' && feedType === 'SALE',
+                    onClick: () => onSelectFeedType('SALE'),
+                  },
+                  {
+                    label: 'Procurar',
+                    icon: <Search className="w-5 h-5" />,
+                    active: currentTab === 'home' && feedType === 'WANTED',
+                    onClick: () => onSelectFeedType('WANTED'),
+                  },
+                  {
+                    label: 'Meu Painel',
+                    icon: <User className="w-5 h-5" />,
+                    active: currentTab === 'dashboard',
+                    badge: matchesCount,
+                    onClick: () => onSelectTab('dashboard'),
+                  },
+                  {
+                    label: 'Conversas',
+                    icon: <MessageSquare className="w-5 h-5" />,
+                    active: currentTab === 'conversations',
+                    badge: unreadCount,
+                    onClick: () => onSelectTab('conversations'),
+                  },
+                  ...(isAdmin || currentTab === 'admin'
+                    ? [
+                        {
+                          label: 'Administração',
+                          icon: <ShieldCheck className="w-5 h-5" />,
+                          active: currentTab === 'admin',
+                          onClick: () => onSelectTab('admin'),
+                        },
+                      ]
+                    : []),
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      item.onClick();
+                      closeMenu();
+                    }}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition cursor-pointer ${
+                      item.active
+                        ? 'bg-brand-50 font-semibold text-brand-700'
+                        : 'font-medium text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {item.icon}
+                    <span className="flex-1">{item.label}</span>
+                    {'badge' in item && item.badge ? (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+
+              <p className="px-2 pt-5 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Categorias
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => chooseCategory('all')}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition cursor-pointer ${
+                    selectedCategory === 'all'
+                      ? 'bg-slate-900 font-semibold text-white'
+                      : 'font-medium text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="text-lg">🛍️</span>
+                  Todas as categorias
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => chooseCategory(cat.id)}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition cursor-pointer ${
+                      selectedCategory === cat.id
+                        ? 'bg-brand-50 font-semibold text-brand-700'
+                        : 'font-medium text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="text-lg">{cat.icon}</span>
+                    <span className="truncate">{cat.name}</span>
+                  </button>
+                ))}
+                {categories.length === 0 && (
+                  <p className="px-3 py-4 text-center text-xs text-slate-400">
+                    Nenhuma categoria cadastrada.
+                  </p>
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+
       {/* Mobile Bottom Navigation Bar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-around">
@@ -257,14 +447,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Search className="w-5 h-5" />
             <span className="text-[10px] mt-0.5">Procurar</span>
-          </button>
-
-          <button
-            onClick={onOpenSaleModal}
-            aria-label="Anunciar"
-            className="flex flex-col items-center bg-amber-500 text-slate-950 p-2 rounded-2xl shadow-sm shadow-amber-500/30 active:scale-95 transition"
-          >
-            <PlusCircle className="w-6 h-6 stroke-[2.5]" />
           </button>
 
           <button

@@ -1,17 +1,15 @@
 import React from 'react';
-import { Search, X, Tag } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
 interface HomeHeroProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  onOpenSaleModal?: () => void;
   cityName?: string;
 }
 
 export const HomeHero: React.FC<HomeHeroProps> = ({
   searchQuery,
   onSearchChange,
-  onOpenSaleModal,
   cityName = 'São Luis do Paraitinga - SP',
 }) => {
   const simpleCity = cityName.split('-')[0].trim();
@@ -65,19 +63,6 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               Buscar
             </button>
           </form>
-
-          <div className="flex items-center gap-2.5">
-            {onOpenSaleModal && (
-              <button
-                type="button"
-                onClick={onOpenSaleModal}
-                className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-amber-500 px-3.5 py-3 text-sm font-extrabold text-slate-950 shadow-sm transition hover:bg-amber-400 active:scale-[0.98] sm:px-4"
-              >
-                <Tag className="h-4 w-4" />
-                Anunciar
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </section>
